@@ -157,7 +157,12 @@ const T = async (...a) => results.push(await run(...a));
     threads[1].querySelector(".yra2-btn").click();
     await wait(3000);
     const publicadas = threads.filter((t) => t.dataset.published).length;
-    assert(publicadas <= 1, `se han publicado ${publicadas} respuestas a la vez`);
+    // Antes solo se exigia "<= 1": un fallo donde AMBOS clics abortaran en
+    // silencio (0 publicadas) pasaba esta prueba igual, sin comprobar que
+    // el segundo clic avisa en vez de simplemente perderse (hallazgo de
+    // revision: assert tautologico).
+    assert(publicadas === 1, `deberia haberse publicado exactamente 1 respuesta, se han publicado ${publicadas}`);
+    assert($$(".yra2-toast--warn").length >= 1, "el segundo clic no ha avisado 'Hay una respuesta en curso'");
   });
 
   console.log("\nREGRESIONES DE LA v2.1.0");
@@ -226,14 +231,19 @@ const T = async (...a) => results.push(await run(...a));
 
   await T("el panel no se oculta al pulsar Publicar",
     { mock: { reply: "Texto.", transcriptOk: false } },
-    async ({ wait, $$, $ }) => {
+    async ({ wait, $$, $, doc }) => {
       await wait(600);
       $$("ytcp-comment-thread")[0].querySelector(".yra2-btn").click();
       await wait(2500);
       const panel = $(".yra2-panel");
       $(".yra2-panel [data-act='publish']").click();
       await wait(400);
-      assert(panel.style.visibility !== "hidden", "ha ocultado el panel mientras publica");
+      // content.js nunca escribe panel.style.visibility: comprobar esa
+      // propiedad no detectaria una regresion que hiciera panel.remove() o
+      // display:none al pulsar Publicar (hallazgo de revision: assert
+      // tautologico). Lo que de verdad hay que confirmar es que el nodo
+      // sigue en el documento.
+      assert(doc.body.contains(panel), "ha eliminado el panel del DOM mientras publica");
       assert($(".yra2-panel [data-act='copy']").disabled, "no ha bloqueado los botones mientras publica");
     });
 
@@ -275,6 +285,28 @@ const T = async (...a) => results.push(await run(...a));
       assert($$(".yra2-panel").length === 1, "no ha dejado el texto disponible en el panel");
     });
 
+  await T("un hilo con una respuesta ya publicada no confunde su 'Responder' sin pulsar con el boton de enviar (hallazgo de review)",
+    { studio: { campoTextarea: true, respuestaPrevia: true }, mock: { reply: "Respuesta nueva, no la existente." } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      const target = threads[1];
+      target.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(target.dataset.published === "Respuesta nueva, no la existente.", `no ha publicado en el boton correcto: "${target.dataset.published}"`);
+    });
+
+  await T("falta la API key: aborta sin haber pedido nunca su valor real al content script",
+    { mock: { reply: "No deberia generarse.", apiKeyMissing: true } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(1500);
+      assert(!t.dataset.published, "ha publicado sin API key");
+      assert(t.querySelector(".yra2-inline--error"), "no ha avisado de que falta la API key");
+    });
+
   console.log("\n'ME GUSTA' TRAS PUBLICAR");
 
   await T("con likeOnPublish activado (por defecto), da 'me gusta' tras publicar",
@@ -311,6 +343,17 @@ const T = async (...a) => results.push(await run(...a));
       assert(t.dataset.liked === "1", "no ha dado 'me gusta' al publicar desde el panel");
     });
 
+  await T("sin ningun boton de 'me gusta' con confianza suficiente, publica igual y no rompe nada",
+    { studio: { sinBotonLike: true }, mock: { reply: "Publicada sin poder dar like." } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Publicada sin poder dar like.", "no ha publicado cuando no hay boton de me gusta");
+      assert(!t.dataset.liked, "ha marcado 'me gusta' sin que exista boton alguno");
+    });
+
   console.log("\nREGRESIONES 2.2.2 — confirmacion de envio y ruta");
 
   await T("un vaciado del campo sin publicar de verdad no se confunde con exito (H1)",
@@ -322,6 +365,10 @@ const T = async (...a) => results.push(await run(...a));
       await wait(9000);
       assert(!t.dataset.published, "ha marcado como publicado sin que Studio lo confirmara realmente");
       assert($$(".yra2-panel").length === 1, "no ha dejado el texto disponible tras el falso positivo");
+      // likeComment() solo debe llamarse tras publish():ok:true (hallazgo de
+      // revision: sin una prueba explicita, una futura regresion que lo
+      // disparara antes de esa confirmacion pasaria desapercibida).
+      assert(!t.dataset.liked, "ha dado 'me gusta' pese a que la publicacion no se confirmo");
     });
 
   await T("un cambio de ruta mientras se publica no borra el panel/cuenta atras en pleno vuelo (H3)",
@@ -341,6 +388,32 @@ const T = async (...a) => results.push(await run(...a));
       // Al terminar, la desactivacion aplazada debe aplicarse.
       await wait(200);
       assert($$(".yra2-btn").length === 0, "no ha aplicado la desactivacion aplazada al terminar");
+    });
+
+  console.log("\nREGRESIONES 2.2.5 — relectura final tras la cuenta atras");
+
+  await T("si el contenido cambia durante la cuenta atras, no publica el texto mutado (hallazgo de review)",
+    { studio: { campoTextarea: true }, mock: { reply: "Texto original verificado.", cfg: { countdown: 2 } } },
+    async ({ wait, $$, window }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(1200);
+      assert($$(".yra2-countdown").length === 1, "no ha aparecido la cuenta atras");
+
+      // El campo real (textarea) sigue editable durante la cuenta atras: se
+      // muta directamente, como haria un repintado de Angular o una edicion
+      // manual, sin pulsar "Editar" ni "Cancelar".
+      const field = t.querySelector("textarea");
+      assert(field, "no se encuentra el campo real (textarea) para mutarlo");
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+      setter.call(field, "TEXTO MUTADO DURANTE LA CUENTA ATRAS");
+      field.dispatchEvent(new window.Event("input", { bubbles: true }));
+
+      await wait(3000);
+      assert(t.dataset.published !== "TEXTO MUTADO DURANTE LA CUENTA ATRAS", "ha publicado el texto mutado en vez del verificado");
+      assert(!t.dataset.published, "ha publicado algo cuando el contenido ya no coincidia con lo verificado");
+      assert($$(".yra2-panel").length === 1, "no ha dejado el texto original disponible en el panel tras abortar");
     });
 
   console.log("\nRUTA SPA");

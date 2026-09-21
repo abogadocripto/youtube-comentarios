@@ -39,6 +39,13 @@
     const cs = getComputedStyle(el);
     return cs.visibility !== "hidden" && cs.display !== "none" && cs.opacity !== "0";
   };
+  // Excluye la propia UI de la extension (el <textarea> del panel de
+  // revision, hallazgo de revision): sin esto, si el diagnostico se ejecuta
+  // justo tras un intento fallido de publicar (el escenario tipico para
+  // depurar), "el campo" podria acabar siendo el borrador de la IA en el
+  // panel en vez del campo real de Studio, y todo el informe saldria sobre
+  // el contexto equivocado.
+  const esNuestro = (el) => !!el.closest?.(".yra2-panel, .yra2-countdown, .yra2-toast");
   const cadena = (el, n = 8) => {
     const out = [];
     let x = el;
@@ -59,9 +66,9 @@
   const SEL_CE = "div#contenteditable-root, ytcp-mentionable-textarea [contenteditable='true'], " +
               "ytcp-form-textarea [contenteditable='true'], div[contenteditable='true']";
   const todosCE = [...new Set(document.querySelectorAll(SEL_CE))];
-  const visCE = todosCE.filter(visible);
+  const visCE = todosCE.filter((f) => visible(f) && !esNuestro(f));
   const todosTA = [...new Set(document.querySelectorAll("textarea"))];
-  const visTA = todosTA.filter(visible);
+  const visTA = todosTA.filter((f) => visible(f) && !esNuestro(f));
 
   say("1. CAMPOS DE RESPUESTA");
   say(`   contenteditable: ${todosCE.length} en total, ${visCE.length} visibles`);
@@ -95,7 +102,7 @@
     say("2. BOTONES ALREDEDOR DEL CAMPO (subiendo desde el)");
     let n = campo.parentElement;
     for (let nivel = 0; nivel < 8 && n && n !== document.body; nivel++) {
-      const bs = [...n.querySelectorAll("ytcp-button, button, tp-yt-paper-button")].filter(visible);
+      const bs = [...n.querySelectorAll("ytcp-button, button, tp-yt-paper-button")].filter((b) => visible(b) && !esNuestro(b) && !b.classList.contains("yra2-btn"));
       if (bs.length) {
         say(`   nivel ${nivel} (${ident(n)}): ${bs.length} boton(es)`);
         bs.forEach((b) => {
@@ -154,7 +161,7 @@
     if (hiloReaccion) {
       const posibles = [...hiloReaccion.querySelectorAll(
         "ytcp-icon-button, tp-yt-paper-icon-button, ytcp-button, button, tp-yt-paper-button"
-      )].filter(visible);
+      )].filter((b) => visible(b) && !esNuestro(b) && !b.classList.contains("yra2-btn"));
       if (posibles.length) {
         posibles.forEach((b) => {
           const iconEl = b.hasAttribute("icon") ? b : b.querySelector("[icon]");
@@ -216,7 +223,16 @@
         sel.removeAllRanges();
         sel.addRange(r2);
         document.execCommand("insertText", false, antes);
-        say(`   restaurado a: ${JSON.stringify((campo.innerText || "").slice(0, 30))}`);
+        const restaurado = campo.innerText || "";
+        say(`   restaurado a: ${JSON.stringify(restaurado.slice(0, 30))}`);
+        // execCommand puede devolver false (o simplemente no restaurar nada)
+        // sin lanzar excepcion: sin esta comprobacion explicita, un fallo de
+        // restauracion pasaba desapercibido y el texto que el usuario tenia
+        // escrito a mano se perdia sin ningun aviso (hallazgo de revision).
+        if (restaurado.trim() !== antes.trim()) {
+          say("   AVISO: LA RESTAURACION HA FALLADO. El campo no ha vuelto al texto original.");
+          say(`   texto original perdido: ${JSON.stringify(antes.slice(0, 60))}`);
+        }
       }
     } catch (e) {
       say(`   ERROR: ${e.message}`);

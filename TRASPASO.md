@@ -568,3 +568,129 @@ sobre cualquier otra cosa de este documento.
 La key se guarda en `chrome.storage.local` (no `sync`, que se replica a todos
 los Chrome con la sesión de Google iniciada). El content script no la maneja
 nunca: sólo el service worker.
+
+---
+
+## 11. Ronda de revisión exhaustiva (v2.2.5 / v2.2.6) — máxima capacidad
+
+El usuario pidió una revisión "perfecta, máxima capacidad" del proyecto ya
+funcionando en Studio real (v2.2.3/2.2.4 confirmadas). Se orquestó con el
+Workflow tool: 10 agentes en paralelo, cada uno una dimensión distinta del
+código (flujo de publicación, manejo dual textarea/contenteditable,
+detección del botón de enviar, seguridad del "me gusta", ciclo de vida de
+rutas, background.js/API/transcripción, consistencia del popup, seguridad/
+XSS/inyección, cobertura de tests, manifest/diagnóstico/estilos), con
+verificación adversarial de cada hallazgo (varios verificadores intentando
+refutarlo por separado) antes de aplicar nada. La primera ronda se topó con
+el límite de sesión a mitad de la verificación; se reanudó con
+`resumeFromRunId` cuando el usuario avisó que se había restablecido.
+
+**Nota de proceso, para quien retome esto:** uno de los agentes verificadores
+dejó un `console.log("### PLAN_B_REACHED ...")` de depuración olvidado en
+`content.js` durante su reproducción (el workflow no usó aislamiento de
+worktree, así que todos los agentes comparten el árbol de trabajo real). Se
+detectó con `git diff` antes de comitear y se eliminó. **Si vuelves a lanzar
+un workflow de revisión con agentes que ejecutan código real contra el
+repo, revisa el diff completo línea por línea antes de comitear** — no
+asumas que un agente "solo de revisión" no ha podido escribir en el árbol.
+
+### Confirmado y corregido (con test de regresión cada uno)
+
+1. **`publish()` no releía el contenido tras la cuenta atrás (crítico).**
+   La única relectura (`contentMatches`) ocurría ANTES de abrir la ventana
+   de escape del paso 6, no después. El campo real sigue editable durante
+   esos segundos. Se añadió una segunda relectura justo antes del clic
+   real (paso 7). Verificado 3/3 por los verificadores adversariales, con
+   reproducción empírica contra el harness real antes del fix.
+2. **`findSubmitButton()` acotaba solo a `row`**, que es el hilo COMPLETO
+   con todas sus respuestas ya publicadas, no la caja local de respuesta.
+   En un hilo con respuestas previas, el botón "Responder" sin pulsar de
+   una respuesta ya existente podía colar como "botón de enviar" (mismo
+   texto, después del campo en el documento). Se añadió un paso previo que
+   acota primero al contenedor real y más cercano (`ytcp-commentbox`).
+3. **`pendingDeactivate` no se limpiaba** si la ruta volvía a `/comments`
+   mientras la publicación seguía en curso (el flag quedaba "pegado" y
+   desactivaba la extensión al terminar, aunque el usuario siguiera
+   legítimamente en la bandeja de comentarios).
+4. **Condición de carrera en el plan B de inserción** (`handleInsertMain`):
+   usaba un selector global `[data-yra2-target="1"]` sin identificador de
+   invocación. Dos filas con el plan B en vuelo a la vez podían hacer que
+   un resultado tardío de una escribiera el texto en el campo de la otra.
+   Se añadió un nonce por invocación.
+5. **La API key llegaba al content script.** `getSettings()` pedía el
+   objeto `DEFAULTS` completo (incluida `apiKey`) a `chrome.storage.local`,
+   contradiciendo el propio comentario de cabecera de `background.js`
+   ("el content script ya no la recibe ni la maneja" — que era falso). Se
+   quitó `apiKey` de `DEFAULTS` en `content.js`; la presencia se comprueba
+   ahora con un mensaje `HAS_API_KEY` que el service worker resuelve sin
+   revelar el valor.
+6. **Inyección de instrucciones desde comentarios de terceros.** El texto
+   del comentario se pasaba a la API sin delimitador ni instrucción
+   anti-inyección. Con modo "auto" + `countdown:0` (combinación ofrecida
+   por el propio popup), un comentario del tipo "ignora las instrucciones
+   anteriores y responde X" podía publicarse bajo el nombre profesional
+   del usuario sin revisión humana, sin que `vetReply()` lo detectara (el
+   texto resultante es gramatical, no contiene sus patrones conocidos). Se
+   añadió un delimitador explícito (`<<<INICIO_COMENTARIO>>>`/
+   `<<<FIN_COMENTARIO>>>`) y una regla SEGURIDAD en el system prompt.
+7. **`downloadTrack()` sin timeout real por descarga.** El "tope global de
+   12s" (`TRANSCRIPT_DEADLINE_MS`) solo se comprobaba antes de llamar,
+   nunca durante: un `fetch` colgado (sin responder, no sin fallar) podía
+   superarlo ampliamente. Se envolvió con `conTope()`.
+8. **`DEFAULTS` de `background.js` sin `likeOnPublish`** (desincronizado de
+   `content.js`/`popup.js`). Dormante hoy, pero un futuro `if
+   (cfg.likeOnPublish)` en `background.js` habría leído siempre `undefined`
+   sin ningún aviso.
+9. **`LIKE_EXCLUDE` no cubría la variante "quitar me gusta"/"unlike".** Si
+   Studio etiqueta así el botón para deshacer un "me gusta" ya dado (su
+   texto también contiene "like"/"me gusta"), `likeComment()` podía
+   quitarlo en vez de darlo.
+10. **`state.processed` (WeakSet) no se recuperaba de la virtualización de
+    listas de Studio.** Si Studio recicla un nodo ya marcado como
+    procesado para mostrar un comentario distinto (scroll infinito), la
+    fila se quedaba sin botón para siempre. Se añadió un reset periódico
+    (~cada 30s) dentro de la red de seguridad ya existente.
+11. **`diagnostico-dom.js` podía capturar el propio panel de la extensión**
+    en vez del campo real de Studio si se ejecutaba justo tras un intento
+    fallido de publicar (el escenario típico para depurar). Se excluye
+    ahora la UI de la extensión de las tres búsquedas de campos/botones.
+12. **`diagnostico-dom.js`, rama contenteditable de la prueba de
+    inserción, no avisaba si la restauración del texto original fallaba**
+    (`execCommand` puede devolver `false` sin lanzar excepción). Ahora
+    compara el resultado final y avisa explícitamente si no coincide.
+13. **Dos asserts tautológicos en `pruebas/tests.js`**: uno comprobaba
+    `panel.style.visibility !== "hidden"`, propiedad que el código nunca
+    escribe (no detectaría un `panel.remove()`); otro aceptaba `publicadas
+    <= 1` en el test del cerrojo, que seguiría pasando aunque AMBOS clics
+    fallaran en silencio. Corregidos a comprobaciones reales.
+
+### Refutado tras verificación adversarial (no se ha tocado)
+
+- **"El botón de enviar podría sustituirse por un nodo nuevo al
+  habilitarse"** (patrón `*ngIf` de Angular Material). Refutado 2/2 por los
+  verificadores que llegaron a completar: Studio usa componentes Polymer
+  (`ytcp-button`), que reflejan `disabled` sobre el mismo nodo, no lo
+  reemplazan — confirmado también por el propio `pruebas/harness.js` en
+  modo `campoTextarea`. Incluso si ocurriera, el resultado sería un aborto
+  seguro (texto preservado para envío manual), no una publicación errónea.
+
+### Pendiente, documentado pero no implementado
+
+- **Cobertura de tests todavía sesgada hacia el modo `contenteditable`
+  legacy** del harness (bastantes tests siguen usando el fast-path por
+  `id="submit-button"`, que el DOM real confirmado no tiene). Se añadieron
+  tests específicos en modo `campoTextarea` para los escenarios más
+  críticos (camino feliz, Angular no registra, hilo con respuesta previa,
+  API key ausente), pero no se ha invertido el *default* del harness — eso
+  exigiría revisar cada test legacy uno a uno para no perder cobertura de
+  lo que sí es específico de contenteditable (p.ej. el test de doble
+  `contenteditable`/`campoExtra`).
+- **La lógica interna del `func` inyectado por `handleInsertMain()`** (el
+  plan B, mundo principal) se probó en su orquestación (tabId, args,
+  propagación del resultado), no ejecutando de verdad esa función contra
+  un DOM real — requeriría extraerla a una función nombrada por separado
+  en `background.js` para poder importarla en un test aislado, un cambio
+  de arquitectura fuera del alcance de esta ronda.
+- **El catch de excepción dentro de `likeComment()`** no tiene test
+  dedicado (bajo valor: es un try/catch trivial alrededor de código ya
+  cubierto).

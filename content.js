@@ -30,8 +30,15 @@
   const MARK = "data-yra2";
   const LABEL_IDLE = "✨ Responder con IA";
 
+  // apiKey NO esta en este DEFAULTS a proposito (hallazgo de revision): el
+  // content script corre inyectado en studio.youtube.com, y aunque el
+  // "isolated world" lo protege del JS de la propia pagina, cualquier
+  // extension con permiso "debugger" podria inspeccionar su heap via Chrome
+  // DevTools Protocol. Con esta clave fuera del filtro de
+  // chrome.storage.local.get(DEFAULTS) en getSettings(), la key real nunca
+  // llega a este contexto: la presencia se comprueba con el mensaje
+  // HAS_API_KEY, que el service worker resuelve sin revelar el valor.
   const DEFAULTS = {
-    apiKey: "",
     model: "claude-sonnet-4-6",
     extendedThinking: true,
     extraContext: "",
@@ -156,6 +163,13 @@
       const should = isCommentsRoute();
       if (should && !state.active) {
         activate();
+      } else if (should && state.active) {
+        // Hemos vuelto a una ruta de comentarios mientras seguiamos activos
+        // (nunca llego a desactivarse porque habia una publicacion en curso
+        // cuando se salio, ver la rama de abajo): el aplazamiento ya no
+        // aplica. Sin esto, releaseBusy() desactivaria la extension al
+        // terminar aunque el usuario siga legitimamente en /comments.
+        state.pendingDeactivate = false;
       } else if (!should && state.active) {
         if (state.busy) {
           // Publicando ahora mismo: si esto es un cambio de ruta interno de
@@ -192,7 +206,19 @@
     // Red de seguridad mientras Studio carga en diferido. A diferencia de la
     // v1 no se apaga a los 2 minutos: el scroll infinito de comentarios sigue
     // trayendo filas nuevas mucho despues.
-    state.scanTimer2 = setInterval(() => { if (state.active) scan(); }, 2500);
+    let ciclosRed = 0;
+    state.scanTimer2 = setInterval(() => {
+      if (!state.active) return;
+      ciclosRed++;
+      // Cada ~30s se olvida lo ya marcado como procesado y se reescanea todo
+      // desde cero. Sin esto, un nodo reciclado por la virtualizacion de
+      // listas de Studio (scroll infinito de comentarios) para mostrar una
+      // fila distinta se queda sin boton para siempre: el corte por
+      // WeakSet en scan() lo descarta en la primera linea sin comprobar si
+      // el boton sigue realmente presente (hallazgo de revision).
+      if (ciclosRed % 12 === 0) state.processed = new WeakSet();
+      scan();
+    }, 2500);
   }
 
   function releaseBusy() {
@@ -454,7 +480,11 @@
       if (!commentText) return abortFlow(row, "No se ha podido leer el texto del comentario.");
 
       state.cfg = await getSettings();
-      if (!state.cfg.apiKey) {
+      // No se pide la key real aqui (ver DEFAULTS: apiKey no esta incluida
+      // a proposito). Solo se comprueba su presencia via mensaje, que el
+      // service worker resuelve sin revelar el valor al content script.
+      const keyCheck = await send({ type: "HAS_API_KEY" });
+      if (!keyCheck?.has) {
         return abortFlow(row, "Falta la API key. Abre el icono de la extension y guardala.");
       }
 
@@ -677,6 +707,18 @@
     if (isDisabled(submit)) {
       return { ok: false, error: "El boton de enviar se ha deshabilitado antes de pulsarlo. No se ha publicado." };
     }
+    /* Relectura FINAL, justo antes del clic. La "ultima relectura" de mas
+       arriba se hace ANTES de abrir la ventana de escape (paso 6), y esa
+       ventana deja el campo real de Studio perfectamente editable durante
+       varios segundos (no se bloquea ni se le quita el foco salvo que el
+       usuario pulse "Editar" o "Cancelar"). Sin esta segunda comprobacion,
+       un cambio de contenido durante la cuenta atras -edicion manual,
+       repintado de Angular, lo que sea- se publicaria sin haber sido
+       verificado ni mostrado en la cuenta atras: el punto de no retorno
+       real es este clic, no la relectura de antes del countdown.          */
+    if (!contentMatches(field, text)) {
+      return { ok: false, error: "El contenido del cuadro ha cambiado durante la cuenta atras. No se ha publicado." };
+    }
     realClick(submit);
 
     /* La confirmacion exige DOS señales, no una (hipotesis H1 del traspaso:
@@ -710,8 +752,14 @@
      se llama siempre DESPUES de que publish() ha devuelto ok:true, envuelto
      en try/catch, y su resultado no se propaga como error.               */
   const LIKE_WORDS = ["me gusta", "like"];
+  // "quitar"/"unlike"/"ya no" van ANTES que LIKE_WORDS en la comprobacion de
+  // abajo: sin esto, el boton para DESHACER un "me gusta" ya dado (su texto
+  // tambien contiene la palabra "like"/"me gusta") se confundiria con el de
+  // darlo, y likeComment() lo quitaria en vez de darlo si Studio lo etiqueta
+  // asi (no verificado: el aria-pressed que se usa mas abajo tampoco lo esta).
   const LIKE_EXCLUDE = [
     "no me gusta", "dislike", "corazon", "corazón", "heart",
+    "quitar me gusta", "quitar \"me gusta\"", "unlike", "ya no me gusta", "remove like",
     "responder", "reply", "respondre", "cancelar", "cancel",
     "mas opciones", "more options", "publicar", "comentar", "comment",
   ];
@@ -851,6 +899,21 @@
   }
 
   function findSubmitButton(field, opener, row) {
+    // Paso 0: el contenedor real y mas cercano de la caja de respuesta
+    // (confirmado con diagnostico-dom.js: el campo vive dentro de
+    // ytcp-commentbox). Es la busqueda MAS segura de todas: a diferencia de
+    // acotar solo a `row` -que findThreadRoot() resuelve como el hilo
+    // COMPLETO, con todas sus respuestas ya publicadas- esto no puede
+    // alcanzar el boton "Responder" sin pulsar de una respuesta anterior del
+    // mismo hilo (hallazgo de revision: SUBMIT_TEXTS y OPEN_TEXTS comparten
+    // "responder" a proposito, asi que ese boton ajeno pasaria el filtro por
+    // texto+orden de documento si cayera dentro de `row`).
+    const cajaLocal = field.closest("ytcp-commentbox, ytcp-mentionable-textarea, ytcp-form-textarea");
+    if (cajaLocal) {
+      const found = buscarBotonEnviar(cajaLocal, field, opener);
+      if (found) return found;
+    }
+
     // Paso 1: acotado a la fila que ya hemos identificado como la correcta.
     // Es la busqueda mas segura porque no puede alcanzar el boton de otra
     // fila, sea cual sea su texto.
@@ -952,8 +1015,14 @@
       log("execCommand no ha registrado el texto; probando mundo principal");
     }
 
-    field.setAttribute("data-yra2-target", "1");
-    const r = await send({ type: "INSERT_MAIN", payload: { text } }, 12000);
+    // Nonce por invocacion: sin el, dos filas con el plan B en vuelo a la
+    // vez comparten el mismo selector "[data-yra2-target='1']" en el mundo
+    // principal, y una respuesta tardia de la fila A (p.ej. tras su propio
+    // timeout) podria escribir el texto de A en el campo de la fila B si B
+    // ya lo habia marcado para su propio intento (hallazgo de revision).
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    field.setAttribute("data-yra2-target", nonce);
+    const r = await send({ type: "INSERT_MAIN", payload: { text, nonce } }, 12000);
     field.removeAttribute("data-yra2-target");
     await sleep(320);
     if (contentMatches(field, text)) return `main:${r?.method || "?"}`;

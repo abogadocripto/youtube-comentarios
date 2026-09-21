@@ -1,11 +1,17 @@
 /* Pruebas de las funciones puras del service worker */
 const fs = require("fs"), vm = require("vm");
 
+// scriptingHandler se asigna/reasigna por cada prueba de handleInsertMain():
+// permite controlar, desde el propio test, que devuelve chrome.scripting.
+// executeScript sin tener que ejecutar de verdad el codigo en una pestaña.
+let scriptingHandler = null;
+
 const sandbox = {
   console, setTimeout, clearTimeout, URL, fetch: async () => { throw new Error("sin red"); },
   chrome: {
     runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} } },
     storage: { local: { get: async () => ({}), set: async () => {} }, sync: { get: async () => ({}), remove: async () => {} } },
+    scripting: { executeScript: async (opts) => scriptingHandler(opts) },
   },
   AbortController, Promise, JSON, Math, Date, String, Number, Object, Array, Set, Map, Error, RegExp,
 };
@@ -18,6 +24,11 @@ let pass = 0, fail = 0;
 const t = (name, fn) => { try { fn(); console.log("  PASA  " + name); pass++; } catch (e) { console.log("  FALLA " + name + "\n        " + e.message); fail++; } };
 const eq = (a, b, m) => { if (a !== b) throw new Error(`${m}\n        obtenido: ${JSON.stringify(a)}\n        esperado: ${JSON.stringify(b)}`); };
 const ok = (c, m) => { if (!c) throw new Error(m); };
+
+// Pruebas asincronas: se acumulan aqui y se ejecutan en orden al final del
+// fichero (el resto del archivo sigue siendo top-level sincrono).
+const asyncTests = [];
+const ta = (name, fn) => asyncTests.push({ name, fn });
 
 console.log("\nEXTRACCION DEL JSON DEL REPRODUCTOR");
 
@@ -195,5 +206,55 @@ t("401 habla de la key", () => {
   ok(/key/i.test(G.friendlyApiError(401, "x", "m")), "mensaje poco util");
 });
 
-console.log(`\n${pass}/${pass+fail} pruebas superadas\n`);
-process.exit(fail ? 1 : 0);
+// handleInsertMain (plan B de insercion) no tenia ninguna prueba (hallazgo
+// de revision): ni el guard trivial de tabId, ni que orquesta correctamente
+// chrome.scripting.executeScript (target/world/args) y propaga su
+// resultado. No se ejecuta aqui la logica real del "func" inyectado en el
+// mundo principal (requeriria un DOM real del lado de la pagina, cubierto
+// en su lugar por el camino end-to-end de pruebas/tests.js con jsdom); esto
+// cierra el hueco de la orquestacion misma.
+ta("handleInsertMain sin tabId aborta sin llamar a chrome.scripting", async () => {
+  let llamado = false;
+  scriptingHandler = () => { llamado = true; return []; };
+  const res = await G.handleInsertMain({ text: "x", nonce: "n1" }, {});
+  eq(res.ok, false, "deberia fallar sin tabId");
+  eq(res.error, "sin tabId", "mensaje incorrecto");
+  eq(llamado, false, "ha llamado a chrome.scripting.executeScript sin tabId");
+});
+
+ta("handleInsertMain pasa tabId/world/args correctamente y propaga el resultado", async () => {
+  let recibido = null;
+  scriptingHandler = (opts) => {
+    recibido = opts;
+    return [{ result: { ok: true, method: "textarea-value-setter", content: "hola" } }];
+  };
+  const res = await G.handleInsertMain({ text: "hola", nonce: "abc123" }, { tab: { id: 42 } });
+  eq(recibido.target.tabId, 42, "no ha pasado el tabId correcto");
+  eq(recibido.world, "MAIN", "no ha pedido el mundo principal");
+  eq(recibido.args[0], "hola", "no ha pasado el texto");
+  eq(recibido.args[1], "abc123", "no ha pasado el nonce");
+  eq(res.ok, true, "no ha propagado el resultado de exito");
+  eq(res.method, "textarea-value-setter", "no ha propagado el metodo");
+});
+
+ta("handleInsertMain sin resultado de la pagina devuelve un error explicito", async () => {
+  scriptingHandler = () => [];
+  const res = await G.handleInsertMain({ text: "x", nonce: "n2" }, { tab: { id: 1 } });
+  eq(res.ok, false, "deberia fallar sin resultado");
+  eq(res.error, "sin resultado de la pagina", "mensaje incorrecto");
+});
+
+(async () => {
+  for (const { name, fn } of asyncTests) {
+    try {
+      await fn();
+      console.log("  PASA  " + name);
+      pass++;
+    } catch (e) {
+      console.log("  FALLA " + name + "\n        " + e.message);
+      fail++;
+    }
+  }
+  console.log(`\n${pass}/${pass + fail} pruebas superadas\n`);
+  process.exit(fail ? 1 : 0);
+})();

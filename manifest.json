@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Reply Assistant v2",
-  "version": "2.2.4",
+  "version": "2.2.6",
   "description": "Responde comentarios en YouTube Studio con Claude. Un clic, con verificacion antes de publicar.",
   "permissions": [
     "storage",

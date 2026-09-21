@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url: "https://studio.youtube.com/channel/UCabc/comments/inbox", pretendToBeVisual: true, runScripts: "outside-only" }
@@ -51,14 +51,21 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
       <div class="comment-actions">
         <ytcp-button class="open-reply"><button>Responder</button></ytcp-button>
         <span class="video-title">Europa quiere PROHIBIR las wallets</span>
-        <ytcp-icon-button class="like-btn" aria-label="Me gusta"><button></button></ytcp-icon-button>
+        ${sinBotonLike ? "" : '<ytcp-icon-button class="like-btn" aria-label="Me gusta"><button></button></ytcp-icon-button>'}
       </div>
+      ${respuestaPrevia ? `
+      <div class="existing-reply">
+        <div id="content-text">Una respuesta que ya publique hace tiempo, gracias por preguntar!</div>
+        <div class="comment-actions">
+          <ytcp-button class="open-reply-existing"><button>Responder</button></ytcp-button>
+        </div>
+      </div>` : ""}
       <a href="https://studio.youtube.com/video/VID${i}0000000/comments">ver</a>
       <img src="https://i.ytimg.com/vi/VID${i}0000000/hq.jpg" />
     `;
     app.appendChild(thread);
 
-    thread.querySelector(".like-btn button").addEventListener("click", () => {
+    thread.querySelector(".like-btn button")?.addEventListener("click", () => {
       thread.dataset.liked = "1";
     });
 
@@ -88,7 +95,14 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
           <ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>
           <ytcp-button id="submit-button" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
         `;
-        thread.appendChild(box);
+        // La caja de respuesta se inserta pegada al comentario principal
+        // (justo despues de su barra de acciones), no al final del hilo:
+        // asi es como se ve en Studio real. Con respuestaPrevia:true, esto
+        // deja el boton "Responder" sin pulsar de la respuesta YA publicada
+        // despues del campo nuevo en el orden del documento -exactamente el
+        // escenario del hallazgo de revision sobre findSubmitButton().
+        const anclaje = thread.querySelector(".comment-actions");
+        anclaje.after(box);
         const field = campoTextarea ? box.querySelector("textarea") : box.querySelector("#contenteditable-root");
         const submit = campoTextarea ? box.querySelector(".submit-real") : box.querySelector("#submit-button");
         const valorCampo = () => (campoTextarea ? field.value : field.textContent) || "";
@@ -127,9 +141,9 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
   return { dom, window, doc };
 }
 
-function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo = null }) {
+function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo = null, apiKeyMissing = false }) {
   const settings = {
-    apiKey: "sk-ant-test", model: "claude-sonnet-4-6", extendedThinking: true,
+    apiKey: apiKeyMissing ? "" : "sk-ant-test", model: "claude-sonnet-4-6", extendedThinking: true,
     extraContext: "", customInstructions: "", mode: "auto", countdown: 0,
     requireTranscript: true, debug: false, ...cfg,
   };
@@ -146,6 +160,9 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
             cb(transcriptOk ? { ok: true, text: "transcripcion simulada ".repeat(40), source: "watch" }
                             : { ok: false, reason: "el video no expone pistas de subtitulos" });
           else if (msg.type === "INSERT_MAIN") cb({ ok: false, error: "no disponible en el banco" });
+          // El content script real ya no pide la key en si (ver DEFAULTS de
+          // content.js): solo comprueba su presencia con este mensaje.
+          else if (msg.type === "HAS_API_KEY") cb({ ok: true, has: !!settings.apiKey });
           else cb({ ok: true });
         }, 10);
       },
