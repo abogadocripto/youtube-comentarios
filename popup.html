@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>YouTube Reply Assistant v2</title>
+<style>
+  :root {
+    --ink: #14171a;
+    --muted: #5b6570;
+    --rule: #e3e6ea;
+    --paper: #fff;
+    --signal: #1a5fd8;
+    --signal-dark: #14489f;
+    --danger: #b3261e;
+    --ok: #0f6d3c;
+    --warn: #8a5a00;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    width: 372px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 13px/1.5 "Roboto", system-ui, -apple-system, sans-serif;
+  }
+
+  header {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  header h1 { font-size: 14px; font-weight: 600; }
+  header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  main { padding: 16px 18px 18px; }
+
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+
+  label.lbl {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+    line-height: 1.45;
+  }
+
+  .hint a { color: var(--signal); }
+
+  input[type="password"],
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 13px/1.5 "Roboto", system-ui, sans-serif;
+    outline: none;
+  }
+
+  textarea { resize: vertical; min-height: 68px; }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--signal);
+    box-shadow: 0 0 0 3px rgba(26, 95, 216, 0.12);
+  }
+
+  .key-wrap { position: relative; }
+  .key-wrap input { padding-right: 40px; }
+
+  .key-toggle {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 5px 7px;
+    border-radius: 4px;
+  }
+  .key-toggle:hover { background: #f1f3f5; color: var(--ink); }
+
+  /* Modos: la decision principal del panel. Cada opcion dice exactamente
+     que ocurre al pulsar el boton en Studio. */
+  .modes { display: grid; gap: 7px; }
+
+  .mode {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 7px;
+    cursor: pointer;
+  }
+
+  .mode:hover { background: #fafbfc; }
+
+  .mode input { margin-top: 2px; accent-color: var(--signal); }
+
+  .mode[data-on="1"] {
+    border-color: var(--signal);
+    background: rgba(26, 95, 216, 0.04);
+  }
+
+  .mode-name { font-size: 12.5px; font-weight: 600; }
+  .mode-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+
+  .mode[data-risk="1"][data-on="1"] {
+    border-color: var(--danger);
+    background: rgba(179, 38, 30, 0.04);
+  }
+  .mode[data-risk="1"][data-on="1"] .mode-name { color: var(--danger); }
+
+  .secs {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    margin-top: 9px;
+    padding-left: 2px;
+  }
+  .secs[data-show="1"] { display: flex; }
+  .secs input { width: 66px; }
+  .secs span { font-size: 12px; color: var(--muted); }
+
+  .check {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .check input { margin-top: 2px; accent-color: var(--signal); }
+  .check .sub { font-size: 11.5px; color: var(--muted); line-height: 1.4; margin-top: 2px; }
+
+  .row { display: flex; gap: 9px; }
+  .row > * { flex: 1; }
+
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 18px 0; }
+
+  details summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    list-style: none;
+    padding: 4px 0;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; }
+  details[open] summary::before { content: "▾ "; }
+  details > div { padding-top: 10px; }
+
+  .actions { display: flex; gap: 8px; margin-top: 4px; }
+
+  button.btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 600 12.5px/1 "Roboto", system-ui, sans-serif;
+    cursor: pointer;
+  }
+  button.btn:hover:not(:disabled) { background: #f1f3f5; }
+  button.btn:disabled { opacity: 0.55; cursor: default; }
+
+  button.btn--primary {
+    background: var(--signal);
+    border-color: var(--signal);
+    color: #fff;
+  }
+  button.btn--primary:hover:not(:disabled) { background: var(--signal-dark); }
+
+  .status {
+    display: none;
+    margin-top: 11px;
+    padding: 9px 11px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .status[data-kind="ok"] { display: block; background: #e8f5ec; color: var(--ok); }
+  .status[data-kind="err"] { display: block; background: #fdeceb; color: var(--danger); }
+  .status[data-kind="busy"] { display: block; background: #f1f3f5; color: var(--muted); }
+
+  .diag { margin-top: 4px; }
+  .diag .row { align-items: stretch; }
+  .diag input { flex: 2; }
+  .diag button { flex: 1; white-space: nowrap; }
+
+  pre.report {
+    display: none;
+    margin-top: 10px;
+    padding: 10px;
+    max-height: 230px;
+    overflow: auto;
+    background: #14171a;
+    color: #e6eaee;
+    border-radius: 6px;
+    font: 400 10.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    white-space: pre;
+    tab-size: 2;
+  }
+  pre.report[data-show="1"] { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>YouTube Reply Assistant v2</h1>
+  <p>Respuestas con Claude en YouTube Studio</p>
+</header>
+
+<main>
+
+  <div class="field">
+    <label class="lbl" for="apiKey">API key de Anthropic</label>
+    <div class="key-wrap">
+      <input type="password" id="apiKey" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+      <button class="key-toggle" id="toggleKey" type="button">ver</button>
+    </div>
+    <p class="hint">
+      Se guarda solo en este navegador, no se sincroniza con tu cuenta de Google.
+      Consiguela en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>.
+    </p>
+  </div>
+
+  <div class="field">
+    <label class="lbl" for="model">Modelo</label>
+    <select id="model">
+      <option value="claude-sonnet-4-6">claude-sonnet-4-6 (el que ya usabas)</option>
+      <option value="claude-sonnet-5">claude-sonnet-5</option>
+      <option value="claude-opus-5">claude-opus-5</option>
+      <option value="claude-haiku-4-5-20251001">claude-haiku-4-5 (rapido y barato)</option>
+    </select>
+    <label class="check" style="margin-top:9px">
+      <input type="checkbox" id="extendedThinking" />
+      <span>
+        Razonamiento extendido
+        <span class="sub">Mejor criterio en preguntas tecnicas. Añade entre 5 y 15 segundos por respuesta.</span>
+      </span>
+    </label>
+    <p class="hint">Si un modelo da error 404, tu cuenta no lo tiene habilitado: elige otro.</p>
+  </div>
+
+  <hr />
+
+  <div class="field">
+    <label class="lbl">Que pasa al pulsar el boton</label>
+    <div class="modes">
+      <label class="mode" data-mode="window">
+        <input type="radio" name="mode" value="window" />
+        <span>
+          <span class="mode-name">Publica sola, con margen para frenar</span>
+          <span class="mode-desc">Genera, escribe la respuesta, la verifica y te da unos segundos para cancelar.</span>
+        </span>
+      </label>
+      <label class="mode" data-mode="instant" data-risk="1">
+        <input type="radio" name="mode" value="instant" />
+        <span>
+          <span class="mode-name">Publica sola, al instante</span>
+          <span class="mode-desc">Sin margen. La respuesta aparece en tu canal sin que la hayas leido.</span>
+        </span>
+      </label>
+      <label class="mode" data-mode="review">
+        <input type="radio" name="mode" value="review" />
+        <span>
+          <span class="mode-name">Nunca publica sola</span>
+          <span class="mode-desc">Abre el panel con la respuesta para que la revises y pulses Publicar.</span>
+        </span>
+      </label>
+    </div>
+    <div class="secs" id="secsRow">
+      <input type="number" id="countdown" min="2" max="30" step="1" />
+      <span>segundos para cancelar</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label class="check">
+      <input type="checkbox" id="requireTranscript" />
+      <span>
+        No publicar sola si falta la transcripcion
+        <span class="sub">Sin transcripcion, el modelo no sabe que dijiste en el video. Con esto activado, esas respuestas pasan siempre por tu revision.</span>
+      </span>
+    </label>
+  </div>
+
+  <hr />
+
+  <div class="field">
+    <label class="lbl" for="extraContext">Contexto del video</label>
+    <textarea id="extraContext" placeholder="Ej: el video cubre DAC8 y el modelo 721. Menciono los umbrales de declaracion y el plazo de presentacion."></textarea>
+    <p class="hint">Se añade a todas las respuestas. Util cuando trabajas los comentarios de un solo video.</p>
+  </div>
+
+  <details>
+    <summary>Instrucciones permanentes</summary>
+    <div>
+      <textarea id="customInstructions" placeholder="Ej: no menciones nunca nombres de clientes. Recuerda que el despacho es ABAST Legal."></textarea>
+      <p class="hint">Se añaden al final de tu prompt de estilo, en todas las respuestas.</p>
+    </div>
+  </details>
+
+  <hr />
+
+  <div class="actions">
+    <button class="btn" id="testBtn" type="button">Probar conexion</button>
+    <button class="btn btn--primary" id="saveBtn" type="button">Guardar</button>
+  </div>
+  <div class="status" id="status"></div>
+
+  <hr />
+
+  <details id="diagBox">
+    <summary>Diagnostico de transcripcion</summary>
+    <div class="diag">
+      <p class="hint" style="margin-top:0">
+        Prueba las cinco vias de obtencion de subtitulos y dice cual falla y por que.
+        Ten abierta la pestaña de Studio mientras lo ejecutas.
+      </p>
+      <div class="row">
+        <input type="text" id="diagVideo" placeholder="ID o URL del video" spellcheck="false" />
+        <button class="btn" id="diagBtn" type="button">Ejecutar</button>
+      </div>
+      <pre class="report" id="diagReport"></pre>
+      <button class="btn" id="diagCopy" type="button" style="display:none;margin-top:8px">Copiar informe</button>
+    </div>
+  </details>
+
+</main>
+
+<script src="popup.js"></script>
+</body>
+</html>
