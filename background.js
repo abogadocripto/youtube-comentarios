@@ -635,42 +635,59 @@ async function handleInsertMain({ text }, sender) {
       const el = document.querySelector('[data-yra2-target="1"]');
       if (!el) return { ok: false, error: "campo no encontrado" };
       const norm = (s) => String(s).replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+      const esTextarea = el.tagName === "TEXTAREA";
+      const leer = () => (esTextarea ? el.value : el.innerText) || "";
 
       el.focus();
-      try {
-        const sel = window.getSelection();
-        const r = document.createRange();
-        r.selectNodeContents(el);
-        sel.removeAllRanges();
-        sel.addRange(r);
-      } catch (e) {}
 
       let method = "none";
-      try {
-        document.execCommand("delete", false, null);
-        if (document.execCommand("insertText", false, txt)) method = "execCommand-main";
-      } catch (e) {}
-
-      if (norm(el.innerText || "") !== norm(txt)) {
+      if (esTextarea) {
+        // El campo real de Studio (confirmado con diagnostico-dom.js) es un
+        // <textarea>: no participa en window.getSelection()/Range ni en
+        // execCommand como un contenteditable. El setter nativo del value
+        // es el unico camino fiable aqui.
         try {
-          const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "innerText");
-          if (d && d.set) { d.set.call(el, txt); method = "innerText-setter"; }
-          else { el.textContent = txt; method = "textContent"; }
-        } catch (e) { el.textContent = txt; method = "textContent"; }
-
-        // Eventos que escuchan Angular / ngModel / las reactive forms.
+          const d = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+          if (d && d.set) { d.set.call(el, txt); method = "textarea-value-setter"; }
+          else { el.value = txt; method = "textarea-value"; }
+        } catch (e) { el.value = txt; method = "textarea-value"; }
+      } else {
         try {
-          el.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertText", data: txt }));
-          el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: txt }));
-        } catch (e) {
-          el.dispatchEvent(new Event("input", { bubbles: true }));
+          const sel = window.getSelection();
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          sel.removeAllRanges();
+          sel.addRange(r);
+        } catch (e) {}
+
+        try {
+          document.execCommand("delete", false, null);
+          if (document.execCommand("insertText", false, txt)) method = "execCommand-main";
+        } catch (e) {}
+
+        if (norm(leer()) !== norm(txt)) {
+          try {
+            const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "innerText");
+            if (d && d.set) { d.set.call(el, txt); method = "innerText-setter"; }
+            else { el.textContent = txt; method = "textContent"; }
+          } catch (e) { el.textContent = txt; method = "textContent"; }
         }
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-        el.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a" }));
+      }
+
+      // Eventos que escuchan Angular / ngModel / las reactive forms.
+      try {
+        el.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, cancelable: true, inputType: "insertText", data: txt }));
+        el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: txt }));
+      } catch (e) {
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a" }));
+      if (!esTextarea) {
         try { el.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: txt })); } catch (e) {}
       }
 
-      return { ok: true, method, content: (el.innerText || "").slice(0, 80) };
+      return { ok: true, method, content: leer().slice(0, 80) };
     },
   });
 

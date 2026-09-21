@@ -122,11 +122,17 @@
     ".video-description",
   ];
 
+  // El campo de respuesta real de Studio (confirmado con diagnostico-dom.js
+  // contra el DOM real, no deducido) es un <textarea> normal dentro de
+  // ytcp-commentbox, NO un contenteditable. Se mantienen los selectores de
+  // contenteditable por si Studio varia el editor segun el tipo de dialogo,
+  // pero el caso real y verificado es el ultimo de la lista.
   const FIELD_SELECTOR = [
     "div#contenteditable-root",
     "ytcp-mentionable-textarea [contenteditable='true']",
     "ytcp-form-textarea [contenteditable='true']",
     "div[contenteditable='true']",
+    "ytcp-commentbox textarea",
   ].join(", ");
 
   const OPEN_TEXTS = ["responder", "reply", "respondre"];
@@ -682,7 +688,7 @@
        haya deshabilitado, desconectado u ocultado descarta ese falso
        positivo salvo que ambas señales cambien exactamente a la vez.      */
     const sent = await waitFor(() => {
-      const fieldGone = !field.isConnected || !isVisible(field) || norm(field.innerText || field.textContent || "") === "";
+      const fieldGone = !field.isConnected || !isVisible(field) || norm(fieldText(field)) === "";
       const submitGone = !submit.isConnected || !isVisible(submit) || isDisabled(submit);
       return fieldGone && submitGone ? true : null;
     }, { timeout: 6000, interval: 150 });
@@ -753,6 +759,17 @@
   // Cualquier elemento de la propia extension queda fuera de las busquedas.
   function esNuestro(el) {
     return !!el.closest?.(".yra2-panel, .yra2-countdown, .yra2-toast") || el.classList?.contains(BTN_CLASS);
+  }
+
+  // El campo real de Studio (confirmado con diagnostico-dom.js) es un
+  // <textarea>: su contenido vive en .value, no en .innerText/.textContent
+  // (que en un <textarea> reflejan el HTML inicial, no lo que el usuario ha
+  // escrito). Si en algun otro dialogo Studio usa contenteditable, se sigue
+  // leyendo por innerText como hasta ahora.
+  function fieldText(field) {
+    if (!field) return "";
+    if (field.tagName === "TEXTAREA") return field.value || "";
+    return field.innerText || field.textContent || "";
   }
 
   /* Clic completo. YouTube Studio usa componentes tipo ytcp-button que en
@@ -861,7 +878,7 @@
   async function closeOpenBoxes() {
     let conTexto = false;
     for (const f of visibleFields()) {
-      if (norm(f.innerText || f.textContent || "")) { conTexto = true; continue; }
+      if (norm(fieldText(f))) { conTexto = true; continue; }
       let n = f.parentElement;
       for (let i = 0; i < 8 && n; i++) {
         const cancel = [...n.querySelectorAll("ytcp-button, button")].find((b) => {
@@ -894,28 +911,47 @@
 
     field.focus();
     field.click();
-    try {
-      const sel = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(field);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    } catch (e) { warn("seleccion:", e.message); }
 
-    try {
-      document.execCommand("delete", false, null);
-      document.execCommand("insertText", false, text);
-    } catch (e) { warn("execCommand:", e.message); }
+    if (field.tagName === "TEXTAREA") {
+      // El campo real de Studio (confirmado con diagnostico-dom.js contra el
+      // DOM real) es un <textarea>: no participa en window.getSelection() ni
+      // en Range como un contenteditable, asi que execCommand no le afecta.
+      // El setter nativo del value + los eventos que escucha un formulario
+      // reactivo (input, change) es el metodo correcto aqui.
+      try {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        setter.call(field, text);
+        field.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+        field.dispatchEvent(new Event("change", { bubbles: true }));
+      } catch (e) { warn("insercion en textarea:", e.message); }
 
-    await sleep(220);
-    if (contentMatches(field, text)) {
-      if (/\n\s*\n/.test(text) && !/\n/.test(field.innerText || "")) {
-        warn("YouTube ha aplanado los saltos de parrafo de la respuesta.");
+      await sleep(150);
+      if (contentMatches(field, text)) return "textarea-setter";
+      log("el setter de textarea no ha registrado el texto; probando mundo principal");
+    } else {
+      try {
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(field);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) { warn("seleccion:", e.message); }
+
+      try {
+        document.execCommand("delete", false, null);
+        document.execCommand("insertText", false, text);
+      } catch (e) { warn("execCommand:", e.message); }
+
+      await sleep(220);
+      if (contentMatches(field, text)) {
+        if (/\n\s*\n/.test(text) && !/\n/.test(field.innerText || "")) {
+          warn("YouTube ha aplanado los saltos de parrafo de la respuesta.");
+        }
+        return "execCommand";
       }
-      return "execCommand";
+      log("execCommand no ha registrado el texto; probando mundo principal");
     }
 
-    log("execCommand no ha registrado el texto; probando mundo principal");
     field.setAttribute("data-yra2-target", "1");
     const r = await send({ type: "INSERT_MAIN", payload: { text } }, 12000);
     field.removeAttribute("data-yra2-target");
@@ -926,7 +962,7 @@
   }
 
   function contentMatches(field, text) {
-    const got = norm(field.innerText || field.textContent || "");
+    const got = norm(fieldText(field));
     const want = norm(text);
     if (!got) return false;
     if (got === want) return true;

@@ -1,17 +1,31 @@
-# YouTube Reply Assistant v2.2.3
+# YouTube Reply Assistant v2.2.4
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
 
-## Novedades en 2.2.3
+## Novedades en 2.2.4 — el campo real ya está confirmado y corregido
 
-Primer dato real (una captura de pantalla del usuario): al publicar desde el
-panel, Studio sí abre la caja de respuesta pero el código no la detecta
-("Al pulsar Responder no se ha abierto ningún cuadro de respuesta"). Hipótesis
-más probable: el campo de Studio ya no es un `contenteditable`, sino un
-`<textarea>` normal. **No confirmado** — se ha ampliado `diagnostico-dom.js`
-(sección 1) para detectarlo con datos en vez de adivinarlo. Ver `TRASPASO.md`.
+El usuario ejecutó `diagnostico-dom.js` contra Studio real: **el campo de
+respuesta es un `<textarea>`, no un `contenteditable`** (ya no es hipótesis).
+Esto invalidaba tanto la detección (`FIELD_SELECTOR`) como la inserción
+(`execCommand` con selección de `Range`, que no aplica a un `<textarea>`).
+Corregido con los datos exactos del diagnóstico:
+
+- `FIELD_SELECTOR` detecta ahora el `<textarea>` real dentro de `ytcp-commentbox`.
+- La inserción usa el setter nativo de `HTMLTextAreaElement.prototype.value` +
+  eventos `input`/`change`, tanto en `content.js` como en el plan B
+  (`handleInsertMain` en `background.js`).
+- La lectura del contenido (verificación, detección de borradores a medias,
+  confirmación de envío) usa `.value` en vez de `.innerText` cuando el campo
+  es un `<textarea>`.
+- El banco de pruebas reproduce ahora esta estructura exacta (textarea sin
+  `id`, botón de enviar sin `id`, solo texto "Responder") en vez del modelo
+  antiguo — ver `pruebas/tests.js`, sección "CAMPO REAL".
+
+Ver `TRASPASO.md` para el detalle completo y lo que queda por confirmar (los
+botones de reacción / "me gusta", sección 6 del diagnóstico, que se cortó
+antes de llegar).
 
 Nueva función pedida por el usuario: dar "me gusta" al comentario justo
 después de publicar la respuesta. Ajuste "Dar 'me gusta' al comentario al
@@ -46,7 +60,7 @@ lógica, no de selectores nuevos):
   publicando.** Un cambio de URL interno de Studio en pleno envío ya no
   puede borrar el panel o la cuenta atrás a media publicación.
 
-Con estos cambios: 29 pruebas de `tests.js` (antes 24) y 33 de `tests-bg.js`,
+Con estos cambios: 31 pruebas de `tests.js` (antes 24) y 33 de `tests-bg.js`,
 todas en verde. Sigue aplicando la misma advertencia de siempre: esto no ha
 podido probarse contra el DOM real de Studio. Ver `TRASPASO.md` para el
 siguiente paso.

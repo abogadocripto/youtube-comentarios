@@ -249,6 +249,32 @@ const T = async (...a) => results.push(await run(...a));
       assert(!$(".yra2-panel [data-act='publish']").disabled, "ha dejado el boton bloqueado");
     });
 
+  console.log("\nCAMPO REAL: <textarea> (confirmado con diagnostico-dom.js el 21/09/2026)");
+
+  await T("un clic publica la respuesta cuando el campo es un <textarea>, no un contenteditable",
+    { studio: { campoTextarea: true }, mock: { reply: "Respuesta sobre textarea." } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      const target = threads[1];
+      target.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(target.dataset.published, "no ha publicado con el campo real (textarea)");
+      assert(target.dataset.published === "Respuesta sobre textarea.", `texto publicado: "${target.dataset.published}"`);
+      assert(!threads[0].dataset.published && !threads[2].dataset.published, "ha publicado en otra fila tambien");
+    });
+
+  await T("con <textarea>, si Angular no registra el input el boton de enviar sigue deshabilitado y aborta",
+    { studio: { campoTextarea: true, angularRegistersInput: false }, mock: { reply: "No deberia publicarse." } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(9000);
+      assert(!t.dataset.published, "ha publicado sin que Angular registrara el texto");
+      assert($$(".yra2-panel").length === 1, "no ha dejado el texto disponible en el panel");
+    });
+
   console.log("\n'ME GUSTA' TRAS PUBLICAR");
 
   await T("con likeOnPublish activado (por defecto), da 'me gusta' tras publicar",

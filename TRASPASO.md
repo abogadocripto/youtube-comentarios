@@ -108,6 +108,49 @@ si es un `<textarea>` y, si lo es, el arreglo es sencillo y ya está esbozado
 en `handleInsertMain` (`background.js`): usar el setter nativo de `.value` +
 evento `input`, en vez de `execCommand`.
 
+#### Confirmado con datos reales — 21/09/2026
+
+El usuario ha ejecutado `diagnostico-dom.js` real (no una imagen: la salida
+completa de la sección 1). **Confirmado: es un `<textarea>`.** Cadena real:
+
+```
+textarea#textarea.style-scope.tp-yt-iron-autogrow-textarea
+  < div.textarea-container.fit.style-scope
+  < tp-yt-iron-autogrow-textarea#textarea...
+  < div#child-input... < div#outer... < ytcp-form-input-container#input-container
+  < div#main.style-scope.ytcp-commentbox < div#body.style-scope.ytcp-commentbox
+```
+
+placeholder="Añade una respuesta...". Y el botón de enviar real, dentro de
+`ytcp-commentbox`, **no lleva `id="submit-button"`** — solo texto/aria
+"Responder", después del campo en orden de documento. Encaja exactamente con
+la rama de fallback por texto que `findSubmitButton`/`buscarBotonEnviar` ya
+tenían para este caso.
+
+Con esto se ha corregido, ya no como hipótesis sino como hecho verificado:
+
+- `FIELD_SELECTOR` ahora incluye `"ytcp-commentbox textarea"`.
+- `insertText()` (content.js) bifurca por `field.tagName === "TEXTAREA"`: usa
+  el setter nativo de `HTMLTextAreaElement.prototype.value` + eventos
+  `input`/`change`, en vez de `execCommand` con selección de `Range` (que no
+  aplica a un `<textarea>`, que no participa en `window.getSelection()`).
+- `contentMatches()`, `closeOpenBoxes()` y la confirmación de envío del paso 7
+  de `publish()` ahora leen el contenido con `fieldText()`, que usa `.value`
+  para `<textarea>` en vez de `.innerText`/`.textContent` (que en un
+  `<textarea>` reflejan el HTML inicial, no lo que el usuario ha escrito).
+- El plan B (`handleInsertMain` en `background.js`, mundo principal) recibió
+  la misma bifurcación.
+- `pruebas/harness.js` tiene ahora un modo `campoTextarea: true` que reproduce
+  esta estructura exacta (textarea sin id, botón de enviar sin id, solo
+  texto), para no volver a dar por buena una prueba que solo ejercita el
+  modelo antiguo. Dos pruebas nuevas en `tests.js` cubren el camino feliz y
+  el aborto cuando el framework no registra el input.
+
+**Lo que sigue sin verificar:** los botones de reacción (me gusta / no me
+gusta / corazón) de la sección 6 del diagnóstico — el mensaje se cortó antes
+de llegar a esa parte. `likeComment()` sigue siendo best-effort hasta que se
+vea esa sección.
+
 ### Función nueva pedida: "me gusta" al comentario al publicar
 
 Se ha añadido `likeComment()` en `content.js`, activada por el ajuste

@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url: "https://studio.youtube.com/channel/UCabc/comments/inbox", pretendToBeVisual: true, runScripts: "outside-only" }
@@ -69,7 +69,18 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
       setTimeout(() => {
         const box = doc.createElement("div");
         box.className = "reply-box";
-        box.innerHTML = `
+        // campoTextarea reproduce el DOM real confirmado con diagnostico-dom.js:
+        // un <textarea> dentro de ytcp-commentbox, no un contenteditable. El
+        // boton de enviar real NO lleva id="submit-button" (solo texto
+        // "Responder"), asi que aqui tampoco se le pone: hay que ejercitar
+        // la misma ruta de busqueda por texto que usara la extension real.
+        box.innerHTML = campoTextarea ? `
+          <ytcp-commentbox>
+            <textarea id="textarea" placeholder="Añade una respuesta..."></textarea>
+          </ytcp-commentbox>
+          <ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>
+          <ytcp-button class="submit-real" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
+        ` : `
           <ytcp-mentionable-textarea>
             ${campoExtra ? '<div class="mention-overlay" contenteditable="true"></div>' : ""}
             <div id="contenteditable-root" contenteditable="true"></div>
@@ -78,11 +89,17 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
           <ytcp-button id="submit-button" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
         `;
         thread.appendChild(box);
-        const field = box.querySelector("#contenteditable-root");
-        const submit = box.querySelector("#submit-button");
+        const field = campoTextarea ? box.querySelector("textarea") : box.querySelector("#contenteditable-root");
+        const submit = campoTextarea ? box.querySelector(".submit-real") : box.querySelector("#submit-button");
+        const valorCampo = () => (campoTextarea ? field.value : field.textContent) || "";
 
         field.addEventListener("input", () => {
-          if ((field.textContent || "").trim()) submit.removeAttribute("disabled");
+          // En modo contenteditable, angularRegistersInput ya se aplica en el
+          // mock de execCommand (el evento ni se dispara). En modo textarea
+          // nuestro propio codigo SI dispara el evento 'input' siempre, asi
+          // que aqui se reproduce "el framework no lo registra" ignorandolo.
+          if (!angularRegistersInput) return;
+          if (valorCampo().trim()) submit.removeAttribute("disabled");
           else submit.setAttribute("disabled", "");
         });
         submit.querySelector("button").addEventListener("click", () => {
@@ -93,10 +110,10 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
             // verdad. La caja sigue ahi, y el boton de enviar sigue
             // conectado, visible y habilitado: nada lo deshabilita, porque
             // no hay ninguna publicacion real en curso.
-            field.textContent = "";
+            if (campoTextarea) field.value = ""; else field.textContent = "";
             return;
           }
-          thread.dataset.published = field.textContent;
+          thread.dataset.published = valorCampo();
           box.remove();
         });
         box.querySelector(".cancel button").addEventListener("click", () => box.remove());
