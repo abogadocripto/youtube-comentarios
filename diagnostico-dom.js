@@ -10,9 +10,15 @@
    2. Abre a mano el cuadro de respuesta de un comentario (boton Responder).
    3. Escribe dos o tres letras dentro, a mano, para que el boton de enviar
       se habilite.
-   4. F12 > Consola. Si pide permiso, teclea  allow pasting  y Enter.
-   5. Pega este fichero entero y Enter.
-   6. Copia toda la salida.
+   4. Pasa el raton por encima de la fila del comentario un momento (algunos
+      iconos de me gusta / no me gusta solo aparecen al hover).
+   5. F12 > Consola. Si pide permiso, teclea  allow pasting  y Enter.
+   6. Pega este fichero entero y Enter.
+   7. Copia toda la salida.
+
+   Busca ademas si el campo de respuesta es un <textarea> normal en vez de un
+   contenteditable, y lista los botones de reaccion (me gusta, etc.) de la
+   fila del comentario.
    ========================================================================== */
 
 (() => {
@@ -44,25 +50,47 @@
   say("URL: " + location.pathname + location.search);
   say("");
 
-  /* 1. Campos editables ---------------------------------------------------- */
-  const SEL = "div#contenteditable-root, ytcp-mentionable-textarea [contenteditable='true'], " +
+  /* 1. Campos de respuesta: contenteditable Y <textarea> --------------------
+     Antes solo se buscaba contenteditable. Si Studio ha cambiado a un
+     <textarea> normal (el placeholder "Añade una respuesta..." es tipico de
+     un textarea, no de un contenteditable), el metodo de insercion actual
+     -execCommand con seleccion de Range- no sirve para el, y hay que saberlo
+     aqui, no adivinarlo.                                                   */
+  const SEL_CE = "div#contenteditable-root, ytcp-mentionable-textarea [contenteditable='true'], " +
               "ytcp-form-textarea [contenteditable='true'], div[contenteditable='true']";
-  const todos = [...new Set(document.querySelectorAll(SEL))];
-  const vis = todos.filter(visible);
+  const todosCE = [...new Set(document.querySelectorAll(SEL_CE))];
+  const visCE = todosCE.filter(visible);
+  const todosTA = [...new Set(document.querySelectorAll("textarea"))];
+  const visTA = todosTA.filter(visible);
 
-  say(`1. CAMPOS EDITABLES: ${todos.length} en total, ${vis.length} visibles`);
-  vis.forEach((f, i) => {
+  say("1. CAMPOS DE RESPUESTA");
+  say(`   contenteditable: ${todosCE.length} en total, ${visCE.length} visibles`);
+  visCE.forEach((f, i) => {
     const r = f.getBoundingClientRect();
-    say(`   [${i}] ${ident(f)}  ${Math.round(r.width)}x${Math.round(r.height)}` +
+    say(`   [ce${i}] ${ident(f)}  ${Math.round(r.width)}x${Math.round(r.height)}` +
         `  ariaHidden=${!!f.closest("[aria-hidden='true']")}` +
         `  texto=${JSON.stringify((f.innerText || "").slice(0, 30))}`);
     say(`        cadena: ${cadena(f)}`);
   });
-  if (!vis.length) say("   NINGUNO. Abre a mano un cuadro de respuesta antes de ejecutar esto.");
+  say(`   textarea: ${todosTA.length} en total, ${visTA.length} visibles`);
+  visTA.forEach((f, i) => {
+    const r = f.getBoundingClientRect();
+    say(`   [ta${i}] ${ident(f)}  ${Math.round(r.width)}x${Math.round(r.height)}` +
+        `  placeholder=${JSON.stringify(f.placeholder || "")}` +
+        `  value=${JSON.stringify((f.value || "").slice(0, 30))}`);
+    say(`        cadena: ${cadena(f)}`);
+  });
+  if (!visCE.length && !visTA.length) {
+    say("   NINGUNO. Abre a mano un cuadro de respuesta antes de ejecutar esto.");
+  } else if (!visCE.length && visTA.length) {
+    say("   AVISO IMPORTANTE: no hay ningun contenteditable visible pero SI hay <textarea>.");
+    say("   El campo de respuesta de Studio probablemente ya no es un contenteditable.");
+  }
   say("");
 
   /* 2. Botones alrededor del campo ----------------------------------------- */
-  const campo = vis.find((f) => f.id === "contenteditable-root") || vis[0];
+  const campo = visCE.find((f) => f.id === "contenteditable-root") || visCE[0] || visTA[0];
+  const campoEsTextarea = campo && campo.tagName === "TEXTAREA";
   if (campo) {
     say("2. BOTONES ALREDEDOR DEL CAMPO (subiendo desde el)");
     let n = campo.parentElement;
@@ -116,29 +144,80 @@
   });
   say("");
 
-  /* 6. Prueba de insercion ------------------------------------------------- */
+  /* 6. Botones de reaccion del comentario (me gusta / no me gusta / corazon) -
+     Para la funcion de "dar like al publicar". Si no salen aqui, pasa el
+     raton por encima de la fila del comentario (algunos solo se muestran al
+     hover) y vuelve a ejecutar el script.                                  */
+  say("6. BOTONES DE REACCION DEL COMENTARIO (me gusta / no me gusta / corazon / mas)");
   if (campo) {
-    say("6. PRUEBA DE INSERCION (escribe y borra una marca de prueba)");
-    const antes = campo.innerText || "";
+    const hiloReaccion = campo.closest("ytcp-comment-thread") || campo.closest("ytcp-comment") || campo.closest("ytcp-comment-info");
+    if (hiloReaccion) {
+      const posibles = [...hiloReaccion.querySelectorAll(
+        "ytcp-icon-button, tp-yt-paper-icon-button, ytcp-button, button, tp-yt-paper-button"
+      )].filter(visible);
+      if (posibles.length) {
+        posibles.forEach((b) => {
+          const iconEl = b.hasAttribute("icon") ? b : b.querySelector("[icon]");
+          say(`   ${ident(b)}`);
+          say(`      texto=${JSON.stringify((b.innerText || "").trim().slice(0, 25))}` +
+              `  aria=${JSON.stringify(b.getAttribute("aria-label") || "")}` +
+              `  title=${JSON.stringify(b.getAttribute("title") || "")}` +
+              `  icon=${JSON.stringify(iconEl ? iconEl.getAttribute("icon") : "")}`);
+          say(`      ariaPressed=${b.getAttribute("aria-pressed")}` +
+              `  cadena: ${cadena(b, 4)}`);
+        });
+      } else {
+        say("   Ninguno visible. Puede que solo aparezcan al pasar el raton por encima");
+        say("   del comentario (hover): pasa el cursor por la fila y repite el diagnostico.");
+      }
+    } else {
+      say("   No se ha encontrado el contenedor del comentario.");
+    }
+  } else {
+    say("   (sin campo de referencia, no se puede localizar la fila del comentario)");
+  }
+  say("");
+
+  /* 7. Prueba de insercion --------------------------------------------------
+     Se adapta al tipo de campo detectado en la seccion 1: contenteditable
+     (execCommand con seleccion de Range) o textarea (setter nativo del value
+     + evento input, que es lo que espera un formulario reactivo de Angular). */
+  if (campo) {
+    say("7. PRUEBA DE INSERCION (escribe y borra una marca de prueba)");
     const marca = "YRA_PRUEBA_" + Date.now();
     try {
-      campo.focus();
-      const sel = window.getSelection();
-      const r = document.createRange();
-      r.selectNodeContents(campo);
-      sel.removeAllRanges();
-      sel.addRange(r);
-      const ok = document.execCommand("insertText", false, marca);
-      const leido = campo.innerText || "";
-      say(`   execCommand devolvio: ${ok}`);
-      say(`   el campo contiene la marca: ${leido.includes(marca)}`);
-      // restaurar
-      const r2 = document.createRange();
-      r2.selectNodeContents(campo);
-      sel.removeAllRanges();
-      sel.addRange(r2);
-      document.execCommand("insertText", false, antes);
-      say(`   restaurado a: ${JSON.stringify((campo.innerText || "").slice(0, 30))}`);
+      if (campoEsTextarea) {
+        const antes = campo.value || "";
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set;
+        campo.focus();
+        setter.call(campo, antes + marca);
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+        const leido = campo.value || "";
+        say(`   campo tratado como <textarea> (setter nativo + evento input)`);
+        say(`   el campo contiene la marca: ${leido.includes(marca)}`);
+        setter.call(campo, antes);
+        campo.dispatchEvent(new Event("input", { bubbles: true }));
+        say(`   restaurado a: ${JSON.stringify((campo.value || "").slice(0, 30))}`);
+      } else {
+        const antes = campo.innerText || "";
+        campo.focus();
+        const sel = window.getSelection();
+        const r = document.createRange();
+        r.selectNodeContents(campo);
+        sel.removeAllRanges();
+        sel.addRange(r);
+        const ok = document.execCommand("insertText", false, marca);
+        const leido = campo.innerText || "";
+        say(`   campo tratado como contenteditable (execCommand)`);
+        say(`   execCommand devolvio: ${ok}`);
+        say(`   el campo contiene la marca: ${leido.includes(marca)}`);
+        const r2 = document.createRange();
+        r2.selectNodeContents(campo);
+        sel.removeAllRanges();
+        sel.addRange(r2);
+        document.execCommand("insertText", false, antes);
+        say(`   restaurado a: ${JSON.stringify((campo.innerText || "").slice(0, 30))}`);
+      }
     } catch (e) {
       say(`   ERROR: ${e.message}`);
     }

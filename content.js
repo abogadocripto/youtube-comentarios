@@ -39,6 +39,7 @@
     mode: "auto", // "auto" = publica sola | "review" = siempre revisar
     countdown: 4, // segundos de ventana de escape; 0 = publica al instante
     requireTranscript: true, // sin transcripcion -> no publica sola
+    likeOnPublish: true, // dar "me gusta" al comentario tras publicar la respuesta
     debug: true,
   };
 
@@ -519,6 +520,7 @@
         return;
       }
       toast("Respuesta publicada.", "ok");
+      if (state.cfg.likeOnPublish) likeComment(liveRow(btn, row, commentId));
     } catch (err) {
       warn(err);
       abortFlow(row, `Error inesperado: ${err.message}`);
@@ -689,6 +691,51 @@
       return { ok: false, error: "Se ha pulsado enviar pero el cuadro sigue abierto. Comprueba si se ha publicado." };
     }
     return { ok: true };
+  }
+
+  /* ==========================================================================
+     5bis. "ME GUSTA" AL COMENTARIO TRAS PUBLICAR
+     ----------------------------------------------------------------------------
+     A diferencia de publish(), esto es "best effort": no hay selector real
+     verificado (nadie ha tenido acceso al DOM de Studio con el diagnostico
+     ampliado todavia — ver diagnostico-dom.js, seccion 6). Si no se encuentra
+     un boton con el que se tenga confianza razonable, se omite en silencio.
+     Nunca debe poder hacer fallar ni deshacer una publicacion ya confirmada:
+     se llama siempre DESPUES de que publish() ha devuelto ok:true, envuelto
+     en try/catch, y su resultado no se propaga como error.               */
+  const LIKE_WORDS = ["me gusta", "like"];
+  const LIKE_EXCLUDE = [
+    "no me gusta", "dislike", "corazon", "corazón", "heart",
+    "responder", "reply", "respondre", "cancelar", "cancel",
+    "mas opciones", "more options", "publicar", "comentar", "comment",
+  ];
+
+  async function likeComment(row) {
+    if (!row?.isConnected) return false;
+    try {
+      const cands = [...row.querySelectorAll(
+        "ytcp-icon-button, tp-yt-paper-icon-button, ytcp-button, button, tp-yt-paper-button"
+      )].filter((b) => isVisible(b) && !esNuestro(b));
+
+      const btn = cands.find((b) => {
+        const label = ((b.getAttribute("aria-label") || "").trim() || txt(b)).toLowerCase();
+        if (!label) return false;
+        if (LIKE_EXCLUDE.some((w) => label.includes(w))) return false;
+        if (b.getAttribute("aria-pressed") === "true") return false; // ya estaba marcado
+        return LIKE_WORDS.some((w) => label.includes(w));
+      });
+
+      if (!btn) {
+        log("Dar 'me gusta': no se ha identificado el boton con confianza suficiente. Se omite.");
+        return false;
+      }
+      realClick(btn);
+      log("Dar 'me gusta' al comentario: clic emitido.");
+      return true;
+    } catch (e) {
+      warn("Dar 'me gusta' ha fallado (no afecta a la respuesta ya publicada):", e.message);
+      return false;
+    }
   }
 
   /* ==========================================================================
@@ -1037,8 +1084,11 @@
         }
         panel.querySelectorAll(".yra2-act").forEach((b) => { b.disabled = false; });
         e.target.textContent = "Publicar";
-        if (res.ok) { panel.remove(); toast("Respuesta publicada.", "ok"); }
-        else {
+        if (res.ok) {
+          panel.remove();
+          toast("Respuesta publicada.", "ok");
+          if (state.cfg.likeOnPublish) likeComment(liveRow(btn, live, meta.commentId));
+        } else {
           inlineMessage(panel, res.error, "error");
           toast(res.error, "err"); // tambien fuera del panel, por si se cierra
         }

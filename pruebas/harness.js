@@ -51,11 +51,16 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
       <div class="comment-actions">
         <ytcp-button class="open-reply"><button>Responder</button></ytcp-button>
         <span class="video-title">Europa quiere PROHIBIR las wallets</span>
+        <ytcp-icon-button class="like-btn" aria-label="Me gusta"><button></button></ytcp-icon-button>
       </div>
       <a href="https://studio.youtube.com/video/VID${i}0000000/comments">ver</a>
       <img src="https://i.ytimg.com/vi/VID${i}0000000/hq.jpg" />
     `;
     app.appendChild(thread);
+
+    thread.querySelector(".like-btn button").addEventListener("click", () => {
+      thread.dataset.liked = "1";
+    });
 
     // Al pulsar Responder, Studio monta la caja: campo + Cancelar + Responder
     // (este ultimo deshabilitado hasta que el modelo registra texto).

@@ -249,6 +249,42 @@ const T = async (...a) => results.push(await run(...a));
       assert(!$(".yra2-panel [data-act='publish']").disabled, "ha dejado el boton bloqueado");
     });
 
+  console.log("\n'ME GUSTA' TRAS PUBLICAR");
+
+  await T("con likeOnPublish activado (por defecto), da 'me gusta' tras publicar",
+    {}, async ({ wait, $$ }) => {
+      const t = $$("ytcp-comment-thread")[1];
+      await wait(600);
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Respuesta de prueba.", "no ha publicado");
+      assert(t.dataset.liked === "1", "no ha dado 'me gusta' tras publicar con el ajuste activado");
+    });
+
+  await T("con likeOnPublish desactivado, no toca el boton de me gusta",
+    { mock: { reply: "Sin like.", cfg: { likeOnPublish: false } } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Sin like.", "no ha publicado");
+      assert(!t.dataset.liked, "ha dado 'me gusta' con el ajuste desactivado");
+    });
+
+  await T("el 'me gusta' tras publicar desde el panel tambien se intenta",
+    { mock: { reply: "Texto.", transcriptOk: false } },
+    async ({ wait, $$, $ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      $(".yra2-panel [data-act='publish']").click();
+      await wait(3000);
+      assert(t.dataset.published === "Texto.", "no ha publicado desde el panel");
+      assert(t.dataset.liked === "1", "no ha dado 'me gusta' al publicar desde el panel");
+    });
+
   console.log("\nREGRESIONES 2.2.2 — confirmacion de envio y ruta");
 
   await T("un vaciado del campo sin publicar de verdad no se confunde con exito (H1)",

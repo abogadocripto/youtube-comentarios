@@ -64,6 +64,66 @@ Sigue en pie la recomendación de fondo de la §7 (Data API v3). Nada de esta
 ronda la sustituye; solo hace que la vía DOM falle con menos falsos positivos
 mientras se decide si se invierte en OAuth.
 
+### Primera evidencia visual real (captura del usuario, no diagnóstico)
+
+El usuario ha instalado la 2.2.2 y ha mandado una captura de pantalla real de
+Studio. Es la primera vez que este proyecto ve algo del DOM real, aunque sea
+una imagen y no la salida de `diagnostico-dom.js`. Secuencia observada:
+
+1. Pulsa "✨ Responder con IA" en un comentario sin transcripción → se abre el
+   panel de revisión (correcto, es el comportamiento esperado sin
+   transcripción).
+2. Pulsa "Publicar" dentro del panel.
+3. Studio SÍ abre una caja de respuesta visible ("Añade una respuesta...").
+4. El toast rojo dice: **"Al pulsar Responder no se ha abierto ningún cuadro
+   de respuesta."**
+
+Es decir: la caja se abre a la vista, pero el código no la detecta dentro de
+los 8 s de `waitFor` en el paso 2 de `publish()`. Hipótesis más probable a
+partir de lo visible en la captura: el placeholder gris "Añade una
+respuesta..." es típico de un `<textarea>` con atributo `placeholder`, no de
+un `contenteditable` (que normalmente usa un truco de CSS `:empty::before`,
+sin atributo `placeholder`). Si Studio ha pasado su editor de respuestas de
+un `div[contenteditable]` a un `<textarea>` normal, **todo** el mecanismo
+actual de detección (`FIELD_SELECTOR`, que solo busca contenteditable) e
+inserción (`execCommand("insertText")` con selección de `Range`, que no
+aplica a un `<textarea>`) está construido sobre un supuesto que ya no es
+cierto. No es H1/H2/H3: es un cuarto candidato, anterior a todos ellos, que
+haría fallar el flujo antes de llegar siquiera al paso de publicar.
+
+**No se ha cambiado el código a partir de esta sola hipótesis** — sería
+exactamente el error que esta sección pide no repetir: una imagen no es un
+selector, y adivinar el atributo `placeholder` de una captura no es dato
+verificado. En su lugar se ha ampliado `diagnostico-dom.js` (sección 1) para
+que busque explícitamente `<textarea>` visibles además de `contenteditable`,
+y avise si detecta la combinación "sin contenteditable, con textarea" — que
+confirmaría o refutaría esto de un vistazo. También se ha añadido la sección
+6, que lista los botones de reacción del comentario (me gusta / no me gusta /
+corazón), pedidos por el usuario para una función nueva (ver más abajo).
+
+**Siguiente paso, antes de tocar `FIELD_SELECTOR` o `insertText()`:** que el
+usuario ejecute el `diagnostico-dom.js` actualizado con una caja de respuesta
+abierta (como en su captura) y pegue la salida completa. Con eso se confirma
+si es un `<textarea>` y, si lo es, el arreglo es sencillo y ya está esbozado
+en `handleInsertMain` (`background.js`): usar el setter nativo de `.value` +
+evento `input`, en vez de `execCommand`.
+
+### Función nueva pedida: "me gusta" al comentario al publicar
+
+Se ha añadido `likeComment()` en `content.js`, activada por el ajuste
+`likeOnPublish` (por defecto `true`, checkbox en el popup). Se llama siempre
+DESPUÉS de que `publish()` ya ha devuelto `ok:true`, nunca antes ni durante:
+un fallo aquí no puede impedir ni deshacer una respuesta ya publicada. Busca,
+dentro de la fila del comentario, un botón visible con `aria-label` o texto
+"me gusta"/"like", excluyendo "no me gusta", "corazón" (que en Studio es la
+reacción exclusiva del propietario del canal, no un "me gusta" genérico) y
+los propios botones de la extensión. **Es una heurística razonable, no un
+selector verificado** — igual que el resto de selectores de este proyecto,
+nadie ha visto el DOM real de esos iconos. Si no encuentra un candidato claro,
+lo omite en silencio (log en consola) y la respuesta se publica igual. La
+sección 6 de `diagnostico-dom.js` está pensada exactamente para confirmar o
+corregir esto en la próxima ronda con datos reales.
+
 ---
 
 ## 1. Contexto

@@ -10,6 +10,7 @@
     mode: "auto",
     countdown: 4,
     requireTranscript: true,
+    likeOnPublish: true,
     debug: true,
   };
 
@@ -23,6 +24,7 @@
     countdown: $("countdown"),
     secsRow: $("secsRow"),
     requireTranscript: $("requireTranscript"),
+    likeOnPublish: $("likeOnPublish"),
     extraContext: $("extraContext"),
     customInstructions: $("customInstructions"),
     testBtn: $("testBtn"),
@@ -44,6 +46,7 @@
     if (!el.model.value) el.model.value = DEFAULTS.model;
     el.extendedThinking.checked = !!cfg.extendedThinking;
     el.requireTranscript.checked = !!cfg.requireTranscript;
+    el.likeOnPublish.checked = cfg.likeOnPublish !== false;
     el.extraContext.value = cfg.extraContext || "";
     el.customInstructions.value = cfg.customInstructions || "";
     el.countdown.value = Number(cfg.countdown) > 0 ? Number(cfg.countdown) : 4;
@@ -87,6 +90,7 @@
       mode,
       countdown,
       requireTranscript: el.requireTranscript.checked,
+      likeOnPublish: el.likeOnPublish.checked,
       debug: true,
     };
   }

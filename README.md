@@ -1,8 +1,28 @@
-# YouTube Reply Assistant v2.2.2
+# YouTube Reply Assistant v2.2.3
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.3
+
+Primer dato real (una captura de pantalla del usuario): al publicar desde el
+panel, Studio sí abre la caja de respuesta pero el código no la detecta
+("Al pulsar Responder no se ha abierto ningún cuadro de respuesta"). Hipótesis
+más probable: el campo de Studio ya no es un `contenteditable`, sino un
+`<textarea>` normal. **No confirmado** — se ha ampliado `diagnostico-dom.js`
+(sección 1) para detectarlo con datos en vez de adivinarlo. Ver `TRASPASO.md`.
+
+Nueva función pedida por el usuario: dar "me gusta" al comentario justo
+después de publicar la respuesta. Ajuste "Dar 'me gusta' al comentario al
+publicar la respuesta" en el popup (activado por defecto). Es "best effort" a
+propósito: busca un botón visible con `aria-label` o texto "me gusta"/"like"
+cerca del comentario, excluyendo "no me gusta", "corazón" (la reacción propia
+del canal) y los botones de la extensión. **Tampoco verificado contra Studio
+real** — si no encuentra un candidato con confianza razonable, se omite en
+silencio y la respuesta se publica igual; nunca puede hacer fallar ni
+deshacer una publicación ya confirmada. `diagnostico-dom.js` (sección 6, ya
+ampliada) es lo que confirmará el selector real.
 
 ## Novedades en 2.2.2
 
@@ -26,7 +46,7 @@ lógica, no de selectores nuevos):
   publicando.** Un cambio de URL interno de Studio en pleno envío ya no
   puede borrar el panel o la cuenta atrás a media publicación.
 
-Con estos cambios: 26 pruebas de `tests.js` (antes 24) y 33 de `tests-bg.js`,
+Con estos cambios: 29 pruebas de `tests.js` (antes 24) y 33 de `tests-bg.js`,
 todas en verde. Sigue aplicando la misma advertencia de siempre: esto no ha
 podido probarse contra el DOM real de Studio. Ver `TRASPASO.md` para el
 siguiente paso.
