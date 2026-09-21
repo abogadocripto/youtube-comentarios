@@ -664,6 +664,49 @@ asumas que un agente "solo de revisión" no ha podido escribir en el árbol.
     <= 1` en el test del cerrojo, que seguiría pasando aunque AMBOS clics
     fallaran en silencio. Corregidos a comprobaciones reales.
 
+### Cierre del workflow (los 25 hallazgos brutos, verificados al 100%)
+
+La verificación adversarial se topó con el límite de sesión a mitad de
+camino (ver más abajo lo aplicado mientras tanto por lectura directa del
+código). Al reanudarla completa (85/85 agentes, sin errores), el veredicto
+final sobre los 25 hallazgos brutos de la fase de revisión fue: **5
+sobreviven** la refutación por mayoría de 3 verificadores independientes.
+De esos 5, el crítico (relectura tras la cuenta atrás) ya estaba corregido
+arriba. Los otros 4:
+
+14. **El fast-path por `id="submit-button"` del harness, que el DOM real
+    confirmado NUNCA tiene**, era el camino que tomaba casi toda la suite
+    (el modo contenteditable legacy sí le ponía ese id), así que la
+    búsqueda real por texto/aria-label — la que usa producción — apenas se
+    ejercitaba. Se quitó ese id de **ambos** modos del harness: ya no es
+    solo "menos representativo", es modelar un dato que sabemos que es
+    falso. Los 36 tests de `tests.js` pasan igual, confirmando que el
+    fallback por texto siempre ha funcionado — pero ahora es lo que de
+    verdad se está probando.
+15. **`closeOpenBoxes()` (la salvaguarda contra destruir un borrador a
+    medias) solo se probaba en modo contenteditable.** Añadido el mismo
+    test en modo `campoTextarea: true`.
+16. **`handleInsertMain()` (plan B de inserción) sin ninguna prueba.**
+    Cerrado parcialmente ya en la ronda anterior (orquestación: tabId,
+    args, propagación del resultado, en `tests-bg.js`). Sigue sin probarse
+    la lógica interna del `func` inyectado contra un DOM real — requeriría
+    extraerlo a una función nombrada aparte en `background.js`, un cambio
+    de arquitectura fuera de esta ronda.
+17. **Condición de carrera en la caché de transcripción**: dos pestañas
+    sobre el mismo vídeo (o dos llamadas casi simultáneas) podían disparar
+    `fetchTranscript()` por separado antes de que ninguna cacheara nada,
+    repitiendo las cinco estrategias y hasta veinte peticiones de red.
+    Añadido un `Map` de promesas en vuelo por `videoId`, registrado
+    **antes de cualquier `await`** dentro de `handleTranscript()` (el
+    primer intento lo registraba después de leer la caché de storage, lo
+    que dejaba una ventana de carrera real para dos llamadas verdaderamente
+    simultáneas — se corrigió al detectarlo). Test en `tests-bg.js` que
+    verifica el efecto observable (no se duplican las llamadas de red),
+    no el estado interno: las `const` de nivel superior de `background.js`
+    no se adjuntan al objeto del contexto `vm` que usan las pruebas
+    (a diferencia de las `function`, que sí), así que `G.enVuelo` no
+    existe ahí — lección para quien añada más pruebas de este estilo.
+
 ### Refutado tras verificación adversarial (no se ha tocado)
 
 - **"El botón de enviar podría sustituirse por un nodo nuevo al
@@ -676,14 +719,12 @@ asumas que un agente "solo de revisión" no ha podido escribir en el árbol.
 
 ### Pendiente, documentado pero no implementado
 
-- **Cobertura de tests todavía sesgada hacia el modo `contenteditable`
-  legacy** del harness (bastantes tests siguen usando el fast-path por
-  `id="submit-button"`, que el DOM real confirmado no tiene). Se añadieron
-  tests específicos en modo `campoTextarea` para los escenarios más
-  críticos (camino feliz, Angular no registra, hilo con respuesta previa,
-  API key ausente), pero no se ha invertido el *default* del harness — eso
-  exigiría revisar cada test legacy uno a uno para no perder cobertura de
-  lo que sí es específico de contenteditable (p.ej. el test de doble
+- **El *default* del harness sigue siendo el modo `contenteditable`
+  legacy** (la mayoría de tests no pasan `campoTextarea: true`). Ya no
+  ejercitan un fast-path falso (el `id="submit-button"` se quitó de los dos
+  modos, punto 14 de arriba), pero invertir el default exigiría revisar
+  cada test legacy uno a uno para no perder cobertura de lo que sí es
+  específico de contenteditable (p.ej. el test de doble
   `contenteditable`/`campoExtra`).
 - **La lógica interna del `func` inyectado por `handleInsertMain()`** (el
   plan B, mundo principal) se probó en su orquestación (tabId, args,

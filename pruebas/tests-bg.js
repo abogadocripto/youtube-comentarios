@@ -244,6 +244,40 @@ ta("handleInsertMain sin resultado de la pagina devuelve un error explicito", as
   eq(res.error, "sin resultado de la pagina", "mensaje incorrecto");
 });
 
+// Dos pestañas de Studio sobre el mismo video (o dos comentarios del mismo
+// video pulsados casi a la vez) no deben repetir las cinco estrategias por
+// separado (hallazgo de revision). Se comprueba el efecto observable -no se
+// duplican las llamadas de red- en vez de un detalle interno: `enVuelo` es
+// una const de nivel superior de background.js, y las const de nivel
+// superior no se adjuntan al objeto del contexto vm (a diferencia de las
+// function declarations, que si), asi que G.enVuelo no existe aqui.
+ta("handleTranscript deduplica dos llamadas concurrentes para el mismo videoId (no duplica las llamadas de red)", async () => {
+  let fetchCalls = 0;
+  const origFetch = sandbox.fetch;
+  sandbox.fetch = async () => { fetchCalls++; throw new Error("sin red"); };
+  try {
+    // Referencia: cuantas veces llama a fetch UNA sola peticion aislada
+    // para un video nunca visto (chrome.tabs no existe en este sandbox, asi
+    // que la estrategia "studio" falla aparte y no cuenta aqui).
+    await G.handleTranscript({ videoId: "REF-VIDEO-UNA-SOLA" });
+    const llamadasUnaVez = fetchCalls;
+    ok(llamadasUnaVez > 0, "la peticion de referencia no ha llamado a fetch ni una vez");
+
+    // Dos llamadas simultaneas para OTRO video, tambien nunca visto.
+    fetchCalls = 0;
+    const vid = "DEDUP-VIDEO-CONCURRENTE";
+    const [r1, r2] = await Promise.all([
+      G.handleTranscript({ videoId: vid }),
+      G.handleTranscript({ videoId: vid }),
+    ]);
+    eq(r1.ok, r2.ok, "las dos llamadas concurrentes no han devuelto el mismo resultado");
+    eq(fetchCalls, llamadasUnaVez,
+      `deduplicacion incorrecta: ${fetchCalls} llamadas a fetch para dos peticiones concurrentes del mismo video (se esperaban ${llamadasUnaVez}, las de una sola peticion)`);
+  } finally {
+    sandbox.fetch = origFetch;
+  }
+});
+
 (async () => {
   for (const { name, fn } of asyncTests) {
     try {

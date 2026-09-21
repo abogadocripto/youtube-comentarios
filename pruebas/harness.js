@@ -93,7 +93,7 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
             <div id="contenteditable-root" contenteditable="true"></div>
           </ytcp-mentionable-textarea>
           <ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>
-          <ytcp-button id="submit-button" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
+          <ytcp-button class="submit-real" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
         `;
         // La caja de respuesta se inserta pegada al comentario principal
         // (justo despues de su barra de acciones), no al final del hilo:
@@ -104,7 +104,12 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
         const anclaje = thread.querySelector(".comment-actions");
         anclaje.after(box);
         const field = campoTextarea ? box.querySelector("textarea") : box.querySelector("#contenteditable-root");
-        const submit = campoTextarea ? box.querySelector(".submit-real") : box.querySelector("#submit-button");
+        // Ningun modo pone ya id="submit-button": el DOM real confirmado con
+        // diagnostico-dom.js nunca lo tiene (hallazgo de revision: el
+        // harness en modo contenteditable si lo ponia, asi que la mayoria de
+        // pruebas ejercitaban el fast-path por id de buscarBotonEnviar() en
+        // vez de la busqueda real por texto/aria-label que usa produccion).
+        const submit = box.querySelector(".submit-real");
         const valorCampo = () => (campoTextarea ? field.value : field.textContent) || "";
 
         field.addEventListener("input", () => {

@@ -1,23 +1,27 @@
-# YouTube Reply Assistant v2.2.6
+# YouTube Reply Assistant v2.2.7
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
 
-## Novedades en 2.2.5/2.2.6 — revisión exhaustiva con verificación adversarial
+## Novedades en 2.2.5–2.2.7 — revisión exhaustiva con verificación adversarial
 
 Ronda de revisión a fondo de todo el proyecto (10 agentes en paralelo por
-dimensión, cada hallazgo refutado adversarialmente antes de aplicarse). 13
-hallazgos confirmados y corregidos, entre ellos uno crítico: `publish()` no
-releía el contenido del campo entre la cuenta atrás y el clic real de envío,
-así que un cambio de texto durante esos segundos se publicaba sin haber sido
-verificado. También: una condición de carrera en el plan B de inserción que
-podía escribir el texto de una fila en otra, una defensa contra inyección de
-instrucciones desde comentarios de terceros, y la API key dejó de llegar al
-content script (contradecía el propio diseño documentado). Detalle completo,
-incluido lo refutado y lo que queda pendiente, en `TRASPASO.md` §11.
+dimensión; 25 hallazgos brutos, cada uno refutado adversarialmente por 3
+verificadores independientes antes de aplicarse — solo 5 sobrevivieron la
+verificación completa). 17 hallazgos confirmados y corregidos en total,
+entre ellos uno crítico: `publish()` no releía el contenido del campo entre
+la cuenta atrás y el clic real de envío, así que un cambio de texto durante
+esos segundos se publicaba sin haber sido verificado. También: una condición
+de carrera en el plan B de inserción y otra en la caché de transcripción
+(ambas podían mezclar el trabajo de dos filas/pestañas), una defensa contra
+inyección de instrucciones desde comentarios de terceros, la API key dejó de
+llegar al content script, y el banco de pruebas ya no modela un
+`id="submit-button"` que el DOM real confirmado nunca tiene. Detalle
+completo, incluido lo refutado y lo que queda pendiente, en `TRASPASO.md`
+§11.
 
-71 pruebas en verde (35 en `tests.js`, 36 en `tests-bg.js`).
+73 pruebas en verde (36 en `tests.js`, 37 en `tests-bg.js`).
 
 ## Novedades en 2.2.4 — el campo real ya está confirmado y corregido
 

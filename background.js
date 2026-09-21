@@ -225,6 +225,14 @@ function friendlyApiError(status, msg, model) {
    del video. Cinco estrategias en cascada y cuatro formatos de descarga.
    ══════════════════════════════════════════════════════════════════════════ */
 
+// videoId -> Promise en curso. Sin esto, dos pestañas de Studio abiertas
+// sobre el mismo video (o dos comentarios del mismo video pulsados casi a
+// la vez) podian disparar fetchTranscript() por separado antes de que
+// ninguna hubiera cacheado nada, repitiendo las cinco estrategias y las
+// hasta veinte peticiones de red que el cacheo de mas abajo existe
+// precisamente para evitar (hallazgo de revision).
+const enVuelo = new Map();
+
 async function handleTranscript({ videoId }) {
   if (!videoId) return { ok: false, reason: "sin videoId" };
 
@@ -234,22 +242,41 @@ async function handleTranscript({ videoId }) {
   const hit = memCache.get(videoId);
   if (vigente(hit)) return { ...hit.value, cached: true };
 
-  const key = `tc:${videoId}`;
-  const stored = (await chrome.storage.local.get(key))[key];
-  if (vigente(stored)) {
-    memCache.set(videoId, stored);
-    return { ...stored.value, cached: true };
-  }
+  // Se registra la promesa en vuelo ANTES de cualquier await (incluida la
+  // lectura del cache de storage): si el chequeo de enVuelo fuera despues de
+  // un await, dos llamadas realmente simultaneas para el mismo video podrian
+  // pasar de largo esta comprobacion antes de que ninguna hubiera tenido
+  // ocasion de registrarse todavia (hallazgo de revision).
+  if (enVuelo.has(videoId)) return enVuelo.get(videoId);
 
-  const value = await fetchTranscript(videoId);
-  // Cacheamos TAMBIEN los fallos. Si no, cada comentario del mismo video
-  // repite las cinco estrategias y las veinte peticiones de red que ya sabemos
-  // que no van a funcionar: ese era el motivo real de la lentitud.
-  const entry = { ts: Date.now(), value };
-  memCache.set(videoId, entry);
-  chrome.storage.local.set({ [key]: entry }).catch(() => {});
-  pruneCache().catch(() => {});
-  return value;
+  const promesa = (async () => {
+    const key = `tc:${videoId}`;
+    const stored = (await chrome.storage.local.get(key))[key];
+    if (vigente(stored)) {
+      memCache.set(videoId, stored);
+      return { ...stored.value, cached: true };
+    }
+
+    const value = await fetchTranscript(videoId);
+    // Cacheamos TAMBIEN los fallos. Si no, cada comentario del mismo video
+    // repite las cinco estrategias y las veinte peticiones de red que ya
+    // sabemos que no van a funcionar: ese era el motivo real de la lentitud.
+    const entry = { ts: Date.now(), value };
+    memCache.set(videoId, entry);
+    // El storage.local.set se espera ANTES de podar: pruneCache() lee TODO
+    // el storage con get(null), y sin este await podia no ver todavia la
+    // entrada recien escrita (hallazgo de revision; se autocorregia en la
+    // siguiente poda, pero no habia motivo para dejarlo asi de impreciso).
+    try { await chrome.storage.local.set({ [key]: entry }); } catch (e) {}
+    pruneCache().catch(() => {});
+    return value;
+  })();
+  enVuelo.set(videoId, promesa);
+  try {
+    return await promesa;
+  } finally {
+    enVuelo.delete(videoId);
+  }
 }
 
 // Mantiene la cache acotada: 60 videos (~1 MB) es de sobra para trabajar la

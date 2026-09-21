@@ -150,6 +150,26 @@ const T = async (...a) => results.push(await run(...a));
     assert(threads[0].querySelector(".yra2-inline--error"), "no ha avisado del conflicto");
   });
 
+  await T("caja con texto a medias en otra fila (campo real <textarea>): aborta y no la destruye",
+    { studio: { campoTextarea: true } },
+    async ({ wait, $$ }) => {
+      // closeOpenBoxes() (salvaguarda 1) solo se probaba en modo
+      // contenteditable (test de arriba), que ya no es el campo real
+      // (hallazgo de revision): fieldText() lee .value para <textarea> en
+      // vez de .innerText/.textContent, es una ruta de lectura distinta.
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      threads[2].querySelector(".open-reply").click();
+      await wait(600);
+      const campo = threads[2].querySelector("textarea");
+      campo.value = "borrador que estaba escribiendo a mano";
+      threads[0].querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(!threads[0].dataset.published && !threads[2].dataset.published, "ha publicado con un borrador abierto");
+      assert(campo.value === "borrador que estaba escribiendo a mano", "ha destruido el borrador del textarea real");
+      assert(threads[0].querySelector(".yra2-inline--error"), "no ha avisado del conflicto");
+    });
+
   await T("cerrojo: dos clics simultaneos solo ejecutan un flujo", {}, async ({ wait, $$ }) => {
     await wait(600);
     const threads = $$("ytcp-comment-thread");
