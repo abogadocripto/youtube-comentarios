@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/daily_output.schema.json",
+  "title": "Salida del LLM — Daily Bitcoin",
+  "description": "Compatible con salida estructurada (additionalProperties:false, todos los campos requeridos). Las restricciones de longitud se validan en cliente (Pydantic) y en el validador V-LEN.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["lectura", "vigilar", "block_comments", "watch_override_reason"],
+  "properties": {
+    "lectura": {
+      "type": "array",
+      "description": "2–4 frases. Primero lo más importante. Cifras SOLO mediante {{f:id}} o {{h:id}}.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "kind", "fact_ids", "hint_ids"],
+        "properties": {
+          "text": {"type": "string"},
+          "kind": {"type": "string", "enum": ["hecho", "interpretacion", "matiz"], "description": "hecho = describe datos; interpretacion = lectura prudente; matiz = riesgo o salvedad"},
+          "fact_ids": {"type": "array", "items": {"type": "string"}},
+          "hint_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "vigilar": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["watch_id", "text", "fact_ids"],
+      "properties": {
+        "watch_id": {"type": "string"},
+        "text": {"type": "string", "description": "Una sola variable o evento; qué es y por qué importa hoy"},
+        "fact_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "block_comments": {
+      "type": "array",
+      "description": "Como máximo un comentario de una línea por bloque presente. Omitir el bloque si no aporta.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["block", "text", "fact_ids", "hint_ids"],
+        "properties": {
+          "block": {"type": "string", "enum": ["sentimiento", "liquidez", "demanda_etf", "exchanges", "onchain", "macro", "derivados"]},
+          "text": {"type": "string"},
+          "fact_ids": {"type": "array", "items": {"type": "string"}},
+          "hint_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "watch_override_reason": {"type": ["string", "null"], "description": "null salvo que se sustituya el candidato elegido por código"}
+  }
+}

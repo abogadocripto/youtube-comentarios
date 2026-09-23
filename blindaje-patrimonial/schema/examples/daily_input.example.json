@@ -1,0 +1,449 @@
+{
+ "meta": {
+  "report_date": "2026-09-23",
+  "weekday_es": "miércoles",
+  "timezone": "Europe/Madrid",
+  "rules_version": 1,
+  "prompt_version": "daily-v1.0",
+  "market_context": {
+   "us_session_yesterday": true,
+   "weekend": false,
+   "us_holiday_today": false,
+   "blocks_available": [
+    "bitcoin",
+    "sentimiento",
+    "liquidez",
+    "demanda_etf",
+    "onchain",
+    "macro",
+    "derivados"
+   ]
+  },
+  "limits": {
+   "lectura_max_sentences": 4,
+   "lectura_max_chars": 480,
+   "vigilar_max_chars": 200,
+   "block_comment_max_chars": 140
+  }
+ },
+ "facts": [
+  {
+   "id": "btc_usd",
+   "label_es": "Bitcoin (USD)",
+   "value": 101250.0,
+   "display": "$101.250",
+   "display_abs": "$101.250",
+   "unit": "USD",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "move_calm",
+    "label_es": "movimiento contenido",
+    "color": "none"
+   },
+   "salience": 1.0,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "btc_chg_7d_pct",
+   "label_es": "Variación 7 días",
+   "value": -2.4,
+   "display": "−2,4 %",
+   "display_abs": "2,4 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "move_calm",
+    "label_es": "movimiento contenido",
+    "color": "none"
+   },
+   "salience": 1.0,
+   "selected": true,
+   "interpretation_hints": [
+    {
+     "id": "btc_chg_7d_pct:h.eur_vs_usd",
+     "text": "en euros, la semana es {{f:btc_chg_7d_eur_pct}}"
+    }
+   ],
+   "caveats": []
+  },
+  {
+   "id": "btc_chg_7d_eur_pct",
+   "label_es": "Variación 7 días (en euros)",
+   "value": -0.6,
+   "display": "−0,6 %",
+   "display_abs": "0,6 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.4,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "btc_drawdown_from_ath_pct",
+   "label_es": "Distancia al máximo histórico",
+   "value": -19.7,
+   "display": "−19,7 %",
+   "display_abs": "19,7 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "cálculo propio sobre CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "correction",
+    "label_es": "en corrección",
+    "color": "none"
+   },
+   "salience": 1.0,
+   "selected": true,
+   "interpretation_hints": [
+    {
+     "id": "btc_drawdown_from_ath_pct:h.ath_days",
+     "text": "{{f:btc_days_since_ath}} días desde el máximo"
+    }
+   ],
+   "caveats": []
+  },
+  {
+   "id": "btc_days_since_ath",
+   "label_es": "Días desde el máximo histórico",
+   "value": 352,
+   "display": "352",
+   "display_abs": "352",
+   "unit": "days",
+   "as_of": "2026-09-23",
+   "as_of_label": null,
+   "source": {
+    "name": "cálculo propio",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 1.0,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "fng_value",
+   "label_es": "Índice Miedo y Codicia",
+   "value": 58,
+   "display": "58",
+   "display_abs": "58",
+   "unit": "index",
+   "as_of": "2026-09-23T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "alternative.me",
+    "url": "https://alternative.me/crypto/fear-and-greed-index/"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "changes": {
+    "d1": {
+     "id": "fng_value_1d_ago",
+     "display": "61"
+    },
+    "d7": {
+     "id": "fng_value_7d_ago",
+     "display": "71"
+    }
+   },
+   "state": {
+    "axis": "sentimiento",
+    "code": "Greed->Neutral",
+    "label_es": "neutral (enfriamiento notable)",
+    "color": "green"
+   },
+   "salience": 0.52,
+   "selected": true,
+   "interpretation_hints": [
+    {
+     "id": "fng_value:h.fng_path",
+     "text": "de {{f:fng_value_7d_ago}} a {{f:fng_value}} en siete días"
+    },
+    {
+     "id": "fng_value:h.fng_regime_change",
+     "text": "sale de la zona de codicia"
+    }
+   ],
+   "caveats": []
+  },
+  {
+   "id": "fng_value_7d_ago",
+   "label_es": "Miedo y Codicia (hace 7 días)",
+   "value": 71,
+   "display": "71",
+   "display_abs": "71",
+   "unit": "index",
+   "as_of": "2026-09-16T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "alternative.me",
+    "url": "https://alternative.me/crypto/fear-and-greed-index/"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "sentimiento",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.5,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "liquidity_regime",
+   "label_es": "Liquidez global",
+   "value": "expansion",
+   "display": "expansión",
+   "display_abs": null,
+   "unit": "index",
+   "as_of": "2026-08-31",
+   "as_of_label": "M2 global a agosto",
+   "source": {
+    "name": "cálculo propio (Reserva Federal, BCE, BoE, PBoC, BoJ)",
+    "url": "https://example.invalid/metodologia"
+   },
+   "is_provisional": true,
+   "freshness": "stale_shown",
+   "state": {
+    "axis": "liquidez",
+    "code": "expansion",
+    "label_es": "favorable para la liquidez",
+    "color": "green"
+   },
+   "salience": 0.3,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": [
+    "La relación histórica entre liquidez y activos de riesgo no es estable."
+   ]
+  },
+  {
+   "id": "etf_net_flow_usd_1d",
+   "label_es": "Flujo neto ETF spot BTC (EE. UU.)",
+   "value": -420000000,
+   "display": "−$420 M",
+   "display_abs": "$420 M",
+   "unit": "USD",
+   "as_of": "2026-09-22T20:00:00Z",
+   "as_of_label": "sesión del martes 22 sep",
+   "source": {
+    "name": "SoSoValue",
+    "url": "https://sosovalue.com"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "demanda",
+    "code": "outflow",
+    "label_es": "salidas",
+    "color": "red"
+   },
+   "salience": 0.46,
+   "selected": true,
+   "interpretation_hints": [
+    {
+     "id": "etf_net_flow_usd_1d:h.etf_streak",
+     "text": "tercera sesión consecutiva de salidas en los ETF"
+    }
+   ],
+   "caveats": [
+    "Indicador de demanda a través de vehículos regulados; no equivale a compras o ventas institucionales."
+   ]
+  },
+  {
+   "id": "etf_flow_streak_days",
+   "label_es": "Racha de sesiones con flujo del mismo signo",
+   "value": -3,
+   "display": "−3",
+   "display_abs": "3",
+   "unit": "count",
+   "as_of": "2026-09-22T20:00:00Z",
+   "as_of_label": "sesión del martes 22 sep",
+   "source": {
+    "name": "cálculo propio sobre SoSoValue",
+    "url": "https://sosovalue.com"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "demanda",
+    "code": "streak_out",
+    "label_es": "racha de salidas",
+    "color": "none"
+   },
+   "salience": 0.46,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "oi_chg_24h_pct",
+   "label_es": "Interés abierto — variación 24 h (en BTC)",
+   "value": 7.1,
+   "display": "+7,1 %",
+   "display_abs": "7,1 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "Coinalyze",
+    "url": "https://coinalyze.net"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "apalancamiento",
+    "code": "oi_up",
+    "label_es": "aumento del apalancamiento",
+    "color": "red"
+   },
+   "salience": 0.68,
+   "selected": true,
+   "interpretation_hints": [
+    {
+     "id": "oi_chg_24h_pct:h.lev_without_price",
+     "text": "el apalancamiento crece sin movimiento de precio"
+    }
+   ],
+   "caveats": []
+  },
+  {
+   "id": "mvrv",
+   "label_es": "MVRV",
+   "value": 1.92,
+   "display": "1,92",
+   "display_abs": "1,92",
+   "unit": "index",
+   "as_of": "2026-09-23T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "cálculo propio (nodo Bitcoin, BRK)",
+    "url": "https://example.invalid/metodologia"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "onchain",
+    "code": "pctl_mid",
+    "label_es": "intermedia",
+    "color": "none"
+   },
+   "salience": 0.05,
+   "selected": false,
+   "interpretation_hints": [],
+   "caveats": []
+  }
+ ],
+ "axes": [
+  {
+   "axis": "liquidez",
+   "color": "green",
+   "label_es": "favorable para la liquidez",
+   "changed_vs_prev": false,
+   "driver_fact_ids": [
+    "liquidity_regime"
+   ]
+  },
+  {
+   "axis": "demanda",
+   "color": "red",
+   "label_es": "presión vendedora",
+   "changed_vs_prev": true,
+   "driver_fact_ids": [
+    "etf_net_flow_usd_1d"
+   ]
+  },
+  {
+   "axis": "apalancamiento",
+   "color": "red",
+   "label_es": "apalancamiento elevado",
+   "changed_vs_prev": true,
+   "driver_fact_ids": [
+    "oi_chg_24h_pct"
+   ]
+  },
+  {
+   "axis": "sentimiento",
+   "color": "green",
+   "label_es": "sentimiento equilibrado",
+   "changed_vs_prev": true,
+   "driver_fact_ids": [
+    "fng_value"
+   ]
+  }
+ ],
+ "watch": {
+  "selected_id": "metric:etf_streak",
+  "candidates": [
+   {
+    "id": "metric:etf_streak",
+    "kind": "metric",
+    "title_es": "Si continúa la racha de salidas en los ETF",
+    "when_madrid": null,
+    "weight": 45,
+    "fact_ids": [
+     "etf_net_flow_usd_1d",
+     "etf_flow_streak_days"
+    ],
+    "source": {
+     "name": "SoSoValue",
+     "url": "https://sosovalue.com"
+    }
+   }
+  ]
+ },
+ "previous_daily": {
+  "report_date": "2026-09-22",
+  "lectura_rendered": "Bitcoin se mantiene estable mientras el sentimiento se enfría…",
+  "vigilar_rendered": "Los flujos de los ETF tras dos sesiones de salidas."
+ }
+}

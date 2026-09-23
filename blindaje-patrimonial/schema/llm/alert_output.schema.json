@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/alert_output.schema.json",
+  "title": "Salida del LLM — Alerta patrimonial (solo alertas por noticia; las de mercado usan plantilla)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["titular", "legal_status", "que_ha_pasado", "por_que_importa", "a_quien_afecta", "que_vigilar", "source_ids", "editor_notes"],
+  "properties": {
+    "titular": {"type": "string", "description": "≤ 90 caracteres, factual, sin alarmismo"},
+    "legal_status": {"type": "string", "enum": ["vigente", "publicada_pendiente_de_entrada_en_vigor", "aprobada_pendiente_de_publicacion", "en_tramitacion", "propuesta", "consulta", "criterio_administrativo", "jurisprudencia", "declaracion_o_anuncio", "incidente", "no_aplica"]},
+    "que_ha_pasado": {"$ref": "weekly_output.schema.json#/$defs/claim_text"},
+    "por_que_importa": {"$ref": "weekly_output.schema.json#/$defs/claim_text"},
+    "a_quien_afecta": {"$ref": "weekly_output.schema.json#/$defs/item/properties/a_quien_afecta"},
+    "que_vigilar": {"$ref": "weekly_output.schema.json#/$defs/item/properties/que_vigilar"},
+    "source_ids": {"type": "array", "items": {"type": "string"}},
+    "editor_notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

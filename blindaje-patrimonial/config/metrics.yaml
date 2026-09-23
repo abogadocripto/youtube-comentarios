@@ -507,6 +507,7 @@ metrics:
     layer: N
     mvp: true
     licence: self_computed
+    caveat: {text_es: "La relación histórica entre liquidez y activos de riesgo no es estable.", must_contain_any: ["no es estable", "no implica", "coincidencia"], only_if: "interpretacion"}
     derived_from: [global_m2_chg_3m_ann_pct, global_m2_fx_effect_pct, us_net_liquidity_chg_4w_usd]
     rule_ref: "docs/04 §3.3"
 
@@ -787,6 +788,7 @@ metrics:
     layer: N
     mvp: false
     licence: permission_pending
+    caveat: {must_contain_any: ["vehículos regulados", "productos regulados", "no equivale", "no necesariamente institucional"]}
     primary: {source: sosovalue_api, endpoint: "/openapi/v1/etfs/summary-history?symbol=BTC&country_code=US&limit=10"}
     fallback: [{source: coinglass_standard, endpoint: "/api/etf/bitcoin/flow-history", field: "flow_usd"}]
     reconciliation: {tolerance_abs_usd: 1.0e7, tolerance_rel: 0.05}
@@ -993,6 +995,7 @@ metrics:
     layer: C
     mvp: true
     licence: self_computed
+    caveat: {text_es: "Puede reflejar movimientos de custodios o exchanges, no necesariamente ventas.", must_contain_any: ["custodios", "no necesariamente"], only_if_state: [lth_distribution]}
     derived_from: [lth_supply_btc]
 
   supply_in_profit_pct:
@@ -1082,6 +1085,7 @@ metrics:
     layer: C
     mvp: false
     licence: permission_pending
+    caveat: {text_es: "Los saldos y flujos de exchanges dependen del etiquetado de direcciones de cada proveedor.", must_contain_any: ["según", "puede reflejar", "no implica"]}
     derived_from: [exch_netflow_btc_1d]
 
   # ───────────── DERIVADOS ─────────────
@@ -1201,6 +1205,7 @@ metrics:
     layer: C
     mvp: false
     licence: self_computed
+    caveat: {text_es: "Mínimo reportado.", must_contain_any: ["mínimo reportado", "mín."]}
     derived_from: [liq_long_usd_24h, liq_short_usd_24h]
     is_lower_bound: true
 

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/verifier_output.schema.json",
+  "title": "Salida del verificador LLM independiente (Daily, Weekly y alertas)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["checks", "overall_pass", "summary"],
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "rendered_text", "verdict", "issue_types", "explanation", "suggested_fix"],
+        "properties": {
+          "path": {"type": "string", "description": "Ubicación, p. ej. 'lectura[1]', 'fiscal.items[0].por_que_importa'"},
+          "rendered_text": {"type": "string"},
+          "verdict": {"type": "string", "enum": ["supported", "unsupported", "problematic"]},
+          "issue_types": {"type": "array", "items": {"type": "string", "enum": ["none", "claim_not_in_sources", "wrong_direction_or_magnitude", "prediction", "investment_advice", "personalised_advice", "causal_claim", "overstatement_certainty", "missing_mandatory_caveat", "legal_status_misstated", "wrong_jurisdiction", "wrong_date", "sensationalism", "stale_presented_as_new", "attribution_error"]}},
+          "explanation": {"type": "string"},
+          "suggested_fix": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "overall_pass": {"type": "boolean"},
+    "summary": {"type": "string"}
+  }
+}

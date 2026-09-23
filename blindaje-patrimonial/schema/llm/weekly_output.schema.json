@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/weekly_output.schema.json",
+  "title": "Salida del LLM — Informe semanal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject", "preheader", "semana_en_60s", "financiero", "fiscal", "regulatorio", "proteccion", "agenda", "editor_notes"],
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "quote"],
+      "properties": {
+        "source_id": {"type": "string"},
+        "quote": {"type": "string", "description": "Cita LITERAL (≤ 300 caracteres) copiada del campo text del documento; el validador comprueba que es subcadena"}
+      }
+    },
+    "claim_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "source_ids", "evidence", "fact_ids"],
+      "properties": {
+        "text": {"type": "string"},
+        "source_ids": {"type": "array", "items": {"type": "string"}},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+        "fact_ids": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "titulo", "jurisdictions", "legal_status", "que_ha_pasado", "por_que_importa", "a_quien_afecta", "que_vigilar", "confidence"],
+      "properties": {
+        "event_id": {"type": "integer"},
+        "titulo": {"type": "string"},
+        "jurisdictions": {"type": "array", "items": {"type": "string"}},
+        "legal_status": {"type": "string", "enum": ["vigente", "publicada_pendiente_de_entrada_en_vigor", "aprobada_pendiente_de_publicacion", "en_tramitacion", "propuesta", "consulta", "criterio_administrativo", "jurisprudencia", "declaracion_o_anuncio", "incidente", "no_aplica"]},
+        "que_ha_pasado": {"$ref": "#/$defs/claim_text"},
+        "por_que_importa": {"$ref": "#/$defs/claim_text"},
+        "a_quien_afecta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["profiles", "text"],
+          "properties": {
+            "profiles": {"type": "array", "items": {"type": "string", "enum": ["holder_particular", "residente_es", "residente_ad", "residente_ae", "empresa", "usuario_exchange", "autocustodia", "usuarios_stablecoins", "inversor_etf", "no_residente", "herederos_sucesion"]}},
+            "text": {"type": "string"}
+          }
+        },
+        "que_vigilar": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text", "source_ids", "dates"],
+          "properties": {
+            "text": {"type": "string", "description": "Qué seguir, sin asesoramiento individual ni instrucciones de inversión"},
+            "source_ids": {"type": "array", "items": {"type": "string"}},
+            "dates": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["date", "what", "source_id"], "properties": {"date": {"type": "string"}, "what": {"type": "string"}, "source_id": {"type": "string"}}}}
+          }
+        },
+        "confidence": {"type": "string", "enum": ["confirmado_fuente_primaria", "confirmado_fuente_secundaria", "pendiente_confirmacion"]}
+      }
+    },
+    "front_section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "intro", "items"],
+      "properties": {
+        "status": {"type": "string", "enum": ["con_novedades", "sin_cambios_relevantes"]},
+        "intro": {"type": ["string", "null"], "description": "Una frase de contexto o null. Si sin_cambios_relevantes: null (el renderizador escribe la frase fija)"},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+      }
+    }
+  },
+  "properties": {
+    "subject": {"type": "string", "description": "Asunto del email, ≤ 70 caracteres, sin clickbait ni emojis de alarma; puede llevar {{f:id}}"},
+    "preheader": {"type": "string", "description": "≤ 110 caracteres"},
+    "semana_en_60s": {
+      "type": "array",
+      "description": "Hasta 3 puntos, ordenados por importancia. Si la semana es tranquila, menos puntos.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rank", "front", "text", "event_id", "fact_ids", "source_ids"],
+        "properties": {
+          "rank": {"type": "integer"},
+          "front": {"type": "string", "enum": ["financiero", "fiscal", "regulatorio", "proteccion"]},
+          "text": {"type": "string"},
+          "event_id": {"type": ["integer", "null"]},
+          "fact_ids": {"type": "array", "items": {"type": "string"}},
+          "source_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "financiero": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "lectura_semanal", "items"],
+      "properties": {
+        "status": {"type": "string", "enum": ["con_novedades", "sin_cambios_relevantes"]},
+        "lectura_semanal": {"type": "array", "description": "3–6 frases sobre qué ha cambiado en las condiciones financieras (no repetir los 7 Daily)", "items": {"type": "object", "additionalProperties": false, "required": ["text", "kind", "fact_ids", "hint_ids"], "properties": {"text": {"type": "string"}, "kind": {"type": "string", "enum": ["hecho", "interpretacion", "matiz"]}, "fact_ids": {"type": "array", "items": {"type": "string"}}, "hint_ids": {"type": "array", "items": {"type": "string"}}}}},
+        "items": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+      }
+    },
+    "fiscal": {"$ref": "#/$defs/front_section"},
+    "regulatorio": {"$ref": "#/$defs/front_section"},
+    "proteccion": {"$ref": "#/$defs/front_section"},
+    "agenda": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": false, "required": ["calendar_id", "text"], "properties": {"calendar_id": {"type": "string"}, "text": {"type": "string"}}}
+    },
+    "editor_notes": {"type": "array", "items": {"type": "string"}, "description": "Notas SOLO para el editor humano (no se publican): dudas, ambigüedades, fuentes contradictorias, datos que convendría confirmar"}
+  }
+}

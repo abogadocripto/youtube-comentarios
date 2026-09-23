@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/daily_input.schema.json",
+  "title": "Entrada al LLM — Daily Bitcoin (fact sheet)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "facts", "axes", "watch", "previous_daily"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_date", "weekday_es", "timezone", "rules_version", "prompt_version", "market_context", "limits"],
+      "properties": {
+        "report_date": {"type": "string", "format": "date"},
+        "weekday_es": {"type": "string"},
+        "timezone": {"const": "Europe/Madrid"},
+        "rules_version": {"type": "integer"},
+        "prompt_version": {"type": "string"},
+        "market_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["us_session_yesterday", "weekend", "us_holiday_today", "blocks_available"],
+          "properties": {
+            "us_session_yesterday": {"type": "boolean", "description": "¿Hubo sesión en EE. UU. el día hábil anterior con datos nuevos?"},
+            "weekend": {"type": "boolean"},
+            "us_holiday_today": {"type": "boolean"},
+            "blocks_available": {"type": "array", "items": {"type": "string", "enum": ["bitcoin", "sentimiento", "liquidez", "demanda_etf", "exchanges", "onchain", "macro", "derivados"]}}
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lectura_max_sentences", "lectura_max_chars", "vigilar_max_chars", "block_comment_max_chars"],
+          "properties": {
+            "lectura_max_sentences": {"type": "integer"},
+            "lectura_max_chars": {"type": "integer"},
+            "vigilar_max_chars": {"type": "integer"},
+            "block_comment_max_chars": {"type": "integer"}
+          }
+        }
+      }
+    },
+    "facts": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/fact"}},
+    "axes": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/axis_state"}},
+    "watch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_id", "candidates"],
+      "properties": {
+        "selected_id": {"type": "string", "description": "Elegido por código (doc 04 §6). El LLM lo redacta; solo puede sustituirlo por otro candidato si lo justifica en watch_override_reason"},
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "title_es", "when_madrid", "weight", "fact_ids", "source"],
+            "properties": {
+              "id": {"type": "string"},
+              "kind": {"type": "string", "enum": ["event", "metric", "regulatory_deadline", "alert_followup"]},
+              "title_es": {"type": "string"},
+              "when_madrid": {"type": ["string", "null"], "description": "Ya formateado: 'hoy, 14:30', 'el jueves, 20:00'"},
+              "weight": {"type": "number"},
+              "fact_ids": {"type": "array", "items": {"type": "string"}},
+              "source": {"$ref": "common.defs.schema.json#/$defs/source_ref"}
+            }
+          }
+        }
+      }
+    },
+    "previous_daily": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["report_date", "lectura_rendered", "vigilar_rendered"],
+      "properties": {
+        "report_date": {"type": "string"},
+        "lectura_rendered": {"type": "string", "description": "Para dar continuidad y evitar repetir fórmulas; no es fuente de datos"},
+        "vigilar_rendered": {"type": "string"}
+      }
+    }
+  }
+}

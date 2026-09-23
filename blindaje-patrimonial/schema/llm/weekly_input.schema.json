@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://blindaje.local/schema/llm/weekly_input.schema.json",
+  "title": "Entrada al LLM — Informe semanal de Blindaje Patrimonial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "financial", "events", "documents", "fronts_without_candidates", "calendar_next_week", "open_followups"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["week_iso", "period_start", "period_end", "send_date", "prompt_version", "rules_version", "audience"],
+      "properties": {
+        "week_iso": {"type": "string"},
+        "period_start": {"type": "string", "format": "date"},
+        "period_end": {"type": "string", "format": "date"},
+        "send_date": {"type": "string", "format": "date"},
+        "prompt_version": {"type": "string"},
+        "rules_version": {"type": "integer"},
+        "audience": {"type": "array", "items": {"type": "string"}, "description": "Perfiles objetivo: holder_particular, residente_es, residente_ad, empresa, inversor_patrimonial…"}
+      }
+    },
+    "financial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facts", "axes_start", "axes_end"],
+      "properties": {
+        "facts": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/fact"}, "description": "Hechos semanales: variación semanal BTC, suma ETF 5 sesiones, trayectoria F&G, régimen de liquidez, tipos, on-chain, derivados, stablecoins"},
+        "axes_start": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/axis_state"}},
+        "axes_end": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/axis_state"}}
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "Eventos seleccionados por el scoring (doc 05), ya deduplicados",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "title_es", "fronts", "jurisdictions", "impact_score", "score_breakdown", "source_ids", "was_alerted", "affected_profiles_hint"],
+        "properties": {
+          "event_id": {"type": "integer"},
+          "title_es": {"type": "string"},
+          "fronts": {"type": "array", "items": {"type": "string", "enum": ["financiero", "fiscal", "regulatorio", "proteccion"]}},
+          "jurisdictions": {"type": "array", "items": {"type": "string"}},
+          "impact_score": {"type": "number"},
+          "score_breakdown": {"type": "object"},
+          "source_ids": {"type": "array", "items": {"type": "string"}},
+          "was_alerted": {"type": "boolean"},
+          "affected_profiles_hint": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "documents": {"type": "array", "items": {"$ref": "common.defs.schema.json#/$defs/source_document"}},
+    "fronts_without_candidates": {"type": "array", "items": {"type": "string", "enum": ["financiero", "fiscal", "regulatorio", "proteccion"]}},
+    "calendar_next_week": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["calendar_id", "when_madrid", "title_es", "kind", "source"],
+        "properties": {
+          "calendar_id": {"type": "string"},
+          "when_madrid": {"type": "string"},
+          "title_es": {"type": "string"},
+          "kind": {"type": "string", "enum": ["macro", "banco_central", "vencimiento_derivados", "plazo_fiscal", "plazo_regulatorio", "otro"]},
+          "source": {"$ref": "common.defs.schema.json#/$defs/source_ref"}
+        }
+      }
+    },
+    "open_followups": {
+      "type": "array",
+      "description": "Temas de semanas anteriores en seguimiento (para 'actualización' si hay novedades)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["topic_id", "title_es", "last_week_iso", "new_source_ids"],
+        "properties": {
+          "topic_id": {"type": "string"},
+          "title_es": {"type": "string"},
+          "last_week_iso": {"type": "string"},
+          "new_source_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}
