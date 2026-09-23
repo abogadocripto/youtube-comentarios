@@ -1,0 +1,1319 @@
+# Catálogo canónico de métricas — Blindaje Patrimonial
+# Fuente de verdad para ingest/analysis/editorial. Los IDs son vinculantes (ver docs/02 y docs/04).
+#
+# Campos:
+#   label_es        etiqueta para el lector
+#   family          price|cycle|sentiment|liquidity|rates|fx|markets|etf|onchain|derivatives|stablecoins|calendar
+#   axis            eje del semáforo (doc 04 §4): precio|sentimiento|liquidez|demanda|onchain|apalancamiento|macro|none
+#   unit            USD|EUR|BTC|pct|pp|bp|index|days|blocks|date|count|json|bool|ehs (EH/s)
+#   fmt             formato de presentación (ver editorial/format.py): usd_int, usd_4dp, usd_millions, usd_billions,
+#                   usd_trillions, eur_int, pct_signed_1dp, pct_signed_3dp, pct_1dp, pp_signed, bp_signed, int,
+#                   int_signed, btc_int, btc_signed_int, ratio_1dp, ratio_2dp, ratio_3dp, ratio_4dp, date_short,
+#                   month_year, text
+#   freq            realtime|daily|weekly|monthly|event
+#   as_of           semántica temporal del dato: provider_ts | utc_day_close | us_session | business_day_p1 |
+#                   business_day_p2 | week_wed | month_end | month_avg | computed
+#   max_staleness   antigüedad máxima admisible del as_of respecto a la hora de publicación (ISO-8601 duration)
+#   layer           N (núcleo, siempre) | C (candidata por salience) | B (solo backend/Weekly/alertas)
+#   mvp             entra en el escenario A (mínimo licencia-limpio)
+#   licence         self_computed|official_open|licensed_public|permission_pending|internal_only|prohibited
+#   primary/fallback  fuente (id de config/sources.yaml) + endpoint/campo
+#   derived_from    si es calculada, métricas de entrada
+
+version: 1
+updated: 2026-09-23
+
+metrics:
+
+  # ───────────── PRECIO Y CICLO ─────────────
+  btc_usd:
+    label_es: "Bitcoin (USD)"
+    family: price
+    axis: precio
+    unit: USD
+    fmt: usd_int
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.current_price.usd", ts_field: "market_data.last_updated"}
+    fallback: [{source: coinmarketcap_basic, endpoint: "/v2/cryptocurrency/quotes/latest?id=1&convert=USD", field: "data.1.quote.USD.price"}]
+    internal_check: [{source: coinbase_exchange, endpoint: "/products/BTC-USD/ticker", field: "price", publishable: false}]
+    cross_check: {max_dev_ok: 0.005, max_dev_warn: 0.015}
+
+  btc_eur:
+    label_es: "Bitcoin (EUR)"
+    family: price
+    axis: precio
+    unit: EUR
+    fmt: eur_int
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.current_price.eur"}
+    fallback: [{source: coinmarketcap_basic, endpoint: "/v2/cryptocurrency/quotes/latest?id=1&convert=EUR", field: "data.1.quote.EUR.price"}]
+    sanity: {implied_eurusd_vs_ecb_max_dev: 0.01}
+
+  btc_chg_24h_pct:
+    label_es: "Variación 24 h"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.price_change_percentage_24h_in_currency.usd"}
+    recompute_check: {from: btc_usd, window: P1D, max_diff_pp: 0.5}
+
+  btc_chg_7d_pct:
+    label_es: "Variación 7 días"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.price_change_percentage_7d_in_currency.usd"}
+    recompute_check: {from: btc_usd, window: P7D, max_diff_pp: 0.5}
+
+  btc_chg_7d_eur_pct:
+    label_es: "Variación 7 días (en euros)"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: B
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.price_change_percentage_7d_in_currency.eur"}
+    note: "Alimenta la pista h.eur_vs_usd (efecto divisa para el inversor en euros)"
+
+  btc_chg_30d_pct:
+    label_es: "Variación 30 días"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: C
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.price_change_percentage_30d_in_currency.usd"}
+
+  btc_ath_usd:
+    label_es: "Máximo histórico (USD, intradía agregado)"
+    family: price
+    axis: precio
+    unit: USD
+    fmt: usd_int
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.ath.usd"}
+    rule: "ath_t = max(ath_{t-1}, provider_ath_t); si el proveedor baja o salta el ATH sin movimiento de precio → congelar y avisar"
+    seed_manual: true
+
+  btc_ath_usd_date:
+    label_es: "Fecha del máximo histórico (USD)"
+    family: price
+    axis: none
+    unit: date
+    fmt: date_short
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.ath_date.usd"}
+
+  btc_ath_eur:
+    label_es: "Máximo histórico (EUR, intradía agregado)"
+    family: price
+    axis: precio
+    unit: EUR
+    fmt: eur_int
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P1D
+    layer: C
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.ath.eur"}
+    seed_manual: true
+
+  btc_ath_eur_date:
+    label_es: "Fecha del máximo histórico (EUR)"
+    family: price
+    axis: none
+    unit: date
+    fmt: date_short
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P1D
+    layer: C
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/bitcoin", field: "market_data.ath_date.eur"}
+
+  btc_drawdown_from_ath_pct:
+    label_es: "Distancia al máximo histórico"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: realtime
+    as_of: computed
+    max_staleness: PT15M
+    layer: N
+    mvp: true
+    licence: self_computed
+    derived_from: [btc_usd, btc_ath_usd]
+    formula: "(btc_usd / btc_ath_usd - 1) * 100"
+    check: {against: "market_data.ath_change_percentage.usd", max_diff_pp: 0.1}
+
+  btc_days_since_ath:
+    label_es: "Días desde el máximo histórico"
+    family: price
+    axis: precio
+    unit: days
+    fmt: int
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: self_computed
+    derived_from: [btc_ath_usd_date]
+    formula: "date_madrid(publication) - date_madrid(btc_ath_usd_date)"
+
+  btc_realized_vol_30d:
+    label_es: "Volatilidad realizada 30 días (anualizada)"
+    family: price
+    axis: precio
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [btc_usd]
+    formula: "stdev(ln(close_t/close_{t-1}), 30 cierres 00:00 UTC) * sqrt(365) * 100"
+
+  block_height:
+    label_es: "Altura de bloque"
+    family: cycle
+    axis: none
+    unit: blocks
+    fmt: int
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT2H
+    layer: B
+    mvp: true
+    licence: self_computed
+    primary: {source: own_node, rpc: getblockcount}
+    fallback: [{source: mempool_space, endpoint: "/api/blocks/tip/height"}, {source: blockstream_esplora, endpoint: "/api/blocks/tip/height"}]
+    cross_check: {max_diff_blocks: 2}
+
+  halving_last_date:
+    label_es: "Último halving"
+    family: cycle
+    axis: none
+    unit: date
+    fmt: date_short
+    freq: event
+    as_of: computed
+    max_staleness: P3650D
+    layer: B
+    mvp: true
+    licence: self_computed
+    constant: {height: 840000, time_utc: "2024-04-20T00:09:27Z"}
+
+  halving_days_since:
+    label_es: "Días desde el último halving"
+    family: cycle
+    axis: none
+    unit: days
+    fmt: int
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: C
+    mvp: true
+    licence: self_computed
+    formula: "date_madrid(publication) - date(2024-04-20)"
+
+  halving_blocks_to_next:
+    label_es: "Bloques hasta el próximo halving"
+    family: cycle
+    axis: none
+    unit: blocks
+    fmt: int
+    freq: realtime
+    as_of: computed
+    max_staleness: PT2H
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [block_height]
+    formula: "(floor(block_height/210000)+1)*210000 - block_height"
+
+  halving_next_est_date:
+    label_es: "Próximo halving (estimación)"
+    family: cycle
+    axis: none
+    unit: date
+    fmt: month_year          # solo mes: "~abril 2028"
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [block_height]
+    formula: "now + blocks_to_next * avg_block_time(últimos 2016 bloques); guardar también estimación nominal (600 s)"
+
+  hashrate_7d:
+    label_es: "Hashrate (media 7 días)"
+    family: cycle
+    axis: none
+    unit: ehs
+    fmt: int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: true
+    licence: self_computed
+    primary: {source: own_node, rpc: "getnetworkhashps 1008"}
+    fallback: [{source: mempool_space, endpoint: "/api/v1/mining/hashrate/1m", field: "currentHashrate"}]
+
+  # ───────────── SENTIMIENTO ─────────────
+  fng_value:
+    label_es: "Índice Miedo y Codicia"
+    family: sentiment
+    axis: sentimiento
+    unit: index
+    fmt: int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    attribution_inline: "fuente: alternative.me"
+    primary: {source: alternative_me, endpoint: "/fng/?limit=8", field: "data[ts=today_utc].value", cast: int}
+    never_mix_with: [coinmarketcap_fng]
+
+  fng_class:
+    label_es: "Clasificación Miedo y Codicia"
+    family: sentiment
+    axis: sentimiento
+    unit: index
+    fmt: text
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: alternative_me, endpoint: "/fng/?limit=8", field: "data[ts=today_utc].value_classification"}
+    translate: {"Extreme Fear": "miedo extremo", "Fear": "miedo", "Neutral": "neutral", "Greed": "codicia", "Extreme Greed": "codicia extrema"}
+
+  fng_value_1d_ago:
+    label_es: "Miedo y Codicia (ayer)"
+    family: sentiment
+    axis: sentimiento
+    unit: index
+    fmt: int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: alternative_me, endpoint: "/fng/?limit=8", field: "data[ts=today_utc-1d].value", cast: int}
+
+  fng_value_7d_ago:
+    label_es: "Miedo y Codicia (hace 7 días)"
+    family: sentiment
+    axis: sentimiento
+    unit: index
+    fmt: int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P8D
+    layer: N
+    mvp: true
+    licence: licensed_public
+    primary: {source: alternative_me, endpoint: "/fng/?limit=8", field: "data[ts=today_utc-7d].value", cast: int}
+
+  # ───────────── LIQUIDEZ ─────────────
+  us_net_liquidity_usd:
+    label_es: "Liquidez neta EE. UU. (balance Fed − TGA − RRP)"
+    family: liquidity
+    axis: liquidez
+    unit: USD
+    fmt: usd_billions
+    freq: daily
+    as_of: computed
+    max_staleness: P9D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [fed_total_assets_usd, tga_usd, on_rrp_usd]
+    formula: "fed_total_assets[último miércoles] - tga_dts[t] - on_rrp[t]  (todo en millones USD)"
+    sanity: {min: 3.0e12, max: 9.0e12, max_daily_change: 3.0e11}
+
+  us_net_liquidity_chg_4w_pct:
+    label_es: "Liquidez neta EE. UU. — variación 4 semanas"
+    family: liquidity
+    axis: liquidez
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: computed
+    max_staleness: P9D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [us_net_liquidity_usd]
+    also_store: us_net_liquidity_chg_4w_usd
+
+  fed_total_assets_usd:
+    label_es: "Balance de la Reserva Federal"
+    family: liquidity
+    axis: liquidez
+    unit: USD
+    fmt: usd_billions
+    freq: weekly
+    as_of: week_wed
+    max_staleness: P9D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: fed_board_ddp, release: H41, series: "WALCL (total assets, Wednesday level)", unit_in_source: "USD millions"}
+
+  tga_usd:
+    label_es: "Cuenta del Tesoro en la Fed (TGA)"
+    family: liquidity
+    axis: liquidez
+    unit: USD
+    fmt: usd_billions
+    freq: daily
+    as_of: business_day_p2
+    max_staleness: P5D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: fiscaldata_dts, endpoint: "/services/api/fiscal_service/v1/accounting/dts/operating_cash_balance", row: "Treasury General Account (TGA) Closing Balance", unit_in_source: "USD millions"}
+
+  on_rrp_usd:
+    label_es: "Repos inversos a un día (ON RRP)"
+    family: liquidity
+    axis: liquidez
+    unit: USD
+    fmt: usd_billions
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: nyfed_markets, endpoint: "/api/rp/all/all/results/lastTwoWeeks.json", unit_in_source: "VERIFICAR en primera ingesta"}
+
+  global_m2_usd:
+    label_es: "M2 global (EE. UU., zona euro, China, Japón, R. Unido) en USD"
+    family: liquidity
+    axis: liquidez
+    unit: USD
+    fmt: usd_trillions
+    freq: monthly
+    as_of: month_end
+    max_staleness: P70D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [m2_us, m2_ea, m2_jp, m2_cn, m4_uk, fx_ecb]
+    components:
+      m2_us: {source: fed_board_ddp, release: H6, series: "M2 SA", unit_in_source: "USD billions", stock: month_avg}
+      m2_ea: {source: ecb_sdmx, key: "BSI/M.U2.Y.V.M20.X.1.U2.2300.Z01.E", unit_in_source: "EUR millions", stock: month_end}
+      m2_jp: {source: boj_api, db: MD02, code: MAM1NAM2M2MO, stock: month_avg, licence: permission_pending}
+      m2_cn: {source: pboc_html, stock: month_end, unit_in_source: "RMB 100 millones", sanity: {max_mom_pct: 3}}
+      m4_uk: {source: boe_iadb, code: LPMAUYN, unit_in_source: "GBP millions", stock: month_end, note: "Es M4, etiquetar"}
+    also_store: [global_m2_usd_cfx, global_m2_fx_effect_pct, global_m2_components_asof]
+
+  global_m2_chg_3m_ann_pct:
+    label_es: "M2 global — variación 3 meses anualizada"
+    family: liquidity
+    axis: liquidez
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: monthly
+    as_of: month_end
+    max_staleness: P70D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [global_m2_usd]
+
+  global_m2_yoy_pct:
+    label_es: "M2 global — variación interanual"
+    family: liquidity
+    axis: liquidez
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: monthly
+    as_of: month_end
+    max_staleness: P70D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [global_m2_usd]
+
+  liquidity_regime:
+    label_es: "Liquidez global"
+    family: liquidity
+    axis: liquidez
+    unit: index
+    fmt: text          # expansión | neutral | contracción | mixta
+    freq: daily
+    as_of: computed
+    max_staleness: P9D
+    layer: N
+    mvp: true
+    licence: self_computed
+    derived_from: [global_m2_chg_3m_ann_pct, global_m2_fx_effect_pct, us_net_liquidity_chg_4w_usd]
+    rule_ref: "docs/04 §3.3"
+
+  # ───────────── TIPOS ─────────────
+  us10y_yield:
+    label_es: "Bono EE. UU. 10 años"
+    family: rates
+    axis: macro
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: C
+    mvp: true
+    licence: official_open
+    primary: {source: us_treasury_xml, dataset: daily_treasury_yield_curve, field: BC_10YEAR}
+    fallback: [{source: fed_board_h15, endpoint: "/feeds/data/H15_H15.XML"}]
+
+  us10y_chg_5d_bp:
+    label_es: "Bono EE. UU. 10 años — variación 5 sesiones"
+    family: rates
+    axis: macro
+    unit: bp
+    fmt: bp_signed
+    freq: daily
+    as_of: computed
+    max_staleness: P4D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [us10y_yield]
+
+  us10y_real_yield:
+    label_es: "Rentabilidad real 10 años (TIPS)"
+    family: rates
+    axis: macro
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: C
+    mvp: true
+    licence: official_open
+    primary: {source: us_treasury_xml, dataset: daily_treasury_real_yield_curve, field: "TC_10YEAR (VERIFICAR)"}
+
+  us10y_breakeven:
+    label_es: "Inflación implícita 10 años"
+    family: rates
+    axis: macro
+    unit: pp
+    fmt: pct_1dp
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [us10y_yield, us10y_real_yield]
+
+  us2y_yield:
+    label_es: "Bono EE. UU. 2 años"
+    family: rates
+    axis: macro
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: us_treasury_xml, dataset: daily_treasury_yield_curve, field: BC_2YEAR}
+
+  fed_funds_upper:
+    label_es: "Tipo oficial Fed (límite superior)"
+    family: rates
+    axis: macro
+    unit: pct
+    fmt: pct_1dp
+    freq: event
+    as_of: computed
+    max_staleness: P60D
+    layer: C
+    mvp: true
+    licence: official_open
+    primary: {source: config_fomc, file: "config/fomc.yaml", note: "Se actualiza con cada comunicado del FOMC; contraste diario con H.15"}
+
+  fed_funds_effective:
+    label_es: "Tipo efectivo fondos federales (EFFR)"
+    family: rates
+    axis: macro
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: business_day_p2
+    max_staleness: P5D
+    layer: B
+    mvp: true
+    licence: official_open
+    attribution: "© Federal Reserve Bank of New York"
+    primary: {source: nyfed_markets, endpoint: "/api/rates/unsecured/effr/last/1.json (VERIFICAR)"}
+
+  us2y_minus_ffr_bp:
+    label_es: "Sesgo de tipos descontado a 2 años (2A − EFFR)"
+    family: rates
+    axis: macro
+    unit: bp
+    fmt: bp_signed
+    freq: daily
+    as_of: computed
+    max_staleness: P4D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [us2y_yield, fed_funds_effective]
+    note: "En días de FOMC usar el punto medio del rango objetivo en lugar de EFFR"
+
+  fed_next_meeting_date:
+    label_es: "Próxima reunión del FOMC"
+    family: calendar
+    axis: macro
+    unit: date
+    fmt: date_short
+    freq: event
+    as_of: computed
+    max_staleness: P7D
+    layer: C
+    mvp: true
+    licence: official_open
+    primary: {source: fed_calendar_json, endpoint: "https://www.federalreserve.gov/json/calendar.json", filter: "type == FOMC"}
+
+  # ───────────── DIVISAS Y MERCADOS ─────────────
+  eurusd:
+    label_es: "EUR/USD (referencia BCE)"
+    family: fx
+    axis: macro
+    unit: index
+    fmt: ratio_4dp
+    freq: daily
+    as_of: business_day_p1
+    max_staleness: P4D
+    layer: C
+    mvp: true
+    licence: official_open
+    attribution: "Fuente: BCE"
+    primary: {source: ecb_fx_xml, endpoint: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml", field: "USD"}
+
+  usd_index:
+    label_es: "Índice amplio del dólar (Reserva Federal)"
+    family: fx
+    axis: macro
+    unit: index
+    fmt: ratio_2dp
+    freq: weekly
+    as_of: business_day_p1
+    max_staleness: P10D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: fed_board_ddp, release: H10, series: "Nominal Broad Dollar Index"}
+    note: "Solo Weekly. No usar DXY (ICE)."
+
+  usd_index_chg_5d_pct:
+    label_es: "Índice amplio del dólar — variación 5 sesiones"
+    family: fx
+    axis: macro
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: weekly
+    as_of: computed
+    max_staleness: P10D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [usd_index]
+
+  ndx_close:
+    label_es: "Nasdaq-100 (cierre)"
+    family: markets
+    axis: macro
+    unit: index
+    fmt: int
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: C
+    mvp: false
+    licence: permission_pending      # requiere licencia de display (decisión L9)
+    primary: {source: TBD_licensed_ndx}
+
+  ndx_chg_1d_pct:
+    label_es: "Nasdaq-100 — variación sesión"
+    family: markets
+    axis: macro
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    derived_from: [ndx_close]
+
+  ndx_chg_5d_pct:
+    label_es: "Nasdaq-100 — variación 5 sesiones"
+    family: markets
+    axis: macro
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    derived_from: [ndx_close]
+
+  spx_close:      {label_es: "S&P 500", family: markets, axis: macro, unit: index, fmt: int, freq: daily, as_of: us_session, max_staleness: P4D, layer: B, mvp: false, licence: prohibited}
+  spx_chg_1d_pct: {label_es: "S&P 500 — variación", family: markets, axis: macro, unit: pct, fmt: pct_signed_1dp, freq: daily, as_of: us_session, max_staleness: P4D, layer: B, mvp: false, licence: prohibited}
+  vix_close:      {label_es: "VIX", family: markets, axis: macro, unit: index, fmt: ratio_1dp, freq: daily, as_of: us_session, max_staleness: P4D, layer: B, mvp: false, licence: prohibited}
+
+  gold_usd:
+    label_es: "Oro spot (USD/oz)"
+    family: markets
+    axis: macro
+    unit: USD
+    fmt: usd_int
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P2D
+    layer: B
+    mvp: false
+    licence: prohibited
+    note: "Reservado para una fuente spot/LBMA con licencia. En MVP se usa paxg_usd."
+
+  paxg_usd:
+    label_es: "Oro tokenizado PAXG (proxy del oro)"
+    family: markets
+    axis: macro
+    unit: USD
+    fmt: usd_int
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT1H
+    layer: B
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/simple/price?ids=pax-gold&vs_currencies=usd"}
+    caveat_es: "Token respaldado por oro; puede cotizar con prima o descuento respecto al oro spot."
+
+  gold_chg_5d_pct:
+    label_es: "Oro (proxy PAXG) — variación 5 días"
+    family: markets
+    axis: macro
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: computed
+    max_staleness: P2D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [paxg_usd]
+
+  # ───────────── ETF SPOT BTC (EE. UU.) ─────────────
+  etf_net_flow_usd_1d:
+    label_es: "Flujo neto ETF spot BTC (EE. UU.), última sesión"
+    family: etf
+    axis: demanda
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: N
+    mvp: false
+    licence: permission_pending
+    primary: {source: sosovalue_api, endpoint: "/openapi/v1/etfs/summary-history?symbol=BTC&country_code=US&limit=10"}
+    fallback: [{source: coinglass_standard, endpoint: "/api/etf/bitcoin/flow-history", field: "flow_usd"}]
+    reconciliation: {tolerance_abs_usd: 1.0e7, tolerance_rel: 0.05}
+    completeness: "última sesión XNYS + fila agregada + todos los tickers con valor + no fila 0.0"
+    caveat_es: "Indicador de demanda a través de vehículos regulados; no equivale a «compras institucionales»."
+
+  etf_net_flow_usd_5d:
+    label_es: "Flujo neto ETF — 5 sesiones"
+    family: etf
+    axis: demanda
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    derived_from: [etf_net_flow_usd_1d]
+
+  etf_net_flow_usd_20d:
+    label_es: "Flujo neto ETF — 20 sesiones"
+    family: etf
+    axis: demanda
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    derived_from: [etf_net_flow_usd_1d]
+
+  etf_flow_streak_days:
+    label_es: "Racha de sesiones con flujo del mismo signo"
+    family: etf
+    axis: demanda
+    unit: count
+    fmt: int_signed
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: C
+    mvp: false
+    licence: self_computed
+    derived_from: [etf_net_flow_usd_1d]
+
+  etf_total_btc_held:
+    label_es: "BTC en poder de los ETF spot de EE. UU."
+    family: etf
+    axis: demanda
+    unit: BTC
+    fmt: btc_int
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinglass_standard, endpoint: "/api/etf/bitcoin/history"}
+
+  etf_flow_by_issuer:
+    label_es: "Flujo por emisor"
+    family: etf
+    axis: demanda
+    unit: json
+    fmt: text
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: sosovalue_api, endpoint: "/openapi/v1/etfs/{ticker}/history"}
+    issuer_checks: [{ticker: GBTC, source: grayscale_s3_xlsx}, {ticker: BTC, source: grayscale_s3_xlsx}, {ticker: IBIT, source: ishares_xls}]
+    registry: [IBIT, FBTC, BITB, ARKB, BTCO, EZBC, BRRR, HODL, BTCW, MSBT, GBTC, BTC]
+
+  etf_flow_is_provisional:
+    label_es: "Dato ETF provisional"
+    family: etf
+    axis: none
+    unit: bool
+    fmt: text
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: B
+    mvp: false
+    licence: self_computed
+
+  # ───────────── ON-CHAIN ─────────────
+  realized_price_usd:
+    label_es: "Precio realizado (coste medio on-chain)"
+    family: onchain
+    axis: onchain
+    unit: USD
+    fmt: usd_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, series_search: "realized price", index: day1}
+    fallback: [{source: bgeometrics, endpoint: "/v1/realized-price", licence: permission_pending}]
+
+  mvrv:
+    label_es: "MVRV"
+    family: onchain
+    axis: onchain
+    unit: index
+    fmt: ratio_2dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, formula: "market_cap / realized_cap"}
+    cross_check: {source: bgeometrics, endpoint: "/v1/mvrv", max_abs_diff: 0.05, publish_check: false}
+
+  mvrv_z:
+    label_es: "MVRV Z-Score"
+    family: onchain
+    axis: onchain
+    unit: index
+    fmt: ratio_2dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [market_cap_usd, realized_cap_usd]
+    formula: "(MC - RC) / stdev(MC desde 2010)"
+
+  sopr:
+    label_es: "SOPR (diario)"
+    family: onchain
+    axis: onchain
+    unit: index
+    fmt: ratio_3dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, series_search: "sopr", index: day1}
+
+  sopr_7d_ma:
+    label_es: "SOPR (media 7 días)"
+    family: onchain
+    axis: onchain
+    unit: index
+    fmt: ratio_3dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [sopr]
+
+  sth_sopr:
+    label_es: "SOPR de tenedores a corto plazo"
+    family: onchain
+    axis: onchain
+    unit: index
+    fmt: ratio_3dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, series_search: "sth sopr", index: day1}
+
+  lth_supply_btc:
+    label_es: "Oferta en manos de tenedores a largo plazo"
+    family: onchain
+    axis: onchain
+    unit: BTC
+    fmt: btc_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, cohort: "lth (≥150d BRK) o plugin 155d"}
+    definition_label_es: "LTH = monedas sin mover ≥150 días (definición BRK)"
+
+  lth_supply_chg_30d_btc:
+    label_es: "Oferta LTH — variación 30 días"
+    family: onchain
+    axis: onchain
+    unit: BTC
+    fmt: btc_signed_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    derived_from: [lth_supply_btc]
+
+  supply_in_profit_pct:
+    label_es: "Suministro en beneficio"
+    family: onchain
+    axis: onchain
+    unit: pct
+    fmt: pct_1dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: true
+    licence: self_computed
+    primary: {source: brk_selfhosted, formula: "supply_in_profit / circulating_supply * 100"}
+
+  exch_balance_btc:
+    label_es: "BTC en exchanges"
+    family: onchain
+    axis: demanda
+    unit: BTC
+    fmt: btc_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    primary: {source: cryptoquant_pro, endpoint: "/v1/btc/exchange-flows/reserve?exchange=all_exchange&window=day"}
+    fallback: [{source: coinglass_standard, endpoint: "/api/exchange/balance/list?symbol=BTC"}]
+    vintage_storage: true
+    never_compare_levels_across_sources: true
+
+  exch_balance_chg_7d_btc:
+    label_es: "BTC en exchanges — variación 7 días"
+    family: onchain
+    axis: demanda
+    unit: BTC
+    fmt: btc_signed_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    derived_from: [exch_balance_btc]
+    note: "calcular dentro de un mismo vintage"
+
+  exch_balance_chg_30d_btc:
+    label_es: "BTC en exchanges — variación 30 días"
+    family: onchain
+    axis: demanda
+    unit: BTC
+    fmt: btc_signed_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    derived_from: [exch_balance_btc]
+
+  exch_netflow_btc_1d:
+    label_es: "Flujo neto hacia exchanges (24 h)"
+    family: onchain
+    axis: demanda
+    unit: BTC
+    fmt: btc_signed_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    primary: {source: cryptoquant_pro, endpoint: "/v1/btc/exchange-flows/netflow?exchange=all_exchange&window=day"}
+    vintage_storage: true
+
+  exch_netflow_btc_7d:
+    label_es: "Flujo neto hacia exchanges (7 días)"
+    family: onchain
+    axis: demanda
+    unit: BTC
+    fmt: btc_signed_int
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: C
+    mvp: false
+    licence: permission_pending
+    derived_from: [exch_netflow_btc_1d]
+
+  # ───────────── DERIVADOS ─────────────
+  funding_rate_agg_8h:
+    label_es: "Funding agregado (8 h, ponderado por OI)"
+    family: derivatives
+    axis: apalancamiento
+    unit: pct
+    fmt: pct_signed_3dp
+    freq: daily
+    as_of: provider_ts
+    max_staleness: PT6H
+    layer: C
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinalyze, endpoints: ["/v1/funding-rate", "/v1/funding-rate-history", "/v1/open-interest"], aggregation: "sum(FR8_i*OIusd_i)/sum(OIusd_i)"}
+    fallback: [{source: coinglass_standard, endpoint: "/api/futures/funding-rate/oi-weight-history?symbol=BTC&interval=1d"}]
+    store_components: true
+
+  funding_rate_agg_ann_pct:
+    label_es: "Funding agregado anualizado"
+    family: derivatives
+    axis: apalancamiento
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: computed
+    max_staleness: PT6H
+    layer: B
+    mvp: false
+    licence: self_computed
+    derived_from: [funding_rate_agg_8h]
+    formula: "FR8 * 3 * 365"
+
+  oi_usd:
+    label_es: "Interés abierto agregado (USD)"
+    family: derivatives
+    axis: apalancamiento
+    unit: USD
+    fmt: usd_billions
+    freq: daily
+    as_of: provider_ts
+    max_staleness: PT6H
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinalyze, endpoint: "/v1/open-interest-history?interval=1hour&convert_to_usd=true"}
+    fallback: [{source: coinglass_standard, endpoint: "/api/futures/open-interest/aggregated-history"}]
+
+  oi_btc:
+    label_es: "Interés abierto agregado (BTC)"
+    family: derivatives
+    axis: apalancamiento
+    unit: BTC
+    fmt: btc_int
+    freq: daily
+    as_of: provider_ts
+    max_staleness: PT6H
+    layer: C
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinalyze, endpoint: "/v1/open-interest-history?interval=1hour&convert_to_usd=false"}
+
+  oi_chg_24h_pct:
+    label_es: "Interés abierto — variación 24 h (en BTC)"
+    family: derivatives
+    axis: apalancamiento
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: computed
+    max_staleness: PT6H
+    layer: C
+    mvp: false
+    licence: self_computed
+    derived_from: [oi_btc]
+
+  liq_long_usd_24h:
+    label_es: "Liquidaciones de largos 24 h (mínimo reportado)"
+    family: derivatives
+    axis: apalancamiento
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: provider_ts
+    max_staleness: PT6H
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinalyze, endpoint: "/v1/liquidation-history?interval=1hour&convert_to_usd=true", field: l}
+    is_lower_bound: true
+
+  liq_short_usd_24h:
+    label_es: "Liquidaciones de cortos 24 h (mínimo reportado)"
+    family: derivatives
+    axis: apalancamiento
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: provider_ts
+    max_staleness: PT6H
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinalyze, endpoint: "/v1/liquidation-history?interval=1hour&convert_to_usd=true", field: s}
+    is_lower_bound: true
+
+  liq_total_usd_24h:
+    label_es: "Liquidaciones totales 24 h (mínimo reportado)"
+    family: derivatives
+    axis: apalancamiento
+    unit: USD
+    fmt: usd_millions
+    freq: daily
+    as_of: computed
+    max_staleness: PT6H
+    layer: C
+    mvp: false
+    licence: self_computed
+    derived_from: [liq_long_usd_24h, liq_short_usd_24h]
+    is_lower_bound: true
+
+  dvol:
+    label_es: "Volatilidad implícita BTC (DVOL, Deribit)"
+    family: derivatives
+    axis: apalancamiento
+    unit: index
+    fmt: ratio_1dp
+    freq: daily
+    as_of: utc_day_close
+    max_staleness: P2D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: deribit_public, endpoint: "/api/v2/public/get_volatility_index_data?currency=BTC&resolution=1D"}
+
+  cme_basis_ann_pct:
+    label_es: "Base anualizada futuros CME"
+    family: derivatives
+    axis: apalancamiento
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: us_session
+    max_staleness: P4D
+    layer: B
+    mvp: false
+    licence: permission_pending
+    primary: {source: coinglass_standard, endpoint: "/api/futures/basis/history"}
+
+  # ───────────── STABLECOINS ─────────────
+  usdt_peg:
+    label_es: "USDT (paridad con el dólar)"
+    family: stablecoins
+    axis: none
+    unit: USD
+    fmt: usd_4dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: B
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/simple/price?ids=tether&vs_currencies=usd"}
+
+  usdc_peg:
+    label_es: "USDC (paridad con el dólar)"
+    family: stablecoins
+    axis: none
+    unit: USD
+    fmt: usd_4dp
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT15M
+    layer: B
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/simple/price?ids=usd-coin&vs_currencies=usd"}
+
+  stablecoin_mcap_usd:
+    label_es: "Capitalización total de stablecoins"
+    family: stablecoins
+    axis: liquidez
+    unit: USD
+    fmt: usd_billions
+    freq: daily
+    as_of: provider_ts
+    max_staleness: P1D
+    layer: B
+    mvp: true
+    licence: licensed_public
+    primary: {source: coingecko_basic, endpoint: "/api/v3/coins/categories (stablecoins) — VERIFICAR"}
+
+  stablecoin_mcap_chg_7d_pct:
+    label_es: "Capitalización stablecoins — variación 7 días"
+    family: stablecoins
+    axis: liquidez
+    unit: pct
+    fmt: pct_signed_1dp
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: B
+    mvp: true
+    licence: self_computed
+    derived_from: [stablecoin_mcap_usd]
+
+  # ───────────── CALENDARIO ─────────────
+  events_today:
+    label_es: "Eventos de hoy"
+    family: calendar
+    axis: none
+    unit: json
+    fmt: text
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: N
+    mvp: true
+    licence: official_open
+    primary: {source: calendar_events_table, rule_ref: "docs/04 §6"}
+
+  events_next_7d:
+    label_es: "Eventos próximos 7 días"
+    family: calendar
+    axis: none
+    unit: json
+    fmt: text
+    freq: daily
+    as_of: computed
+    max_staleness: P1D
+    layer: B
+    mvp: true
+    licence: official_open
+    primary: {source: calendar_events_table}

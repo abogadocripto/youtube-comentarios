@@ -1,0 +1,165 @@
+# Reglas de interpretación — parámetros versionados (ver docs/04)
+# Cada cambio: incrementar rules_version y añadir entrada en changelog.
+
+rules_version: 1
+changelog:
+  - {version: 1, date: 2026-09-23, note: "Versión inicial de diseño. Umbrales provisionales pendientes de backtest 2019–2026."}
+
+stats:
+  z_window_default: 365          # observaciones
+  z_robust_for: [etf_net_flow_usd_1d, exch_netflow_btc_1d, exch_netflow_btc_7d, liq_total_usd_24h]
+  pctl_window_default: 365
+  min_history: {z: 60, pctl: 90}
+
+price:
+  sigma_move: {moderate: 1.0, large: 2.0}
+  ath_bands:                     # dd = drawdown desde ATH en %
+    - {code: ath_zone,         min: -3.0,  label_es: "en zona de máximos"}
+    - {code: ath_near,         min: -10.0, label_es: "cerca de máximos"}
+    - {code: correction,       min: -20.0, label_es: "en corrección"}
+    - {code: correction_deep,  min: -35.0, label_es: "corrección profunda"}
+    - {code: drawdown_severe,  min: -100,  label_es: "caída prolongada desde máximos"}
+  ath_band_hysteresis_pp: 1.0
+  eur_vs_usd_hint_pp: 1.5
+  range_break_windows: [30, 90]
+  ath_proximity_watch_pct: 2.0   # candidato "Hoy vigilaría"
+
+liquidity:
+  global_m2:
+    method: terciles              # terciles | fixed
+    terciles_lookback_years: 10
+    fixed: {expansion_above_ann_pct: 4.0, contraction_below_ann_pct: 0.0}
+    hysteresis_months: 2
+    fx_driven_ratio: 0.5
+  us_net_liquidity:
+    window_weeks: 4
+    expansion_above_usd: 1.5e11
+    contraction_below_usd: -1.5e11
+    confirmations: 2
+  regime_matrix:                  # [m2_state][us_state] -> regime
+    expansion:   {expansion: expansion, neutral: expansion, contraction: mixed}
+    neutral:     {expansion: neutral_us_up, neutral: neutral, contraction: neutral_us_down}
+    contraction: {expansion: mixed, neutral: contraction, contraction: contraction}
+  colors: {expansion: green, contraction: red, neutral: amber, mixed: amber, neutral_us_up: amber, neutral_us_down: amber}
+
+macro:
+  real_yield_20d_bp: {up: 25, down: -25}
+  yield_10y_5d_notable_bp: 15
+  us2y_minus_ffr_bp: {hikes_above: 25, cuts_below: -25}
+  usd_index_4w_pct: {strong: 2.0, weak: -2.0}
+  eurusd_5d_hint_pct: 1.5
+  ndx:                            # solo si hay licencia
+    strong_1d_pct: 1.5
+    strong_sigma: 2.0
+    trend_5d_pct: 3.0
+  axis_vote: majority             # real + dólar (+ nasdaq)
+
+etf:
+  lookback_sessions: 120
+  flat_abs_pctl: 0.30
+  flat_abs_min_usd: 5.0e7
+  strong_abs_pctl: 0.90
+  streak_hint_min: 3
+  biggest_since_min_sessions: 60
+  alert:
+    abs_usd: 1.0e9
+    sigma: 3.0
+    streak_sessions: 7
+    streak_cum_usd: 2.0e9
+    single_issuer_usd: 7.5e8
+    require_reconciliation: true
+
+exchanges:
+  netflow_7d_z: {outflow_below: -1.0, inflow_above: 1.0}
+  internal_flag_abs_1d_btc: 20000     # nunca alerta pública; revisión humana
+
+onchain:
+  mvrv_pctl_labels:
+    - {max: 0.20, label_es: "baja respecto a su historia"}
+    - {max: 0.60, label_es: "intermedia"}
+    - {max: 0.85, label_es: "alta"}
+    - {max: 1.00, label_es: "muy alta"}
+  mvrv_publish_window_years: 4
+  supply_in_profit: {high_pct: 95, low_pct: 50}
+  sopr_ma_days: 7
+  lth_change_30d_pct: {distribution_below: -1.0, accumulation_above: 1.0}
+  lth_definition_label_es: "LTH = monedas sin mover ≥150 días (definición BRK)"
+  crosscheck: {realized_price_max_rel: 0.03, mvrv_max_abs: 0.05}
+
+derivatives:
+  funding_8h_anchors: {neutral_max: 0.0001, long_mild_max: 0.0003, long_high: 0.0003, extreme_pos: 0.0005, extreme_neg: -0.0002}
+  funding_pctl: {extreme_high: 0.95, extreme_low: 0.05, red_above: 0.90, green_max: 0.60}
+  funding_extreme_persistence_periods: 3
+  oi_24h_btc_pct: {up: 5.0, surge: 10.0, down: -5.0, flush: -10.0}
+  liquidations: {spike_pctl: 0.95, side_share: 0.75, side_min_total_pctl: 0.80, flush_min_pctl: 0.90}
+
+sentiment:
+  delta7_labels:
+    - {min: 15,  label_es: "mejora notable del sentimiento"}
+    - {min: 5,   label_es: "mejora"}
+    - {min: -4,  label_es: "estable"}
+    - {min: -14, label_es: "enfriamiento"}
+    - {min: -100, label_es: "enfriamiento notable"}
+  colors: {"Neutral": green, "Fear": amber, "Greed": amber, "Extreme Fear": red, "Extreme Greed": red}
+  first_since_min_days: 30
+
+axes:
+  shown: [liquidez, macro, demanda, apalancamiento, sentimiento]
+  no_color: [precio, onchain, cycle]
+  min_axes_for_thermometer: 2
+  labels_es:
+    liquidez:       {green: "favorable para la liquidez", amber: "neutral", red: "desfavorable para la liquidez"}
+    macro:          {green: "condiciones financieras holgadas", amber: "condiciones mixtas", red: "condiciones más restrictivas"}
+    demanda:        {green: "presión compradora", amber: "demanda mixta", red: "presión vendedora"}
+    apalancamiento: {green: "apalancamiento contenido", amber: "apalancamiento moderado", red: "apalancamiento elevado"}
+    sentimiento:    {green: "sentimiento equilibrado", amber: "sentimiento sesgado", red: "sentimiento extremo"}
+  emoji: {green: "🟢", amber: "🟡", red: "🔴"}
+
+salience:
+  weights: {z: 0.35, threshold: 0.25, streak: 0.15, regime: 0.15, context: 0.10}
+  z_cap: 3.0
+  streak_cap: 5
+  freshness: {new: 1.0, shown_recent: 0.3, stale: 0.0}
+  candidate_min: 0.35
+  optional_block_min: 0.50
+  second_per_family_min: 0.60
+  max_visible_indicators: 8
+  z_basis:                           # variable sobre la que se calcula z para salience
+    btc_usd: chg_24h_pct
+    oi_btc: chg_24h_pct
+    funding_rate_agg_8h: level
+    fng_value: level
+    etf_net_flow_usd_1d: level
+    exch_netflow_btc_7d: level
+    us10y_real_yield: chg_20d_bp
+    supply_in_profit_pct: level
+    mvrv: level
+  core_always: [btc_usd, btc_eur, btc_chg_24h_pct, btc_chg_7d_pct, btc_drawdown_from_ath_pct, btc_days_since_ath, fng_value, fng_class, fng_value_1d_ago, fng_value_7d_ago, liquidity_regime, etf_net_flow_usd_1d, events_today]
+
+watch_today:
+  event_weights:
+    fomc_decision: 100
+    fomc_decision_sep_bonus: 10
+    us_cpi: 90
+    us_nfp: 85
+    us_pce: 75
+    us_gdp_advance: 70
+    us_gdp_other: 40
+    deribit_quarterly_expiry: 70
+    ecb_decision: 60
+    fomc_minutes: 55
+    fed_chair_speech: 55
+    fed_governor_speech: 25
+    deribit_monthly_expiry: 45
+    us_market_holiday: 35
+    cme_btc_last_trade: 30
+    us_early_close: 20
+    regulatory_deadline: from_calendar   # 50–80 según config/calendar/regulatory.yaml
+  unscheduled_weights:
+    ath_proximity: 60
+    active_alert_followup: 65
+    etf_streak_4plus: 45
+    funding_extreme_settlement: 40
+  min_today: 40
+  second_item_min: 50
+  lookahead_days: 3
