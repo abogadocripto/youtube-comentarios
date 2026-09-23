@@ -1,0 +1,173 @@
+# Registro de fuentes de noticias — Blindaje Patrimonial (ver docs/05)
+# tier: T1 oficial/primaria · T2 especializada · T3 medios/agregadores (solo descubrimiento: titular + enlace)
+# method: api | rss | atom | sparql | csv_diff | pdf_diff | html_diff | imap | weekly_search | ai_discovery
+# status: ok (verificado por la investigación) | verify (URL/formato a confirmar en Fase 0) | fallback
+# legal_value: official_journal | parliamentary_bulletin | regulator_register | regulator_notice_or_warning |
+#              binding_admin_doctrine | draft_norm | press_release | secondary_media
+# Todas las fuentes: User-Agent identificado con email de contacto, GET condicional, respeto de robots.txt.
+
+version: 1
+updated: 2026-09-23
+user_agent: "BlindajePatrimonial/1.0 (+contacto: [●]@abastlegal.com)"
+
+sources:
+
+  # ════════════════════ ESPAÑA ════════════════════
+  - id: boe_sumario
+    name: "BOE — Sumario diario (API datos abiertos)"
+    tier: T1
+    jurisdictions: [ES]
+    fronts: [fiscal, regulatorio, proteccion]
+    method: api
+    url: "https://www.boe.es/datosabiertos/api/boe/sumario/{YYYYMMDD}"
+    headers: {Accept: application/json}
+    poll: "cada 5 min de 07:30 a 08:45 hasta que aparezca el número; lunes a sábado (sin edición en domingo)"
+    filter: {secciones: ["I", "II-B", "III"], departamentos: ["Ministerio de Hacienda", "Ministerio de Economía", "Comisión Nacional del Mercado de Valores", "Banco de España", "Jefatura del Estado"]}
+    detail_url: "https://www.boe.es/diario_boe/xml.php?id={BOE-A-...}"
+    legal_value: official_journal
+    attribution: "Fuente de los datos: Agencia Estatal Boletín Oficial del Estado"
+    dedup_key: identificador
+    fallback: [boe_rss, boe_alertas_email]
+    status: ok
+
+  - {id: boe_rss, name: "BOE — RSS por sección", tier: T1, jurisdictions: [ES], fronts: [fiscal, regulatorio], method: rss, url: "https://www.boe.es/rss/", poll: "30 min", legal_value: official_journal, status: fallback}
+  - {id: boe_alertas_email, name: "BOE — Alertas por email", tier: T1, jurisdictions: [ES], fronts: [fiscal, regulatorio], method: imap, url: "https://www.boe.es/alertas/", poll: "15 min", legal_value: official_journal, status: fallback}
+
+  - id: boe_legislacion_consolidada
+    name: "BOE — API legislación consolidada (cambios en normas vigiladas)"
+    tier: T1
+    jurisdictions: [ES]
+    fronts: [fiscal, regulatorio]
+    method: api
+    url: "https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/{BOE-A-...}"
+    poll: "diario 06:00"
+    watch_norms: ["Ley 35/2006 IRPF", "Ley 19/1991 Patrimonio", "Ley 29/1987 ISD", "Ley 58/2003 LGT", "Ley 10/2010 PBC/FT", "Ley 6/2023 Mercado de Valores", "Ley 38/2022 ITSGF"]
+    legal_value: official_journal
+    status: verify
+
+  - {id: aeat_novedades, name: "AEAT — Novedades", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: rss, url: "https://sede.agenciatributaria.gob.es/Sede/informacion-institucional/suscripcion-rss-newsletter/rss.html", html_fallback: "https://sede.agenciatributaria.gob.es/Sede/todas-noticias.html", poll: "2 veces al día", legal_value: press_release, status: verify}
+  - {id: hacienda_prensa, name: "Ministerio de Hacienda — notas de prensa", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: rss, url: "datos.gob.es: notas-de-prensa-del-ministerio-de-hacienda", poll: "hora", legal_value: press_release, status: verify}
+  - {id: hacienda_proyectos, name: "Ministerio de Hacienda — proyectos normativos en audiencia pública", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: html_diff, url: "https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/", poll: "diario", legal_value: draft_norm, status: verify}
+  - {id: dgt_petete, name: "DGT — consultas vinculantes (Petete)", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: weekly_search, url: "https://petete.tributos.hacienda.gob.es/consultas/", poll: "semanal (viernes)", keywords: ["monedas virtuales", "criptoactivos", "criptomonedas", "Andorra", "Emiratos", "residencia fiscal"], rate_limit: "1 req/s", legal_value: binding_admin_doctrine, status: ok}
+  - {id: teac_dyctea, name: "TEAC — DYCTEA", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: weekly_search, url: "https://serviciostelematicosext.hacienda.gob.es/TEAC/DYCTEA/criterios.aspx", poll: "semanal", legal_value: binding_admin_doctrine, status: ok}
+  - {id: cnmv_rss, name: "CNMV — RSS", tier: T1, jurisdictions: [ES], fronts: [regulatorio, proteccion], method: rss, url: "https://www.cnmv.es/portal/RSS/RSS.asmx/GetDatos?iID={n}", note: "enumerar iIDs en Fase 0", poll: "hora", legal_value: press_release, status: verify}
+  - {id: cnmv_advertencias, name: "CNMV — advertencias sobre entidades no autorizadas", tier: T1, jurisdictions: [ES], fronts: [proteccion], method: html_diff, url: "https://www.cnmv.es/portal/advertenciaslistado?tipoAdv=1", poll: "hora", pii: "puede nombrar personas físicas: no publicar nombres", legal_value: regulator_notice_or_warning, status: ok}
+  - {id: cnmv_casp_pdf, name: "CNMV — relación de proveedores de servicios de criptoactivos (MiCA)", tier: T1, jurisdictions: [ES], fronts: [regulatorio, proteccion], method: pdf_diff, url: "https://cnmv.es/Docportal/Proveedores-Servicios-Criptoactivos/Listado_ProveedoresCriptoactivos.pdf", poll: "diario", legal_value: regulator_register, status: ok}
+  - {id: bde_rss, name: "Banco de España — RSS", tier: T1, jurisdictions: [ES], fronts: [financiero, regulatorio], method: rss, url: "https://www.bde.es/wbe/en/inicio/rss/", poll: "hora", legal_value: press_release, status: ok}
+  - {id: sepblac_rss, name: "SEPBLAC — RSS", tier: T1, jurisdictions: [ES], fronts: [regulatorio], method: rss, url: "https://www.sepblac.es/en/rss-feeds/", poll: "diario", legal_value: press_release, status: ok}
+  - {id: congreso_iniciativas, name: "Congreso — datos abiertos (iniciativas)", tier: T1, jurisdictions: [ES], fronts: [fiscal, regulatorio], method: api, url: "https://www.congreso.es/es/opendata/iniciativas", poll: "diario", watchlist: ["121/000060", "122/000283"], keywords: ["criptoactivo", "patrimonio", "grandes fortunas", "no residentes", "Andorra"], legal_value: parliamentary_bulletin, status: ok}
+  - {id: moncloa_cm, name: "La Moncloa — referencias del Consejo de Ministros", tier: T1, jurisdictions: [ES], fronts: [fiscal, regulatorio], method: rss, url: "https://www.lamoncloa.gob.es/Paginas/varios/rss.aspx", poll: "martes 14:00–20:00 cada 30 min", legal_value: press_release, status: ok}
+  - {id: incibe_avisos, name: "INCIBE — avisos (CERT y ciudadanía)", tier: T1, jurisdictions: [ES], fronts: [proteccion], method: atom, url: "https://www.incibe.es/incibe-cert/alerta-temprana/avisos/feed", extra: ["https://www.incibe.es/ciudadania/avisos"], poll: "hora", filter_keywords: ["cripto", "inversión", "bitcoin", "wallet", "exchange"], legal_value: regulator_notice_or_warning, status: ok}
+  - {id: cendoj, name: "CENDOJ", tier: T1, jurisdictions: [ES], fronts: [fiscal], method: none, note: "NO AUTOMATIZAR (términos: prohibido uso comercial y descarga masiva). Solo enlaces manuales del editor.", status: ok}
+
+  # ════════════════════ ANDORRA ════════════════════
+  - id: bopa_api
+    name: "BOPA — Butlletí Oficial del Principat d'Andorra"
+    tier: T1
+    jurisdictions: [AD]
+    fronts: [fiscal, regulatorio, proteccion]
+    method: api
+    url: "https://bopaazurefunctions.azurewebsites.net/api/GetNewPaginatedNewsletter (POST) → GetDocumentsByBOPA?year={YYYY}&numBOPA={n}"
+    poll: "08:30 y 13:00"
+    rate_limit: "≤ 1 req/s"
+    note: "API NO DOCUMENTADA: prueba de contrato diaria; alerta si hay días sin elementos"
+    legal_value: official_journal
+    fallback: [bopa_email]
+    language: ca
+    status: verify
+  - {id: bopa_email, name: "BOPA — alertas por email", tier: T1, jurisdictions: [AD], fronts: [fiscal, regulatorio], method: imap, poll: "15 min", legal_value: official_journal, status: fallback}
+  - {id: govern_ad, name: "Govern d'Andorra — actualitat / espai premsa", tier: T1, jurisdictions: [AD], fronts: [fiscal, regulatorio], method: html_diff, url: "https://www.govern.ad/ca/actualitat", poll: "diario", legal_value: press_release, language: ca, status: ok}
+  - {id: dtf_consultes, name: "Departament de Tributs i de Fronteres — consultes vinculants", tier: T1, jurisdictions: [AD], fronts: [fiscal], method: weekly_search, url: "https://www.govern.ad/", poll: "semanal", legal_value: binding_admin_doctrine, language: ca, status: verify}
+  - {id: afa, name: "AFA — Autoritat Financera Andorrana (registros, actius digitals, comunicats)", tier: T1, jurisdictions: [AD], fronts: [regulatorio, proteccion], method: html_diff, url: "https://www.afa.ad/en/register", poll: "diario", legal_value: regulator_register, language: ca, status: ok}
+  - {id: uifand, name: "UIFAND", tier: T1, jurisdictions: [AD], fronts: [regulatorio], method: html_diff, url: "https://www.uifand.ad/ca/actualitat-uifand", poll: "semanal", legal_value: press_release, language: ca, status: ok}
+  - {id: consell_general, name: "Consell General — projectes de llei", tier: T1, jurisdictions: [AD], fronts: [fiscal, regulatorio], method: html_diff, url: "https://www.consellgeneral.ad/ca/activitat-parlamentaria/iniciatives-legislatives/projectes-de-llei", poll: "semanal", legal_value: parliamentary_bulletin, language: ca, status: ok}
+
+  # ════════════════════ UNIÓN EUROPEA ════════════════════
+  - id: cellar_sparql
+    name: "Oficina de Publicaciones — Cellar SPARQL (DOUE)"
+    tier: T1
+    jurisdictions: [EU]
+    fronts: [fiscal, regulatorio]
+    method: sparql
+    url: "https://publications.europa.eu/webapi/rdf/sparql"
+    poll: "hora, 07:00–19:00 CET"
+    filter: {celex_sector: 3, celex_watch: ["32023R1114", "32023R1113", "32024R1624", "32024R1620", "32023L2226"], keywords: ["crypto-asset", "virtual asset", "anti-money laundering", "administrative cooperation"]}
+    dedup_key: "CELEX + ELI"
+    legal_value: official_journal
+    attribution: "© Unión Europea, EUR-Lex (Decisión 2011/833/UE, CC BY 4.0)"
+    fallback: [eurlex_rss]
+    status: ok
+  - {id: eurlex_rss, name: "EUR-Lex — RSS DO serie L/C y búsquedas guardadas", tier: T1, jurisdictions: [EU], fronts: [fiscal, regulatorio], method: rss, url: "https://eur-lex.europa.eu/oj/daily-view/L-series/default.html", poll: "hora", legal_value: official_journal, status: fallback}
+  - {id: esma_mica_register, name: "ESMA — registro provisional MiCA (CASPS, NCASP, EMTWP, ARTZZ, libros blancos Título II)", tier: T1, jurisdictions: [EU], fronts: [regulatorio, proteccion], method: csv_diff, url: "https://www.esma.europa.eu/sites/default/files/2024-12/CASPS.csv (y demás ficheros)", poll: "diario 06:00 UTC (GET condicional)", note: "Migración prevista a sistemas de ESMA en 2026: alarma de 404/cambio de esquema. Contraste: github.com/CASP-Tracker/mica-register-data", events: ["nuevo CASP autorizado (marcar pasaporte a ES)", "alta en NCASP (no conformes)", "nuevo EMT/ART"], legal_value: regulator_register, status: verify}
+  - {id: esma_news, name: "ESMA — noticias y comunicados", tier: T1, jurisdictions: [EU], fronts: [regulatorio], method: rss, url: "https://www.esma.europa.eu/press-news/esma-news", poll: "30 min", legal_value: press_release, status: verify}
+  - {id: eba_news, name: "EBA — noticias (MiCA ART/EMT)", tier: T1, jurisdictions: [EU], fronts: [regulatorio], method: rss, url: "https://www.eba.europa.eu/news-press/news/rss.xml", poll: "30 min", legal_value: press_release, status: verify}
+  - {id: ec_presscorner, name: "Comisión Europea — Press Corner", tier: T1, jurisdictions: [EU], fronts: [fiscal, regulatorio], method: rss, url: "https://ec.europa.eu/commission/presscorner/api/rss", poll: "30 min", legal_value: press_release, status: ok}
+  - {id: ec_infringements, name: "Comisión — paquetes mensuales de infracciones (España)", tier: T1, jurisdictions: [EU, ES], fronts: [fiscal, regulatorio], method: html_diff, url: "https://spain.representation.ec.europa.eu/noticias-eventos/noticias-0_es", poll: "semanal", legal_value: press_release, status: verify}
+  - {id: consilium, name: "Consejo de la UE — comunicados", tier: T1, jurisdictions: [EU], fronts: [fiscal, regulatorio], method: rss, url: "https://www.consilium.europa.eu/en/about-site/rss/", poll: "hora", legal_value: press_release, status: ok}
+  - {id: europarl, name: "Parlamento Europeo — API de datos abiertos / OEIL", tier: T1, jurisdictions: [EU], fronts: [fiscal, regulatorio], method: api, url: "https://data.europarl.europa.eu/en/developer-corner/opendata-api", poll: "diario", legal_value: parliamentary_bulletin, status: ok}
+  - {id: amla, name: "AMLA — Autoridad de Lucha contra el Blanqueo", tier: T1, jurisdictions: [EU], fronts: [regulatorio], method: html_diff, url: "https://www.amla.europa.eu/index_en", poll: "hora (horario laboral)", legal_value: press_release, status: ok}
+  - {id: ecb_press, name: "BCE — comunicados (incl. euro digital)", tier: T1, jurisdictions: [EU], fronts: [financiero, regulatorio], method: rss, url: "https://www.ecb.europa.eu/rss/press.html", poll: "30 min", legal_value: press_release, status: ok}
+
+  # ════════════════════ INTERNACIONAL ════════════════════
+  - {id: oecd_carf_pdf, name: "OECD Global Forum — compromisos CARF / AEOI", tier: T1, jurisdictions: [INTL], fronts: [fiscal], method: pdf_diff, url: "https://www.oecd.org/content/dam/oecd/en/networks/global-forum-tax-transparency/commitments-carf.pdf", poll: "diario", attribution: "OECD (CC BY 4.0)", legal_value: regulator_register, status: ok}
+  - {id: oecd_gf_news, name: "OECD Global Forum — noticias", tier: T1, jurisdictions: [INTL], fronts: [fiscal], method: html_diff, url: "https://www.oecd.org/en/networks/global-forum-tax-transparency/news-events.html", poll: "hora (horario laboral)", legal_value: press_release, status: ok}
+  - {id: fatf, name: "FATF — noticias y resultados de plenarios", tier: T1, jurisdictions: [INTL], fronts: [regulatorio], method: html_diff, url: "https://www.fatf-gafi.org/en/the-fatf/news.html", poll: "hora; cada 15 min en semana de plenario", attribution: "FATF/OECD; reproducción sin alteración con aviso legal", legal_value: press_release, status: ok}
+  - {id: fsb_rss, name: "FSB — RSS", tier: T1, jurisdictions: [INTL], fronts: [regulatorio, financiero], method: rss, url: "https://www.fsb.org/rss-feeds/", poll: "30 min", legal_value: press_release, status: ok}
+  - {id: bis_rss, name: "BIS — comunicados", tier: T1, jurisdictions: [INTL], fronts: [financiero, regulatorio], method: rss, url: "https://www.bis.org/doclist/all_pressrels.rss", poll: "30 min", legal_value: press_release, status: ok}
+  - {id: iosco, name: "IOSCO — comunicados e I-SCAN", tier: T1, jurisdictions: [INTL], fronts: [regulatorio, proteccion], method: html_diff, url: "https://www.iosco.org/media_room/?subsection=media_releases", poll: "diario", legal_value: press_release, status: ok}
+
+  # ════════════════════ EE. UU. (impacto global) ════════════════════
+  - {id: sec_press, name: "SEC — comunicados", tier: T1, jurisdictions: [US], fronts: [regulatorio], method: rss, url: "https://www.sec.gov/news/pressreleases.rss", poll: "15 min", rate_limit: "≤ 10 req/s, User-Agent declarado", legal_value: press_release, status: ok}
+  - {id: cftc_press, name: "CFTC — comunicados", tier: T1, jurisdictions: [US], fronts: [regulatorio], method: rss, url: "https://www.cftc.gov/RSS/RSSGP/rssgp.xml", poll: "15 min", legal_value: press_release, status: ok}
+  - {id: fed_press, name: "Reserva Federal — comunicados", tier: T1, jurisdictions: [US], fronts: [financiero, regulatorio], method: rss, url: "https://www.federalreserve.gov/feeds/feeds.htm", poll: "15 min", legal_value: press_release, status: verify}
+  - {id: federal_register, name: "Federal Register — API", tier: T1, jurisdictions: [US], fronts: [regulatorio], method: api, url: "https://www.federalregister.gov/api/v1/documents.json", poll: "diario 11:00 UTC", filter: {agencies: [SEC, CFTC, Treasury, FinCEN, OFAC, OCC, FDIC, FRS], terms: ["digital asset", "crypto", "stablecoin"]}, dedup_key: document_number, legal_value: official_journal, status: ok}
+  - {id: congress_gov, name: "Congress.gov — API v3", tier: T1, jurisdictions: [US], fronts: [regulatorio], method: api, url: "https://api.congress.gov/v3/", auth: "clave gratuita (5.000 req/h)", poll: "2 h", watchlist: ["119-hr-3633 (CLARITY)", "119-s-1582 (GENIUS, PL 119-27)", "119-hr-1919 (Anti-CBDC)"], legal_value: parliamentary_bulletin, status: ok}
+  - {id: ofac_sls, name: "OFAC — Sanctions List Service (SDN, deltas)", tier: T1, jurisdictions: [US, INTL], fronts: [proteccion, regulatorio], method: api, url: "https://sanctionslistservice.ofac.treas.gov/api/download/sdn_advanced.xml", poll: "30 min (comprobar fecha de publicación/delta)", extract: "Digital Currency Address - XBT/ETH/USDT…", note: "OFAC retiró su RSS el 31-ene-2025", legal_value: regulator_register, status: verify}
+  - {id: eu_fsf, name: "UE — lista consolidada de sanciones financieras", tier: T1, jurisdictions: [EU], fronts: [proteccion, regulatorio], method: api, url: "https://webgate.ec.europa.eu/fsd/fsf/ (fichero XML; token a confirmar)", poll: "diario", legal_value: regulator_register, status: verify}
+  - {id: irs_digital_assets, name: "IRS — activos digitales / 1099-DA", tier: T1, jurisdictions: [US], fronts: [fiscal], method: html_diff, url: "https://www.irs.gov/newsroom", poll: "semanal", legal_value: press_release, status: ok}
+
+  # ════════════════════ EMIRATOS ÁRABES UNIDOS ════════════════════
+  - {id: vara, name: "VARA — noticias y registro público", tier: T1, jurisdictions: [AE], fronts: [regulatorio], method: html_diff, url: "https://www.vara.ae/en/news/", extra: ["https://www.vara.ae/en/licenses-and-register/public-register/"], poll: "semanal", note: "puede requerir navegador headless", legal_value: regulator_register, status: verify}
+  - {id: dfsa, name: "DFSA — noticias", tier: T1, jurisdictions: [AE], fronts: [regulatorio], method: html_diff, url: "https://www.dfsa.ae/news", poll: "semanal", legal_value: press_release, status: verify}
+  - {id: cbuae, name: "CBUAE — comunicados", tier: T1, jurisdictions: [AE], fronts: [regulatorio, financiero], method: html_diff, url: "https://www.centralbank.ae/en/news", poll: "semanal", legal_value: press_release, status: verify}
+  - {id: adgm_fsra, name: "ADGM FSRA", tier: T1, jurisdictions: [AE], fronts: [regulatorio], method: html_diff, url: "https://www.adgm.com/", poll: "semanal", legal_value: press_release, status: verify}
+  - {id: uae_fta_mof, name: "UAE FTA / Ministerio de Finanzas (CARF, impuesto de sociedades)", tier: T1, jurisdictions: [AE], fronts: [fiscal], method: html_diff, url: "https://mof.gov.ae/en/news/", poll: "semanal", legal_value: press_release, status: verify}
+
+  # ════════════════════ PROTECCIÓN / SEGURIDAD ════════════════════
+  - {id: bitcoin_core_security, name: "Bitcoin Core — avisos de seguridad y versiones", tier: T1, jurisdictions: [INTL], fronts: [proteccion], method: rss, url: "https://bitcoincore.org/en/rss.xml", extra: ["https://github.com/bitcoin/bitcoin/releases.atom"], poll: "30 min", legal_value: press_release, status: ok}
+  - {id: hw_wallet_bulletins, name: "Fabricantes de wallets — boletines de seguridad", tier: T1, jurisdictions: [INTL], fronts: [proteccion], method: html_diff, url: "https://donjon.ledger.com/lsb/", extra: ["https://trezor.io/learn/a/past-security-issues", "Coldcard security status", "BitBox blog", "GitHub releases.atom de firmwares (organizaciones verificadas)"], poll: "30 min", rule: "solo dominios oficiales; nunca retransmitir 'actualiza urgentemente' no verificado", legal_value: press_release, status: ok}
+  - {id: nvd_cve, name: "NVD — API CVE 2.0 (palabras clave de wallets)", tier: T1, jurisdictions: [INTL], fronts: [proteccion], method: api, url: "https://services.nvd.nist.gov/rest/json/cves/2.0", poll: "2 h (lastModStartDate/EndDate)", keywords: ["bitcoin", "wallet", "trezor", "ledger", "coldcard", "bitbox", "electrum", "sparrow", "lightning"], note: "desde abr-2026 NIST solo enriquece CVE prioritarios: filtrar por palabra clave, no por CPE", legal_value: regulator_notice_or_warning, status: ok}
+  - {id: europol_news, name: "Europol — noticias", tier: T1, jurisdictions: [EU], fronts: [proteccion], method: rss, url: "https://www.europol.europa.eu/cms/api/rss/news", poll: "hora", legal_value: press_release, status: ok}
+  - {id: rekt_news, name: "rekt.news", tier: T2, jurisdictions: [INTL], fronts: [proteccion], method: rss, url: "https://rekt.news/rss/feed.xml", poll: "30 min", legal_value: secondary_media, status: ok}
+  - {id: slowmist_hacked, name: "SlowMist Hacked", tier: T2, jurisdictions: [INTL], fronts: [proteccion], method: html_diff, url: "https://hacked.slowmist.io/", poll: "hora", legal_value: secondary_media, status: ok}
+  - {id: chainalysis_elliptic_trm, name: "Chainalysis / Elliptic / TRM Labs — blogs", tier: T2, jurisdictions: [INTL], fronts: [proteccion, regulatorio], method: rss, url: "https://www.elliptic.co/blog/rss.xml", extra: ["https://www.chainalysis.com/blog/ (RSS a confirmar)", "TRM Labs blog (HTML)"], poll: "diario", legal_value: secondary_media, status: verify}
+  - {id: bitcoin_optech, name: "Bitcoin Optech", tier: T2, jurisdictions: [INTL], fronts: [proteccion], method: rss, url: "https://bitcoinops.org/feed.xml", poll: "semanal", legal_value: secondary_media, status: verify}
+  - {id: exchange_status, name: "Páginas de estado de exchanges (Statuspage)", tier: T1, jurisdictions: [INTL], fronts: [proteccion], method: api, url: "https://status.coinbase.com/history", extra: ["https://status.kraken.com/api"], poll: "15 min", note: "solo incidentes graves (retiradas suspendidas > 2 h)", legal_value: regulator_notice_or_warning, status: verify}
+
+  # ════════════════════ DESCUBRIMIENTO (T3: solo titular + enlace) ════════════════════
+  - {id: coindesk_rss, name: "CoinDesk", tier: T3, jurisdictions: [INTL], fronts: [financiero, regulatorio, proteccion], method: rss, url: "https://www.coindesk.com/arc/outboundfeeds/rss/", poll: "15 min", store: "titular + URL + fecha (sin cuerpo)", legal_value: secondary_media, status: ok}
+  - {id: theblock_rss, name: "The Block", tier: T3, jurisdictions: [INTL], fronts: [financiero, regulatorio, proteccion], method: rss, url: "https://www.theblock.co/rss.xml", poll: "15 min", store: "titular + URL + fecha", legal_value: secondary_media, status: ok}
+  - {id: decrypt_rss, name: "Decrypt", tier: T3, jurisdictions: [INTL], fronts: [financiero, regulatorio, proteccion], method: rss, url: "https://decrypt.co/feed", poll: "15 min", store: "titular + URL + fecha", legal_value: secondary_media, status: verify}
+  - {id: blockworks_rss, name: "Blockworks", tier: T3, jurisdictions: [INTL], fronts: [financiero, regulatorio], method: rss, url: "https://blockworks.co/feed", poll: "15 min", store: "titular + URL + fecha", legal_value: secondary_media, status: verify}
+  - {id: gdelt_doc, name: "GDELT DOC 2.0 (ES/CA/EN)", tier: T3, jurisdictions: [INTL], fronts: [fiscal, regulatorio, proteccion], method: api, url: "https://api.gdeltproject.org/api/v2/doc/doc?query=...&mode=artlist&format=json", poll: "hora", attribution: "GDELT Project", legal_value: secondary_media, status: verify}
+  - id: claude_web_search_discovery
+    name: "Barrido de descubrimiento con la búsqueda web de la API de Claude (opcional)"
+    tier: T3
+    jurisdictions: [ES, AD, EU, US, INTL]
+    fronts: [fiscal, regulatorio, proteccion]
+    method: ai_discovery
+    tool: "web_search_20260209 (+ web_fetch_20260209)"
+    allowed_domains: [boe.es, hacienda.gob.es, agenciatributaria.gob.es, cnmv.es, bde.es, bopa.ad, govern.ad, afa.ad, eur-lex.europa.eu, esma.europa.eu, eba.europa.eu, ec.europa.eu, consilium.europa.eu, europarl.europa.eu, amla.europa.eu, ecb.europa.eu, oecd.org, fatf-gafi.org, sec.gov, federalregister.gov, congress.gov, treasury.gov]
+    poll: "diario 07:45 + viernes"
+    max_uses: 10
+    rule: "Solo propone URLs; cada URL se re-descarga con el recolector normal antes de almacenarse. El texto de la búsqueda nunca es fuente."
+    legal_value: secondary_media
+    status: ok
+
+rejected:
+  - {name: "CryptoPanic API", reason: "plan gratuito eliminado en 2026; desde 50 $/semana"}
+  - {name: "NewsAPI.org", reason: "449 $/mes para producción"}
+  - {name: "CoinDesk Data News API", reason: "solo por ventas; plan gratuito retirado"}
+  - {name: "Google News RSS", reason: "términos no comerciales"}
+  - {name: "DeFiLlama hacks", reason: "requiere API de pago y consentimiento escrito para uso comercial"}
+  - {name: "CENDOJ (automatizado)", reason: "términos: prohibido uso comercial y descarga masiva"}

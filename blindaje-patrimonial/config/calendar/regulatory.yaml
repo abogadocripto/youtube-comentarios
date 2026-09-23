@@ -1,0 +1,41 @@
+# Calendario fiscal y regulatorio relevante para un titular de criptoactivos residente en España/Andorra.
+# status: confirmed | pending_norm | inferred | unverified   (ver docs/05 §7)
+# Regla editorial: pending_norm/unverified NUNCA se presentan como definitivos ("previsto, pendiente de publicación en el BOE").
+# watch_weight: peso para "Hoy vigilaría…" cuando falten ≤ 3 días (docs/04 §6).
+# Revisión mensual y cada vez que BOE/BOPA publiquen órdenes sobre modelos 172/173/175/721/718/714 o campaña IRPF.
+# Fuente de la investigación: 2026-09-23 (búsqueda web; varias fechas marcadas para verificación primaria).
+
+version: 1
+last_reviewed: 2026-09-23
+reviewer: "[● editor]"
+
+deadlines:
+  # ───── Pasados recientes (contexto para el Weekly; no se anuncian como futuros) ─────
+  - {id: eu_mica_full, date: 2024-12-30, jurisdiction: EU, obligation: "Aplicación plena de MiCA (Reg. (UE) 2023/1114) y del TFR (Reg. (UE) 2023/1113)", status: confirmed, evidence_url: "https://eur-lex.europa.eu/eli/reg/2023/1114/oj", note: "verificar contra EUR-Lex en Fase 0"}
+  - {id: eu_dac8_start, date: 2026-01-01, jurisdiction: EU, obligation: "DAC8 (Dir. (UE) 2023/2226): comienzan diligencia debida y recogida de datos por los proveedores de servicios de criptoactivos", status: confirmed, evidence_url: "https://taxation-customs.ec.europa.eu/taxation/tax-transparency-cooperation/administrative-co-operation-and-mutual-assistance/directive-administrative-cooperation-dac/dac8_en"}
+  - {id: ad_eu_aeoi_protocol, date: 2026-01-01, jurisdiction: AD, obligation: "Aplicación del protocolo UE-Andorra modificado de intercambio automático (CRS ampliado a cripto, dinero electrónico y CBDC)", status: confirmed, evidence_url: "https://www.europarl.europa.eu/doceo/document/A-10-2025-0199_EN.html"}
+  - {id: es_mica_transitional_end, date: 2026-07-01, jurisdiction: ES, obligation: "Fin del periodo transitorio de MiCA en España (art. 143.3 MiCA); cierre del registro de proveedores del Banco de España", status: confirmed, wording: "hasta el 1 de julio de 2026", evidence_url: "CNMV FAQ MiCA: https://www.cnmv.es/docportal/Legislacion/FAQ/FAQ_MICA.pdf"}
+
+  # ───── Próximos ─────
+  - {id: ad_aml_bill_amendments, date: 2026-09-30, jurisdiction: AD, obligation: "Fin del plazo de enmiendas al proyecto de ley de prevención del blanqueo que incorpora la regla de viaje para activos virtuales (Reg. (UE) 2023/1113)", status: unverified, watch_weight: 50, evidence_url: "https://seu.consellgeneral.ad/"}
+  - {id: fatf_plenary_oct26, date_range: [2026-10-26, 2026-10-30], jurisdiction: INTL, obligation: "Plenario del FATF (posibles cambios en listas)", status: inferred, watch_weight: 55, evidence_url: "https://www.fatf-gafi.org/en/the-fatf/outcomes-of-meetings.html"}
+  - {id: ad_eu_association_signature, date: 2026-10-19, jurisdiction: AD, obligation: "Firma en Bruselas del Acuerdo de Asociación UE-Andorra (después: ratificación del PE, referéndum en Andorra, Consell General por 2/3)", status: confirmed, watch_weight: 60, evidence_url: "Diari d'Andorra, 17-sep-2026 (confirmar con fuente oficial del Govern)"}
+  - {id: us_genius_effective, date: 2027-01-18, jurisdiction: US, obligation: "Entrada en vigor de la GENIUS Act (PL 119-27, stablecoins de pago): 18-ene-2027 o 120 días tras las normas finales, lo que ocurra antes", status: confirmed, watch_weight: 40, evidence_url: "https://www.congress.gov/bill/119th-congress/senate-bill/1582"}
+  - {id: es_modelo_172_2026, date_range: [2027-01-01, 2027-01-31], jurisdiction: ES, obligation: "Modelo 172 (saldos en criptoactivos), ejercicio 2026", status: pending_norm, watch_weight: 70, evidence_url: "https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/09032026-proyecto-om-dac8.pdf", note: "Proyecto de OM de mar-2026 (DAC8) modifica 172 y 721 y crea 175 y 042"}
+  - {id: es_modelo_175_2026, date_range: [2027-01-01, 2027-01-31], jurisdiction: ES, obligation: "Nuevo Modelo 175 (sustituye al 173; operaciones con criptoactivos, DAC8), ejercicio 2026", status: pending_norm, watch_weight: 75, evidence_url: "https://www.hacienda.gob.es/sgt/normativadoctrina/proyectos/09032026-proyecto-om-dac8.pdf"}
+  - {id: es_modelo_042, date: null, jurisdiction: ES, obligation: "Modelo 042: censo de operadores de criptoactivos (antes del primer plazo del 175)", status: pending_norm, watch_weight: 50, evidence_url: "proyecto OM DAC8 (mar-2026)"}
+  - {id: es_modelo_721_2026, date_range: [2027-01-01, 2027-03-31], jurisdiction: ES, obligation: "Modelo 721 (criptomonedas situadas en el extranjero), ejercicio 2026; posible ampliación a 'criptoactivos' según proyecto", status: confirmed, scope_status: pending_norm, watch_weight: 80, evidence_url: "https://www.boe.es/buscar/doc.php?id=BOE-A-2023-17429"}
+  - {id: es_modelo_720_2026, date_range: [2027-01-01, 2027-03-31], jurisdiction: ES, obligation: "Modelo 720 (bienes y derechos en el extranjero), ejercicio 2026", status: unverified, watch_weight: 60, evidence_url: "AEAT (verificar)"}
+  - {id: es_irpf_ip_2026, date_range: [2027-04-01, 2027-06-30], jurisdiction: ES, obligation: "Campaña IRPF / Impuesto sobre el Patrimonio, ejercicio 2026", status: inferred, watch_weight: 60, evidence_url: "patrón 2026: https://www.boe.es/buscar/act.php?id=BOE-A-2026-7041 (pendiente de la OM de 2027)"}
+  - {id: eu_amlr_application, date: 2027-07-10, jurisdiction: EU, obligation: "Aplicación del AMLR (Reg. (UE) 2024/1624): prohibición de cuentas cripto anónimas, límite de 10.000 € en efectivo; plazo de transposición de la AMLD6", status: unverified, watch_weight: 70, evidence_url: "https://eur-lex.europa.eu/eli/reg/2024/1624/oj", note: "procede del texto del DOUE conocido; re-verificar en EUR-Lex"}
+  - {id: es_modelo_718_2026, date_range: [2027-07-01, 2027-07-31], jurisdiction: ES, obligation: "Modelo 718, Impuesto Temporal de Solidaridad de las Grandes Fortunas, ejercicio 2026", status: confirmed, watch_weight: 60, evidence_url: "https://sede.agenciatributaria.gob.es/Sede/declaraciones-informativas-otros-impuestos-tasas/impuesto-temporal-solidaridad-grandes-fortunas.html"}
+  - {id: eu_dac8_first_exchange, date: 2027-09-30, jurisdiction: EU, obligation: "Primer intercambio DAC8 entre Estados miembros (datos de 2026)", status: unverified, watch_weight: 50, evidence_url: "página DAC8 de la Comisión"}
+  - {id: carf_first_wave, date: 2027-12-31, precision: year, jurisdiction: INTL, obligation: "Primeros intercambios CARF de la primera ola (España incluida); EAU: recogida 2027, intercambios 2028; Andorra: sin fecha comprometida", status: confirmed, watch_weight: 40, evidence_url: "https://www.oecd.org/content/dam/oecd/en/networks/global-forum-tax-transparency/commitments-carf.pdf"}
+  - {id: eu_amla_direct_supervision, date: 2028-01-01, precision: year, jurisdiction: EU, obligation: "Inicio de la supervisión directa de AMLA sobre entidades seleccionadas (posiblemente CASP)", status: unverified, watch_weight: 40, evidence_url: "https://eur-lex.europa.eu/eli/reg/2024/1620/oj"}
+
+pending_initiatives:   # seguimiento (no son plazos)
+  - {id: es_pl_121_000060, jurisdiction: ES, title: "Proyecto de Ley 121/000060 (DAC8, LGT, IRPF, ISD; embargo de criptoactivos; enmiendas de Sumar para integrar las ganancias cripto en la base general, hasta el 47 %)", status: unverified, source: "Congreso — ficha de la iniciativa"}
+  - {id: es_pl_122_000283, jurisdiction: ES, title: "Proposición de Ley 122/000283 (Sumar): Impuesto sobre Grandes Herencias y Donaciones", status: unverified, source: "Congreso"}
+  - {id: us_clarity_act, jurisdiction: US, title: "CLARITY Act (H.R.3633): la votación de cloture en el Senado fracasó 49-50 el 15-sep-2026; moción de reconsideración registrada", status: confirmed, source: "https://api.congress.gov/v3/bill/119/hr/3633/actions"}
+  - {id: us_sec_reg_crypto_assets, jurisdiction: US, title: "SEC: propuesta 'Regulation Crypto Assets' (18-ago-2026)", status: confirmed, source: "sec.gov"}
+  - {id: ad_digital_assets_fin_instruments, jurisdiction: AD, title: "Proyecto andorrano sobre activos digitales que son instrumentos financieros (pendiente tras la Llei 24/2022)", status: unverified, source: "Consell General"}

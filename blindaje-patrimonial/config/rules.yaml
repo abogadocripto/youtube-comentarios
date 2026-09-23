@@ -163,3 +163,42 @@ watch_today:
   min_today: 40
   second_item_min: 50
   lookahead_days: 3
+
+news:
+  weights: {economic_impact: 0.20, affected_population: 0.15, legal_force: 0.20, urgency: 0.15, novelty: 0.10, icp_fit: 0.20}
+  reliability: {T1: 1.00, T2_x2: 0.90, T2: 0.80, T3: 0.50}
+  jurisdiction: {ES: 1.00, AD: 1.00, EU_applicable_ES: 1.00, US_INTL_indirect: 0.80, other: 0.50}
+  floors:
+    boe_seccion_I_crypto_tax: 85
+    bopa_ley_decreto_crypto_irpf_aml: 85
+    vendor_confirmed_seed_key_vuln: 85
+    exchange_withdrawals_halted_or_insolvency_eu_users: 85
+    sanctions_xbt_addresses_eu_used_service: 80
+    cnmv_warning_or_mica_register_change_es_relevant: 80
+    fatf_list_change_es_ad_ae: 75
+    regulatory_deadline_7d_with_new_norm: 70
+  caps:
+    t3_only: 60
+    injection_suspected: 50
+    declaracion_o_anuncio_unless_urgency5: 75
+    already_alerted_no_material_change: 49
+  thresholds: {alert: 80, weekly: 50, radar: 35}
+  clustering_window_hours: 72
+  weekly:
+    max_items_per_front: {financiero: 2, fiscal: 3, regulatorio: 3, proteccion: 3}
+    in_60s: 3
+    in_60s_max_same_front: 2
+    radar_only_if_items_below: 6
+    max_words: 1800
+    max_html_kb: 100
+  alerts:
+    max_public_per_week: 2
+    cooldown_hours_per_event: 72
+    approval_sla_minutes: 30
+    draft_expiry_hours: 24
+    require_t1_or_two_t2_for_security: true
+    market_rules:
+      stablecoin_depeg: {assets: [tether, usd-coin], lower: 0.97, upper: 1.03, sustained_minutes: 60, poll_minutes: 5}
+      ath_new: {confirm_with_secondary_source: true}
+      etf_flow_extreme: {ref: "etf.alert"}
+    autopublish_market_rules_default: false
