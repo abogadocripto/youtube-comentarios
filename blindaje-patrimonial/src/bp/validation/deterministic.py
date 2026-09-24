@@ -104,6 +104,18 @@ def _llm_items(out: DailyOutput) -> list[tuple[str, str, list[str], list[str], s
     return items
 
 
+def precheck_refs(fact_sheet: dict[str, Any], out: DailyOutput) -> ValidationReport:
+    """V-REF previo al renderizado: todo marcador debe apuntar a un hecho o pista existente (si no, no se puede renderizar)."""
+    rep = ValidationReport()
+    facts = {f["id"] for f in fact_sheet["facts"]}
+    hints = {h["id"] for f in fact_sheet["facts"] for h in f.get("interpretation_hints", [])}
+    for path, text, _, _, _ in _llm_items(out):
+        for mk, key in markers_in(text):
+            ok = key in (hints if mk == "h" else facts)
+            rep.add("V-REF", "B", ok, path, "" if ok else f"{'pista' if mk == 'h' else 'hecho'} inexistente {{{{{mk}:{key}}}}}")
+    return rep
+
+
 def validate_daily(cfg: Config, fact_sheet: dict[str, Any], out: DailyOutput, rendered: RenderedDaily,
                    origin: str, previous_lectura: str | None = None, reviewed: bool = False,
                    allow_placeholders: bool = False) -> ValidationReport:
@@ -318,6 +330,12 @@ LEGAL_RANK = {"vigente": 9, "publicada_pendiente_de_entrada_en_vigor": 8, "aprob
               "jurisprudencia": 6, "criterio_administrativo": 5, "en_tramitacion": 4, "propuesta": 3, "consulta": 2,
               "declaracion_o_anuncio": 1, "incidente": 0, "no_aplica": 0}
 ASSERTIVE_LEGAL = ["entra en vigor", "es obligatorio", "es obligatoria", "ya aplica", "está vigente", "es vigente", "ya es ley"]
+# Menciones que atribuyen el asunto a una jurisdicción concreta (V-JUR): exigen un documento de esa jurisdicción.
+JURISDICTION_CUES = [
+    (r"\bespaña\b|\bespañol[ae]s?\b|\bhacienda\b|\baeat\b|agencia tributaria|\bboe\b|\bcnmv\b|banco de españa|\bsepblac\b", "ES"),
+    (r"\bandorra\b|\bandorran[oa]s?\b|\bbopa\b|govern d'andorra|consell general|\bafa\b|\buifand\b", "AD"),
+    (r"emiratos|\bvara\b|\badgm\b|\bdifc\b|\bdfsa\b", "AE"),
+]
 MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 
@@ -351,7 +369,7 @@ def validate_weekly(cfg: Config, weekly_input: dict[str, Any], out: WeeklyOutput
             rep.add("V-QUOTE", "B", ok, path, f"la cita no aparece literalmente en {ev.source_id}: «{ev.quote[:60]}…»" if not ok else "")
             quotes_norm.append(_norm(ev.quote))
         body = MARKER.sub(" ", claim.text)
-        for num in re.findall(r"\d[\d.,]*", body):
+        for num in re.findall(r"\d+(?:[.,]\d+)*", body):      # sin el punto o la coma final de la frase
             ok = any(num in q for q in quotes_norm)
             rep.add("V-NUM-W", "B", ok, path, f"la cifra «{num}» no aparece en ninguna cita aportada" if not ok else "")
         for p in lex:
@@ -388,9 +406,11 @@ def validate_weekly(cfg: Config, weekly_input: dict[str, Any], out: WeeklyOutput
                 extra = set(it.jurisdictions) - doc_jur
                 rep.add("V-JUR", "B", not extra, path, f"jurisdicciones sin respaldo documental: {sorted(extra)}" if extra else "")
                 text_all = (it.que_ha_pasado.text + " " + it.por_que_importa.text).lower()
-                for word, code in (("españa", "ES"), ("andorra", "AD")):
-                    if word in text_all and code not in doc_jur:
-                        rep.add("V-JUR", "B", "efecto indirecto" in text_all, path, f"menciona {word} sin documento de esa jurisdicción")
+                for pattern, code in JURISDICTION_CUES:
+                    m = re.search(pattern, text_all)
+                    if m and code not in doc_jur:
+                        rep.add("V-JUR", "B", "efecto indirecto" in text_all, path,
+                                f"menciona «{m.group(0)}» ({code}) sin documento de esa jurisdicción")
             check_claim(path + ".que_ha_pasado", it.que_ha_pasado, it.legal_status)
             check_claim(path + ".por_que_importa", it.por_que_importa, it.legal_status)
             # V-DATE

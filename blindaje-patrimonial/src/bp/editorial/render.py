@@ -95,7 +95,7 @@ class DailyRenderer:
         label = None
         if block == "sentimiento" and d("fng_value"):
             cls = self.facts.get("fng_class", {}).get("display", "")
-            s = f"Miedo y Codicia: {d('fng_value')} — {html.escape(cls, quote=False)}"
+            s = f"Miedo y Codicia: {d('fng_value')}" + (f" — {html.escape(cls, quote=False)}" if cls else "")
             extra = [f"ayer {d('fng_value_1d_ago')}" if d("fng_value_1d_ago") else None,
                      f"hace 7 días {d('fng_value_7d_ago')}" if d("fng_value_7d_ago") else None]
             s += "".join(f" · {x}" for x in extra if x)
@@ -194,11 +194,12 @@ class DailyRenderer:
         for f in self.fs["facts"]:
             if not f["selected"]:
                 continue
-            name = f["source"]["name"]
-            base = name.replace("cálculo propio sobre ", "")
-            for n in (base,):
-                if n and n not in seen:
-                    seen.append(n)
+            name = f["source"]["name"].replace("cálculo propio sobre ", "")
+            if name and name not in seen:
+                seen.append(name)
+        # «cálculo propio» genérico sobra si ya figura una variante con sus fuentes («cálculo propio (Reserva Federal…)»)
+        if "cálculo propio" in seen and any(n.startswith("cálculo propio (") for n in seen):
+            seen.remove("cálculo propio")
         return seen
 
     def render(self, ctx: RunContext, output: DailyOutput, origin: str, reviewer: str | None = None) -> RenderedDaily:

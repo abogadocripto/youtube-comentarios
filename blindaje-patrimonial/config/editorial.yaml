@@ -85,6 +85,8 @@ lexicon:
     - 'te recomendamos'
     - 'te recomiendo'
     - 'si tienes \S+ (btc|bitcoins?)'
+    - '\bte conviene\b'
+    - '\bos conviene\b'
   valorativo_instrumentos:
     - '\binfravalorad[oa]s?\b'
     - '\bsobrevalorad[oa]s?\b'
@@ -92,6 +94,11 @@ lexicon:
     - '(etf|ibit|fbtc)\s+\S*\s*(es|son) (mejor|peor)'
     - 'usa la wallet'
     - 'mueve tus fondos'
+    - '\b(guarda|guardar|mueve|mover|pasa|pasar) tus (btc|bitcoins?|fondos|criptos?|criptoactivos)\b'
+  atribucion_no_verificable:        # los flujos de ETF no identifican al comprador (cautela de etf_net_flow_usd_1d)
+    - 'instituciones (est[aá]n |siguen )?(comprando|vendiendo|acumulando)'
+    - 'las instituciones (compran|venden)'
+    - 'ballenas (est[aá]n )?(comprando|vendiendo)'
   garantias_bombo:
     - '\bgarantizad[oa]s?\b'
     - 'sin riesgo'

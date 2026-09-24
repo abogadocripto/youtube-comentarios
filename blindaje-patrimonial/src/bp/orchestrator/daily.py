@@ -27,7 +27,7 @@ from bp.models import MADRID, RunContext
 from bp.schemas import validate_instance
 from bp.select.fact_sheet import build as build_fact_sheet
 from bp.store.base import Store
-from bp.validation.deterministic import validate_daily
+from bp.validation.deterministic import precheck_refs, validate_daily
 from bp.validation.verifier import daily_fragments, verify
 
 CORE_REQUIRED = ["btc_usd"]
@@ -97,6 +97,12 @@ def build_daily(ctx: RunContext, cfg: Config, store: Store, backend: LLMBackend 
                 llm = call_structured(cfg, store, backend, call="daily", system=system, user=user,
                                       model_cls=DailyOutput, prompt_version=prompt_version)
                 out: DailyOutput = llm.parsed  # type: ignore[assignment]
+                pre = precheck_refs(fs, out)
+                if not pre.passed:                       # no se puede renderizar: se reintenta con el motivo
+                    result.reports.append(pre.to_dict())
+                    store.save_validation_report("daily", ctx.report_date.isoformat(), attempt, pre.to_dict())
+                    feedback = pre.feedback()
+                    continue
                 rendered = renderer.render(ctx, out, origin="llm")
                 rep = validate_daily(cfg, fs, out, rendered, origin="llm", previous_lectura=previous_lectura,
                                      allow_placeholders=ctx.offline)

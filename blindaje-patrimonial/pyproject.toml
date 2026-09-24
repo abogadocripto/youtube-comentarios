@@ -33,6 +33,7 @@ bp = ["editorial/templates/*.j2"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["src", "tests"]
 
 [tool.ruff]
 line-length = 120
