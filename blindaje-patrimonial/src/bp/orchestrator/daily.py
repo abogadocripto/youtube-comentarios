@@ -154,6 +154,8 @@ PUBLISH_DEADLINE = time(10, 30)
 def publish_daily(ctx: RunContext, cfg: Config, store: Store, client: TelegramClient, chat_id: str,
                   force: bool = False) -> PublishResult:
     rep = store.get_daily_report(ctx.report_date)
+    if rep and rep.get("status") in ("published", "corrected"):
+        return PublishResult("skipped_duplicate", rep.get("telegram_message_id"), "ya publicado")
     if not rep or rep.get("status") not in ("validated", "fallback"):
         return PublishResult("failed", None, f"no hay borrador publicable (estado: {rep.get('status') if rep else 'inexistente'})")
     if not force and ctx.now_madrid.time() > PUBLISH_DEADLINE and ctx.now_madrid.date() == ctx.report_date:

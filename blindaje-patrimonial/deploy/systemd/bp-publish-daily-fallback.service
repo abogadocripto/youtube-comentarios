@@ -1,0 +1,10 @@
+[Unit]
+Description=Blindaje Patrimonial · respaldo de publicación 09:07 (solo si no se publicó)
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/blindaje
+ExecStart=/usr/bin/docker compose --profile jobs run --rm -T app publish-daily --only-if-missing
+TimeoutStartSec=15min

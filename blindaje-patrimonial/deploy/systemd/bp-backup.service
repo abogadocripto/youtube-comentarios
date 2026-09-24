@@ -1,0 +1,9 @@
+[Unit]
+Description=Blindaje Patrimonial · copia cifrada de PostgreSQL
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/blindaje
+EnvironmentFile=/opt/blindaje/.env
+ExecStart=/opt/blindaje/deploy/backup.sh

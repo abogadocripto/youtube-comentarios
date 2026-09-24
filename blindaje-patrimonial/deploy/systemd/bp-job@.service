@@ -1,0 +1,17 @@
+# Plantilla: ejecuta un job de la aplicación en un contenedor efímero.
+#   bp-job@ingest-daily.service → docker compose run --rm app ingest-daily
+# Los argumentos adicionales por job se definen en /opt/blindaje/deploy/jobs/<job>.args (una línea).
+[Unit]
+Description=Blindaje Patrimonial · job %i
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/blindaje
+Environment=BP_ARGS=
+EnvironmentFile=-/opt/blindaje/deploy/jobs/%i.env
+ExecStart=/usr/bin/docker compose --profile jobs run --rm -T app %i $BP_ARGS
+TimeoutStartSec=20min
+# Un job fallido no se reintenta aquí: la lógica de reintento y respaldo está en la aplicación
+Restart=no

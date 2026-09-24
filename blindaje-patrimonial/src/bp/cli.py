@@ -2,6 +2,7 @@
 
 Órdenes:
   doctor          comprueba configuración, prompts, esquemas y variables de entorno (sin mostrar secretos)
+  db-init         crea el esquema si la base está vacía y sincroniza los catálogos (fuentes y métricas)
   demo            ejecuta el Daily completo sin red ni BD (historia sintética + fixtures) y escribe out/demo/
   ingest-daily    ingesta de fuentes del Daily (08:30 Madrid)
   build-daily     derivar → analizar → seleccionar → LLM → validar → borrador (08:45 Madrid)
@@ -91,6 +92,14 @@ def cmd_doctor(args) -> int:
     return 0
 
 
+def cmd_db_init(args) -> int:
+    cfg, store = load_config(), _store()
+    created = store.init_schema(cfg)
+    store.sync_catalog(cfg)
+    print(("esquema creado · " if created else "esquema ya existente · ") + f"{len(cfg.sources)} fuentes y {len(cfg.metrics)} métricas sincronizadas")
+    return 0
+
+
 def _write_outputs(out_dir: Path, result, store=None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "fact_sheet.json").write_text(json.dumps(result.fact_sheet, ensure_ascii=False, indent=1), "utf-8")
@@ -160,7 +169,12 @@ def cmd_build_daily(args) -> int:
     from bp.orchestrator.daily import build_daily
     cfg, store, ctx = load_config(), _store(), _ctx(args)
     ping("DAILY_BUILD", "/start")
-    result = build_daily(ctx, cfg, store, _backend(cfg, args.llm), verify_with_llm=not args.no_verify)
+    rep = store.get_daily_report(ctx.report_date)
+    if rep and rep.get("status") in ("published", "corrected", "retracted"):
+        print(f"el Daily de {ctx.report_date} ya está en estado «{rep['status']}»: no se reconstruye")
+        return 0
+    with store.lock("daily"):
+        result = build_daily(ctx, cfg, store, _backend(cfg, args.llm), verify_with_llm=not args.no_verify)
     if args.out:
         _write_outputs(Path(args.out), result)
     store.log_job("build_daily", f"build_daily:{ctx.report_date}", result.status, {"origin": result.origin}, result.reason)
@@ -206,7 +220,14 @@ def cmd_publish_daily(args) -> int:
         rep = store.get_daily_report(ctx.report_date) or {}
         print(rep.get("rendered_telegram") or f"sin borrador (estado: {rep.get('status')})")
         return 0
-    res = publish_daily(ctx, cfg, store, TelegramClient(), chat_id, force=args.force)
+    with store.lock("daily"):
+        rep = store.get_daily_report(ctx.report_date)
+        if not rep or rep.get("status") not in ("validated", "fallback", "published", "corrected"):
+            # sin borrador publicable a la hora de publicar: respaldo por plantillas (no depende del LLM)
+            from bp.orchestrator.daily import build_daily
+            print(f"sin borrador publicable (estado: {rep.get('status') if rep else 'inexistente'}): se genera el respaldo")
+            build_daily(ctx, cfg, store, backend=None)
+        res = publish_daily(ctx, cfg, store, TelegramClient(), chat_id, force=args.force)
     store.log_job("publish_daily", f"publish_daily:{ctx.report_date}", res.status, {"message_id": res.message_id}, res.error)
     print(f"publicación: {res.status} {res.message_id or ''} {res.error or ''}")
     ping("DAILY_PUBLISH", "" if res.status in ("sent", "skipped_duplicate") else "/fail")
@@ -277,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             sp.add_argument("--out", help="escribir también los artefactos en este directorio")
 
     sub.add_parser("doctor").set_defaults(fn=cmd_doctor)
+    sub.add_parser("db-init").set_defaults(fn=cmd_db_init)
     d = sub.add_parser("demo")
     d.add_argument("--date", default="2026-09-24")
     d.add_argument("--now")
@@ -303,7 +325,12 @@ def main(argv: list[str] | None = None) -> int:
     sp.set_defaults(fn=cmd_smoke)
 
     args = p.parse_args(argv)
-    return args.fn(args)
+    from bp.store.base import LockBusy
+    try:
+        return args.fn(args)
+    except LockBusy as exc:
+        print(f"otro proceso está ejecutando «{exc}»: no se hace nada", file=sys.stderr)
+        return 3
 
 
 if __name__ == "__main__":

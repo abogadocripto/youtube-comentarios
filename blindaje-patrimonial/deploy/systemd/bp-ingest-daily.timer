@@ -1,0 +1,12 @@
+[Unit]
+Description=Blindaje Patrimonial · ingesta del Daily (08:30 Madrid; se recupera si el VPS estaba apagado)
+
+[Timer]
+OnCalendar=*-*-* 08:30:00 Europe/Madrid
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=bp-job@ingest-daily.service
+
+[Install]
+WantedBy=timers.target

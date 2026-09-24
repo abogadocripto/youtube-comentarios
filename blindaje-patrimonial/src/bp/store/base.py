@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Any
 
 from bp.models import Observation, RawResponse, Signal
 
 
+class LockBusy(RuntimeError):
+    """Otro proceso tiene el cerrojo de esta familia de jobs."""
+
+
 class Store(ABC):
+    @contextmanager
+    def lock(self, name: str) -> Iterator[None]:
+        """Cerrojo por familia de jobs (docs/01 §5). En memoria no hace falta: un solo proceso."""
+        yield
+
     # ─── datos ───
     @abstractmethod
     def save_raw(self, raw: RawResponse) -> int: ...

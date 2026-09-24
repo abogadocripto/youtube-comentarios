@@ -1,0 +1,10 @@
+[Unit]
+Description=Blindaje Patrimonial · copia diaria (03:30 Madrid)
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Madrid
+Persistent=true
+Unit=bp-backup.service
+
+[Install]
+WantedBy=timers.target

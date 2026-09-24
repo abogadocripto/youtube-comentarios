@@ -119,7 +119,7 @@ CREATE TABLE metric_observations (
     raw_payload_id   bigint REFERENCES raw_payloads(id),
     method           text NOT NULL CHECK (method IN ('provider_field','computed','fallback','manual')),
     vintage_id       uuid NOT NULL DEFAULT gen_random_uuid(),   -- misma lectura = mismo vintage
-    status           obs_status NOT NULL DEFAULT 'provisional',
+    status           obs_status NOT NULL DEFAULT 'final',       -- 'provisional' para datos revisables (ETF, M2…)
     revision_n       int NOT NULL DEFAULT 0,
     quality          quality_flag NOT NULL DEFAULT 'ok',
     quality_notes    jsonb,                              -- desviación entre fuentes, controles fallidos…
@@ -321,6 +321,8 @@ CREATE TABLE daily_reports (
     validation_report_id  bigint REFERENCES validation_reports(id),
     rendered_telegram     text,                        -- HTML de Telegram final
     rendered_plain        text,
+    lectura_rendered      text,                        -- lectura ya rellenada (V-REPEAT compara con la del día anterior)
+    vigilar_rendered      text,
     fallback_reason       text,
     telegram_message_id   bigint,
     published_at          timestamptz,
@@ -384,7 +386,9 @@ CREATE TABLE publications (
     target_key     text NOT NULL,
     external_id    text,                              -- message_id de Telegram, id de campaña del ESP, URL
     payload_sha256 text NOT NULL,
-    status         text NOT NULL CHECK (status IN ('pending','sent','failed','edited','deleted')),
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    status         text NOT NULL CHECK (status IN ('pending','sent','failed','unknown','edited','deleted')),
+                   -- 'unknown': timeout tras enviar; nunca se reintenta automáticamente (docs/09 §5)
     idempotency_key text NOT NULL UNIQUE,             -- 'telegram_public:daily:2026-09-23'
     sent_at        timestamptz,
     edited_at      timestamptz,

@@ -1,0 +1,42 @@
+# Producción en un VPS de la UE (docs/01 §6). Los jobs NO corren como servicios permanentes: los lanza systemd
+# (deploy/systemd/*.timer) con `docker compose run --rm app bp <orden>`.
+name: blindaje
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bp
+      POSTGRES_USER: bp
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_password
+    secrets: [pg_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bp -d bp"]
+      interval: 10s
+      retries: 5
+    # sin puertos publicados: solo accesible desde la red interna de compose
+
+  app:
+    build: .
+    image: blindaje-app:latest
+    env_file: .env
+    depends_on:
+      postgres: {condition: service_healthy}
+    profiles: [jobs]              # no arranca con `docker compose up`; se usa con `docker compose run`
+
+  # adminbot (fase 5, docs/09 §3): bot privado de edición con long polling
+  # adminbot:
+  #   image: blindaje-app:latest
+  #   command: ["adminbot"]
+  #   env_file: .env
+  #   restart: unless-stopped
+  #   depends_on: {postgres: {condition: service_healthy}}
+
+secrets:
+  pg_password:
+    file: ./secrets/pg_password.txt
+
+volumes:
+  pgdata:
