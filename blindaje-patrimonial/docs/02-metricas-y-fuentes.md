@@ -16,7 +16,7 @@
    - **Pocos proveedores con licencia comercial expresa:** CoinGecko en plan de pago; alternative.me con atribución; y, según lo que decidas, CoinGlass Standard o los permisos escritos de SoSoValue y Coinalyze.
 3. **Filtro de licencias en el renderizador.** Cada fuente lleva uno de estos estados: `self_computed`, `official_open`, `licensed_public`, `permission_pending`, `internal_only` o `prohibited`. El renderizador **se niega** a publicar un dato cuya fuente no sea `self_computed`, `official_open` o `licensed_public`. Es una regla de código, no un criterio editorial (doc 08, validador V-LIC).
 4. **FRED no puede ser fuente de lo que se almacena y publica.** Un investigador informa de que su aviso legal (revisado el 1 sep 2026) prohíbe almacenar su contenido en bases de datos sin consentimiento e incluye una cláusula sobre usos en IA. Aún **[VERIFICAR]**. Mientras tanto, las series macro se toman de los publicadores originales y FRED queda como verificación interna puntual, sin almacenar.
-5. **Hay tres escenarios de coste** (§6). El mínimo "limpio" cuesta unos **100–160 €/mes** en total (datos, infraestructura y LLM) y publica un Daily completo sin ETF, sin derivados y sin Nasdaq. Añadir ETF, derivados y saldos en exchanges con un único proveedor (CoinGlass Standard, unos 299 $/mes) lo lleva a unos **400–450 €/mes**.
+5. **Hay tres escenarios de coste** (§6). El mínimo "limpio" cuesta unos **140–240 €/mes** en total (datos, infraestructura, LLM y email) y publica un Daily completo sin ETF, sin derivados y sin Nasdaq. Añadir ETF, derivados y saldos en exchanges con un único proveedor (CoinGlass Standard, unos 299 $/mes) lo lleva a unos **430–580 €/mes**.
 
 ## 2. Criterios de selección de fuente (por orden)
 
@@ -284,13 +284,13 @@ Todos los eventos se guardan en UTC con su zona de origen y se muestran en Europ
 | CoinMarketCap Basic (contraste) | 0 | 0 | 0 |
 | alternative.me, fuentes oficiales, calendario | 0 | 0 | 0 |
 | Servidor del nodo Bitcoin + BRK (UE) | 40–80 € | 40–80 € | 40–80 € |
-| VPS de la aplicación + PostgreSQL + copias | 10–25 € | 10–25 € | 10–25 € |
+| VPS de la aplicación (Hetzner CX23, 5,49 € sin IVA) + IPv4 + copias | 8–15 € | 8–15 € | 8–15 € |
 | CoinGlass Standard (ETF + derivados + saldos en exchanges) | — | ~299 $ | ~299 $ |
 | CryptoQuant Professional (solo si CoinGlass no cubre exchanges) | — | (0–109 $) | (0–109 $) |
 | Licencia EOD del Nasdaq-100 | — | — | 150–500 $ **[VERIFICAR]** |
-| LLM (Claude Opus 5; ver doc 06 §7) | 15–40 $ | 15–40 $ | 15–40 $ |
-| Proveedor de email (doc 10) | 0–50 € | 0–50 € | 0–50 € |
-| **Total aproximado** | **100–230 €** | **400–560 €** | **550–1.050 €** |
+| LLM (Claude Opus 5; ver doc 06 §7) | 40–70 $ | 40–70 $ | 40–70 $ |
+| Proveedor de email (Brevo, doc 10) | 9–30 $ | 9–30 $ | 9–30 $ |
+| **Total aproximado** | **140–240 €** | **430–580 €** | **580–1.070 €** |
 
 La mayor palanca es **una sola negociación con CoinGlass** que cubra en términos escritos la difusión pública de flujos de ETF, derivados y saldos en exchanges. Si SoSoValue y Coinalyze conceden permiso gratuito con atribución, el escenario B cuesta casi lo mismo que el A.
 

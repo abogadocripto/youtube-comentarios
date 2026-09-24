@@ -100,7 +100,8 @@ Matriz de degradación (el Daily **siempre** sale si hay datos núcleo):
 | F&G sin dato del día | Se omite la línea (nunca se usa el índice de CMC) |
 | El LLM falla, rechaza (`refusal`) o la validación falla dos veces | **Versión "solo datos"**: bloques de datos + lectura determinista por plantillas (`editorial/fallback_reading.py`) + aviso al editor |
 | Precio no disponible o incoherente (>1,5 % entre fuentes) hasta las 08:50 | **No se publica**; se avisa al editor con el diagnóstico; reintentos automáticos hasta las 10:00; si se resuelve, se publica con la marca "publicado a las HH:MM" |
-| Telegram devuelve error (5xx, 429) | Reintento respetando `retry_after`; la idempotencia impide duplicados |
+| Telegram devuelve un error explícito (5xx, 429) | Reintento respetando `retry_after` (la petición no se procesó) |
+| Timeout de red **después** de enviar la petición (ambiguo) | **No se reintenta**: la Bot API no tiene clave de idempotencia y el bot no puede leer el historial del canal. Aviso al editor con los botones [Se publicó] / [Publicar ahora] (doc 09 §3) |
 | La base de datos no está disponible | El job falla y el heartbeat no llega → alerta al operador (SMS o email de Healthchecks) |
 
 ### 4.3 Informe semanal
@@ -131,9 +132,12 @@ Hora de envío: domingo a las 18:00 (recomendada). Es cuando el lector planifica
 
 ## 5. Orquestación, idempotencia y concurrencia
 
-- **Planificador:** `supercronic` dentro del contenedor `app`, con `CRON_TZ=Europe/Madrid`, para que los cambios de hora de marzo y octubre no desplacen la publicación.
-  - Cada entrada ejecuta `bp <job>` como proceso independiente: un fallo no contamina al siguiente.
-  - Alternativa equivalente: temporizadores de systemd en el host.
+- **Planificador:** **temporizadores de systemd** en el host, que lanzan `docker compose run --rm app bp <job>`.
+  - Ejemplo: `publish-daily.timer` con `OnCalendar=*-*-* 09:00:00 Europe/Madrid`, `AccuracySec=1s` (el valor por defecto es 1 minuto) y `RandomizedDelaySec=0`. Los cambios de hora de marzo y octubre no desplazan la publicación.
+  - `Persistent=true` solo en la ingesta. La publicación no se recupera sola después de las 10:30: pide confirmación humana.
+  - Cada job es un proceso independiente: un fallo no contamina al siguiente.
+  - Alternativa equivalente: `supercronic` con `CRON_TZ=Europe/Madrid` dentro del contenedor.
+- **Respaldo externo:** a las 09:07, Cloud Scheduler o GitHub Actions con zona horaria ejecuta `bp publish-daily --only-if-missing`. Nunca es el disparador principal: los cron de GitHub Actions sufren retrasos documentados y pueden descartarse.
 - **Idempotencia.** Cada job registra `job_runs.idempotency_key` (`publish_daily:2026-09-23`); si ya terminó con éxito, no hace nada. Cada envío registra `publications.idempotency_key`. Reintentar nunca duplica.
 - **Bloqueos.** Se usa `pg_advisory_lock` por familia de jobs, para que dos procesos no construyan a la vez el mismo informe.
 - **Publicación desacoplada.** `publish_daily` solo envía un borrador ya validado. Si a las 08:58 no hay borrador `validated`, genera la versión de respaldo. Así la puntualidad de las 09:00 no depende de la latencia del LLM.
@@ -145,7 +149,7 @@ Hora de envío: domingo a las 18:00 (recomendada). Es cuando el lector planifica
 
 | Recurso | Especificación | Proveedor sugerido | Coste orientativo |
 |---|---|---|---|
-| VPS aplicación | 2–4 vCPU, 4–8 GB RAM, 80 GB SSD, UE | Hetzner (DE/FI) u OVH (FR) | 10–25 €/mes **[VERIFICAR precios 2026]** |
+| VPS aplicación | 2 vCPU, 4 GB RAM (Hetzner CX23) o superior, UE | Hetzner (Falkenstein, Núremberg o Helsinki) u OVH (FR) | CX23: 5,49 €/mes sin IVA ni IPv4, tras la subida de precios del 15 jun 2026; ~7–10 €/mes en total. Hetzner subió precios tres veces en 2026: conviene presupuestar con margen |
 | Servidor nodo | 2 TB NVMe, 32 GB RAM, UE | Hetzner dedicado / subasta | 40–80 €/mes **[VERIFICAR]** |
 | Almacenamiento de objetos (copias) | UE, cifrado | Hetzner Object Storage / Scaleway / Backblaze EU | <5 €/mes |
 | DNS + web estática del archivo | — | Cloudflare Pages / GitHub Pages | 0 € |
@@ -156,7 +160,7 @@ Hora de envío: domingo a las 18:00 (recomendada). Es cuando el lector planifica
 ```yaml
 services:
   postgres:   {image: postgres:16, volumes: [pgdata:/var/lib/postgresql/data]}
-  app:        {build: ., command: supercronic /app/crontab, env_file: .env, depends_on: [postgres]}
+  app:        {build: ., env_file: .env, depends_on: [postgres]}      # lo invocan los temporizadores de systemd: `docker compose run --rm app bp <job>`
   adminbot:   {build: ., command: bp adminbot, env_file: .env, depends_on: [postgres]}
   backup:     {image: <pg-backup-s3>, schedule: "30 3 * * *"}
 # Servidor nodo (compose aparte): bitcoind + bitviewd (versión fijada), expuestos solo por WireGuard.
@@ -229,7 +233,7 @@ El paso de sombra a producción se decide con los criterios de aceptación del d
 ```
 blindaje-patrimonial/
 ├─ pyproject.toml / uv.lock
-├─ crontab                      # supercronic (CRON_TZ=Europe/Madrid)
+├─ deploy/systemd/              # *.service + *.timer (OnCalendar … Europe/Madrid, AccuracySec=1s)
 ├─ docker/ (Dockerfile, compose.yml, compose.node.yml)
 ├─ config/ (metrics.yaml, rules.yaml, sources.yaml, news_sources.yaml, fomc.yaml, calendar/*.yaml, editorial.yaml)
 ├─ prompts/ (daily.system.md, daily.user.md, weekly.*, alert.*, classify.*, verify.*)

@@ -54,7 +54,9 @@ Severidad: **B** = bloqueante (reintento con feedback; si persiste, respaldo o r
 | V-DECL | Cada marcador figura en el `fact_ids`/`hint_ids` de su frase; cada frase `interpretacion` tiene al menos un `fact_id` | B | Daily, Weekly |
 | V-DIR | Coherencia entre verbos o sustantivos de dirección y el signo o estado del hecho citado. Léxico en `config/editorial.yaml`: *sube, aumenta, crece, avanza, entradas, acumulación* ↔ positivo; *baja, cae, retrocede, desciende, salidas, distribución* ↔ negativo. Se evalúa en una ventana de ±6 palabras alrededor del marcador y en toda la frase para los hechos declarados | B | Daily, Weekly |
 | V-STATE | Las palabras de estado usadas ("expansión", "codicia extrema", "salidas muy fuertes") coinciden con el `state.label_es` o el `state.code` del hecho declarado | B | Daily, Weekly |
-| V-LEX | Léxico vetado: predicciones (*subirá, caerá, objetivo, soporte, resistencia, rebote, rally, techo, suelo*), recomendaciones (*compra, vende, acumula, toma beneficios, buen momento para, oportunidad de entrada*), jerga de trading y crypto Twitter (*to the moon, HODL, pump, dump, bullish, bearish, FOMO* fuera de cita) y sensacionalismo (*histórico, brutal, masivo, desplome, pánico, urgente* salvo que lo justifique un estado del fact sheet). Lista versionada con excepciones contextuales | B | todos |
+| V-LEX | Léxico vetado (`config/editorial.yaml`, versionado, con excepciones contextuales). Categorías:<br>(a) **imperativos de inversión**: *compra, vende, acumula, entra, sal, mantén, aprovecha, es momento de, deberías invertir, toma beneficios, buen momento para, oportunidad de entrada*;<br>(b) **predicciones y objetivos**: *subirá, bajará, va a, objetivo de precio, rebote seguro, soporte, resistencia, rally, techo, suelo*; cualquier "% de probabilidad" salvo cita de una fuente nombrada;<br>(c) **personalización**: *en tu caso, si tienes X BTC, te recomendamos*, segunda persona sobre asignación de activos;<br>(d) **lenguaje valorativo sobre instrumentos o servicios concretos**: *IBIT o el ETF X es mejor, infravalorado, favorable para comprar, usa la wallet X, mueve tus fondos a…* (MAR; "específiques" de la Llei 24/2022);<br>(e) **garantías y bombo**: *garantizado, sin riesgo, oportunidad única, no te lo pierdas, señal*;<br>(f) **planteamientos de evasión fiscal**: *evita pagar, no declares, que Hacienda no se entere*;<br>(g) **deontología**: *te garantizamos, ganaremos, reclama ya, demanda ya*, nombres de clientes;<br>(h) **jerga de trading y crypto Twitter** (*to the moon, HODL, pump, dump, bullish, bearish, FOMO* fuera de cita);<br>(i) **sensacionalismo**: *histórico, brutal, masivo, desplome, pánico, urgente*, salvo que lo justifique un estado del fact sheet | B | todos |
+| V-AILABEL | La **primera línea** del mensaje contiene la etiqueta de IA que corresponde a su origen. Si hay texto del LLM: "🤖 Lectura elaborada con IA". Respaldo por plantillas: "Lectura automática por plantillas". "Revisado por…" solo si existe un registro de revisión sustantiva (`editor_actions` con la lista de verificación completada) posterior a la última generación. En el Weekly: la línea de transparencia y el responsable editorial están presentes (doc 11 §3.2) | B | Daily, Weekly, alertas |
+| V-HASH | En el momento del envío, el SHA-256 del HTML y del texto coincide con el aprobado por el revisor. Cualquier cambio posterior, incluida una regeneración del asunto o del preheader, bloquea el envío y exige reaprobación | B | Weekly, alertas |
 | V-CAUSAL | Conectores causales entre conceptos de métricas (*impulsa, provoca, hace que, debido a, gracias a, arrastra*) | W → verificador | Daily, Weekly |
 | V-CAVEAT | Si se menciona un hecho con `caveats`, el mensaje final (texto del LLM o plantilla del bloque) contiene alguna de las frases clave de la cautela (`must_contain_any` en metrics.yaml) | B | Daily, Weekly |
 | V-FRESH | Hechos `stale_shown` o `is_provisional` citados junto a *hoy, ayer, esta mañana, última sesión*, o sin su `as_of_label` | B | Daily |
@@ -115,6 +117,11 @@ Se mantiene en `tests/adversarial/`. Cada caso es una salida "mala" escrita a ma
 | A18 | Hecho plausible que no está en la entrada ("tras la aprobación de la ley X en el Congreso") | verificador `claim_not_in_sources` |
 | A19 | Dato de una fuente `internal_only` en el fact sheet | I-LIC / V-LIC |
 | A20 | Mensaje de 4.200 caracteres | V-HTML |
+| A21 | Daily con lectura del LLM sin etiqueta de IA en la primera línea (o solo en el pie) | V-AILABEL |
+| A22 | "Revisado por…" sin registro de revisión sustantiva, o con una regeneración posterior a la revisión | V-AILABEL |
+| A23 | Weekly modificado (asunto regenerado) después de la aprobación | V-HASH |
+| A24 | "Te conviene guardar tus BTC en la wallet X" (recomendación específica no personalizada) | V-LEX (d) + verificador `investment_advice` |
+| A25 | "Así puedes evitar pagar el impuesto" | V-LEX (f) |
 
 ## 7. Evaluación continua
 
@@ -134,8 +141,8 @@ Se mantiene en `tests/adversarial/`. Cada caso es una salida "mala" escrita a ma
 | Producto | Intervención humana |
 |---|---|
 | Daily | Automático. Previsualización simultánea en el grupo admin con botones [Corregir] y [Retirar]. Revisión por muestreo de 2 días por semana |
-| Weekly | **Aprobación obligatoria** antes del envío (email de prueba + previsualización anotada por el verificador) |
-| Alertas por noticia | **Aprobación obligatoria** (SLA de 30 min en horario laboral) |
+| Weekly | **Revisión sustantiva obligatoria por un abogado** antes del envío (email de prueba + previsualización anotada por el verificador). El bot de edición presenta una **lista de verificación por asunto**: "¿has contrastado la afirmación con la cita?", "¿el estado jurídico es correcto?", "¿la jurisdicción es correcta?". Se registran el revisor, la hora, los cambios y el hash del contenido aprobado (V-HASH). Una aprobación superficial no cumple la excepción del art. 50.4 del Reglamento de IA (doc 11 §3) |
+| Alertas por noticia | **Revisión sustantiva obligatoria**, con el mismo registro (SLA de 30 min en horario laboral) |
 | Alertas de mercado | Aprobación por defecto; autopublicación opcional (`settings`) |
 
 **Protocolo de corrección:**

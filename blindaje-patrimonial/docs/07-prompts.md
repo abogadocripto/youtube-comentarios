@@ -53,8 +53,7 @@ Salida del LLM: `schema/examples/daily_output.example.json`.
 Mensaje final renderizado (`schema/examples/daily_rendered.example.html`, ~1.730 caracteres visibles, 1–1,5 min de lectura):
 
 ```
-☀️ BITCOIN MORNING BRIEF
-Miércoles, 23 sep 2026
+☀️ BITCOIN MORNING BRIEF · Miércoles, 23 sep 2026 · 🤖 Lectura elaborada con IA
 
 ₿ Bitcoin
 $101.250 · 86.540 €
@@ -89,9 +88,12 @@ sigue en expansión y el sentimiento se ha normalizado tras salir de la zona de 
 Si los ETF vuelven a registrar salidas: con el apalancamiento al alza, la demanda de contado es hoy
 la variable que más pesa.
 
-Información general; no es asesoramiento ni recomendación de inversión. Texto elaborado con ayuda de
-IA a partir de las fuentes citadas. Datos: CoinGecko · alternative.me · SoSoValue · Coinalyze ·
-cálculo propio. Metodología
+ℹ️ Información general. No es asesoramiento financiero, fiscal ni jurídico personalizado ni una
+recomendación de inversión, y no tiene en cuenta tu situación. Los criptoactivos son volátiles y se
+puede perder todo lo invertido. Texto interpretativo generado por IA a partir de los datos citados;
+las cifras se insertan automáticamente desde las fuentes. ABAST y sus profesionales pueden mantener
+posiciones en bitcoin (declaración de intereses). Datos a 23/09 08:30: CoinGecko · alternative.me ·
+SoSoValue · Coinalyze · cálculo propio. Metodología, aviso legal y declaración de intereses
 ```
 
 Notas sobre el ejemplo:
