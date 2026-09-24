@@ -15,7 +15,7 @@
    - **Datos oficiales reutilizables:** Tesoro de EE. UU., Fed de Nueva York, Reserva Federal, BCE y Banco de Inglaterra.
    - **Pocos proveedores con licencia comercial expresa:** CoinGecko en plan de pago; alternative.me con atribución; y, según lo que decidas, CoinGlass Standard o los permisos escritos de SoSoValue y Coinalyze.
 3. **Filtro de licencias en el renderizador.** Cada fuente lleva uno de estos estados: `self_computed`, `official_open`, `licensed_public`, `permission_pending`, `internal_only` o `prohibited`. El renderizador **se niega** a publicar un dato cuya fuente no sea `self_computed`, `official_open` o `licensed_public`. Es una regla de código, no un criterio editorial (doc 08, validador V-LIC).
-4. **FRED no puede ser fuente de lo que se almacena y publica.** Un investigador informa de que su aviso legal (revisado el 1 sep 2026) prohíbe almacenar su contenido en bases de datos sin consentimiento e incluye una cláusula sobre usos en IA. Aún **[VERIFICAR]**. Mientras tanto, las series macro se toman de los publicadores originales y FRED queda como verificación interna puntual, sin almacenar.
+4. **FRED no puede ser fuente de lo que se almacena y publica.** Según la investigación, su aviso legal (revisado el 1 sep 2026) prohíbe almacenar su contenido en bases de datos sin consentimiento e incluye una cláusula sobre usos en IA. Lo corrobora de forma independiente otra fuente secundaria (revisión de términos del 24 sep 2026), pero falta leer el texto oficial **[VERIFICAR]**. Las series macro se toman de los publicadores originales y FRED queda, como mucho, como verificación interna puntual, sin almacenar.
 5. **Hay tres escenarios de coste** (§6). El mínimo "limpio" cuesta unos **140–240 €/mes** en total (datos, infraestructura, LLM y email) y publica un Daily completo sin ETF, sin derivados y sin Nasdaq. Añadir ETF, derivados y saldos en exchanges con un único proveedor (CoinGlass Standard, unos 299 $/mes) lo lleva a unos **430–580 €/mes**.
 
 ## 2. Criterios de selección de fuente (por orden)
@@ -129,7 +129,7 @@ Se publica en miles de millones de USD con un decimal, junto al cambio a 4 seman
 - Fed de Nueva York: aviso y atribución obligatorios ("© 2026 Federal Reserve Bank of New York…").
 - **BoJ: prohíbe la reproducción comercial sin permiso previo.** Hay que pedirlo antes del lanzamiento; si lo deniega, Japón sale del agregado público.
 
-**Nota de coherencia:** la investigación sitúa el rango objetivo de los fondos federales en 3,75–4,00 % tras una **subida** decidida el 16 sep 2026 **[VERIFICAR]**. El sistema nunca "sabe" este dato: lo lee de la configuración, que se actualiza con cada comunicado del FOMC, y lo contrasta a diario.
+**Nota de coherencia:** el rango objetivo de los fondos federales es 3,75–4,00 % tras la **subida** de 25 pb decidida el 16 sep 2026 por unanimidad; es la primera desde 2023 (comunicado del FOMC, federalreserve.gov, `monetary20260916a`). El sistema nunca "sabe" este dato: lo lee de `config/fomc.yaml`, que se actualiza con cada comunicado del FOMC, y lo contrasta a diario.
 
 ### 3.4 Mercados tradicionales (risk-on)
 

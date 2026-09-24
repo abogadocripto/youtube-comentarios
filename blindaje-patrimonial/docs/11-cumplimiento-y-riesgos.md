@@ -100,7 +100,7 @@ El producto es viable si se respetan seis líneas. Dos de ellas obligan a cambio
 
 ### 2.5 España: publicidad de criptoactivos y personas influyentes
 
-- **La Circular 1/2022 de la CNMV fue derogada** por la Circular 1/2024, de 17 dic 2024 (BOE-A-2024-27149, BOE de 27 dic 2024, en vigor el 28 dic 2024), porque MiCA regula las comunicaciones publicitarias.
+- **La Circular 1/2022 de la CNMV fue derogada** por la Circular 1/2024, de 17 dic 2024 (BOE-A-2024-27149, BOE de 27 dic 2024, en vigor el 28 dic 2024; confirmado en boe.es), porque MiCA regula las comunicaciones publicitarias.
   - La competencia de la CNMV sobre la publicidad de criptoactivos se apoya ahora en la Ley 6/2023, art. 247.
   - Las comunicaciones publicitarias de MiCA (arts. 7, 29 y 53) afectan a oferentes, emisores y CASP, no a un comentarista independiente.
 - **Diseño:**
@@ -124,7 +124,7 @@ El producto es viable si se respetan seis líneas. Dos de ellas obligan a cambio
 | Forma (art. 50.5) | Clara y distinguible, a más tardar en la primera exposición |
 | ¿Quién es el responsable del despliegue? | ABAST, que usa Claude por API (art. 3.4) |
 | Aplicación | **Desde el 2 ago 2026** |
-| Digital Omnibus (Reglamento (UE) 2026/1744, en vigor desde el 27 jul 2026) | **No modificó el art. 50.1–50.6**. Solo sustituyó el art. 50.7 y dio a los **proveedores** un periodo de gracia hasta el 2 dic 2026 para el art. 50.2 |
+| Digital Omnibus (Reglamento (UE) 2026/1744, en vigor desde el 27 jul 2026) | **No modificó el art. 50.1–50.6**. Solo sustituyó el art. 50.7 y dio a los **proveedores** un periodo de gracia hasta el 2 dic 2026 para el art. 50.2 (confirmado en alertas de Goodwin y Morgan Lewis de agosto de 2026) |
 
 **Directrices de la Comisión sobre el art. 50 (jul 2026; numeración de párrafos [VERIFICAR]):**
 - **Interés público:** incluye cualquier desarrollo económico o financiero relevante para el debate público. "Publicado" significa accesible a un número indeterminado de lectores.
