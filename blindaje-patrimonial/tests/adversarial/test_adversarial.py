@@ -261,7 +261,7 @@ def test_a24b_verifier_investment_advice_blocks_even_if_overall_pass():
     assert not approved
 
 
-@pytest.mark.skip(reason="A17 (inyección en documentos) se prueba con el clasificador de noticias — fase 4 (docs/12)")
+@pytest.mark.skip(reason="A17 (inyección en documentos) se prueba con el clasificador de noticias — fase 6 (docs/12)")
 def test_a17_prompt_injection_in_document():
     raise AssertionError
 

@@ -18,18 +18,65 @@ Sistema que publica cada mañana a las 09:00 (Europe/Madrid) un **Daily Bitcoin*
 docs/        Diseño (00 resumen · 01 arquitectura · 02 métricas y fuentes · 03 modelo de datos ·
              04 reglas · 05 noticias y alertas · 06 contrato LLM · 07 prompts · 08 validación ·
              09 Telegram · 10 newsletter · 11 cumplimiento · 12 plan)
-config/      metrics.yaml · rules.yaml · news_sources.yaml · calendar/ · editorial.yaml · fomc.yaml
+config/      metrics.yaml · rules.yaml · sources.yaml · editorial.yaml · llm.yaml · fomc.yaml ·
+             news_sources.yaml · calendar/
 schema/      schema.sql (PostgreSQL 16) · llm/*.schema.json · examples/
 prompts/     daily · weekly · alert · classify · verify
-src/bp/      Código de la aplicación (en desarrollo; ver estado abajo)
-tests/       Pruebas unitarias, de contrato (fixtures), golden y adversariales
-deploy/      Docker y temporizadores de systemd
+src/bp/      ingest → analysis → select → llm → validation → editorial → distribution · orchestrator · cli
+tests/       unit/ · adversarial/ (A1–A25, bloqueante en CI) · pipeline · golden · postgres · fixtures/
+deploy/      temporizadores de systemd (Europe/Madrid), copias cifradas y guía de instalación
 ```
+
+## Probarlo en local (sin red ni base de datos)
+
+```bash
+python -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+bp doctor                      # configuración, esquemas, prompts y variables de entorno
+bp demo                        # Daily completo con historia y fixtures SINTÉTICOS → out/demo/
+bp demo --llm static           # la misma ejecución por la ruta del LLM (backend simulado + verificador)
+pytest                         # 84 pruebas (+1 omitida); con BP_TEST_DATABASE_URL también contra PostgreSQL
+```
+
+`bp demo` usa valores ficticios: sirve para probar la arquitectura de principio a fin, no el contenido.
+
+## Órdenes
+
+| Orden | Qué hace |
+|---|---|
+| `bp db-init` | Crea el esquema si la base está vacía y sincroniza fuentes y métricas desde la YAML |
+| `bp ingest-daily` | Ingesta de las fuentes del Daily (08:30) |
+| `bp build-daily` | Derivar → analizar → seleccionar → LLM → validar → borrador (08:45) |
+| `bp publish-daily` | Publicación idempotente en Telegram (09:00); `--only-if-missing` para el respaldo de las 09:07 |
+| `bp run-daily` | Las tres anteriores en un solo proceso |
+| `bp smoke [--record]` | Prueba en vivo de los conectores desde el VPS; `--record` graba fixtures reales |
+
+Despliegue: [`deploy/README.md`](deploy/README.md).
 
 ## Estado
 
-| Fase (doc 12) | Estado |
-|---|---|
-| Diseño (docs 00–12, configuración, esquemas) | ✔ completo |
-| 0 · Cimientos | en desarrollo |
-| 1–8 | pendiente |
+| Fase (doc 12) | Estado | Detalle |
+|---|---|---|
+| Diseño (docs 00–12, configuración, esquemas) | ✔ | |
+| 0 · Cimientos | ✔ | Configuración validada, `schema.sql` probado en PostgreSQL 16, `PostgresStore`, CLI, CI |
+| 1 · Datos núcleo | ◐ | Hechos: CoinGecko, alternative.me, mempool.space, Tesoro de EE. UU., Fed de Nueva York, Fiscal Data (TGA), H.4.1, BCE (EUR/USD), calendario. **Faltan:** componentes del M2 global (BCE, BoE, PBoC, BoJ, H.6), índice amplio del dólar, contraste con CoinMarketCap. **Formatos de respuesta sin verificar en vivo** (marcados `[VERIFICAR]`): se validan con `bp smoke` desde el VPS |
+| 2 · Análisis y selección | ✔ | Derivaciones, reglas por familia, ejes, saliencia, «Hoy vigilaría…», fact sheet validado contra el esquema; filtro de licencias en la selección y en la validación |
+| 3 · LLM, validación, render, Telegram | ◐ | Hechos: cliente de Claude con salida estructurada, verificador independiente, 28 validadores deterministas, respaldo por plantillas, renderizador, publicación idempotente, temporizadores. **Faltan:** bot de edición (previsualizar, retener, corregir) y prueba con el modelo real |
+| 4 · On-chain propio (BRK) | ☐ | Reglas y render listos; falta el conector y el servidor del nodo |
+| 5 · ETF, derivados y exchanges | ◐ | Conector SoSoValue hecho; **bloqueado por licencias** (L3–L5): hoy el filtro retira esos bloques |
+| 6 · Noticias y alertas | ☐ | Diseño, fuentes, prompts y esquemas listos |
+| 7 · Weekly y newsletter | ◐ | Validadores del Weekly (V-QUOTE, V-LEGAL, V-JUR, V-DATE, V-EMPTY, V-HASH) hechos y probados; falta el flujo |
+| 8 · Endurecimiento y lanzamiento | ☐ | |
+
+### Qué publicaría hoy el Daily en producción
+
+Con las fuentes ya conectadas: bloque Bitcoin (precio en USD y EUR, variaciones, máximo histórico), sentimiento,
+tipos y dólar, «La lectura» y «Hoy vigilaría…». El bloque de liquidez aparecerá cuando estén los componentes del
+M2 global: con solo datos de EE. UU. el sistema no rotula nada como «liquidez global».
+
+### Bloqueos para publicar
+
+- **URL de metodología y aviso legal** (`config/editorial.yaml`, `[●]`): mientras sea un marcador, la validación
+  bloquea la publicación en producción. Es deliberado.
+- Decisiones del despacho: sociedad editora y responsable editorial (D4), nombre del canal y licencias L1–L10
+  (doc 12 §3–4).

@@ -54,6 +54,58 @@
    "caveats": []
   },
   {
+   "id": "btc_eur",
+   "label_es": "Bitcoin (EUR)",
+   "value": 86540.0,
+   "display": "86.540 €",
+   "display_abs": "86.540 €",
+   "unit": "EUR",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "move_calm",
+    "label_es": "movimiento contenido",
+    "color": "none"
+   },
+   "salience": 0.9,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "btc_chg_24h_pct",
+   "label_es": "Variación 24 h",
+   "value": 0.3,
+   "display": "+0,3 %",
+   "display_abs": "0,3 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "move_calm",
+    "label_es": "movimiento contenido",
+    "color": "none"
+   },
+   "salience": 0.8,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
    "id": "btc_chg_7d_pct",
    "label_es": "Variación 7 días",
    "value": -2.4,
@@ -106,6 +158,58 @@
     "color": "none"
    },
    "salience": 0.4,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "btc_ath_usd",
+   "label_es": "Máximo histórico (USD, intradía agregado)",
+   "value": 126080.0,
+   "display": "$126.080",
+   "display_abs": "$126.080",
+   "unit": "USD",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.5,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "btc_ath_usd_date",
+   "label_es": "Fecha del máximo histórico (USD)",
+   "value": "2025-10-06",
+   "display": "6 oct 2025",
+   "display_abs": null,
+   "unit": "date",
+   "as_of": "2026-09-23T06:30:12Z",
+   "as_of_label": null,
+   "source": {
+    "name": "CoinGecko",
+    "url": "https://www.coingecko.com/en/api"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "precio",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.5,
    "selected": true,
    "interpretation_hints": [],
    "caveats": []
@@ -213,6 +317,58 @@
    "caveats": []
   },
   {
+   "id": "fng_class",
+   "label_es": "Clasificación Miedo y Codicia",
+   "value": "Neutral",
+   "display": "neutral",
+   "display_abs": null,
+   "unit": "index",
+   "as_of": "2026-09-23T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "alternative.me",
+    "url": "https://alternative.me/crypto/fear-and-greed-index/"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "sentimiento",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.5,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "fng_value_1d_ago",
+   "label_es": "Miedo y Codicia (ayer)",
+   "value": 61,
+   "display": "61",
+   "display_abs": "61",
+   "unit": "index",
+   "as_of": "2026-09-22T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "alternative.me",
+    "url": "https://alternative.me/crypto/fear-and-greed-index/"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "sentimiento",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.4,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
    "id": "fng_value_7d_ago",
    "label_es": "Miedo y Codicia (hace 7 días)",
    "value": 71,
@@ -267,6 +423,32 @@
    ]
   },
   {
+   "id": "us_net_liquidity_chg_4w_pct",
+   "label_es": "Liquidez neta EE. UU. — variación 4 semanas",
+   "value": 1.5,
+   "display": "+1,5 %",
+   "display_abs": "1,5 %",
+   "unit": "pct",
+   "as_of": "2026-09-22T00:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "cálculo propio (Reserva Federal, Tesoro de EE. UU., Fed de Nueva York)",
+    "url": "https://example.invalid/metodologia"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "liquidez",
+    "code": "expansion",
+    "label_es": "expansión",
+    "color": "none"
+   },
+   "salience": 0.3,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
    "id": "etf_net_flow_usd_1d",
    "label_es": "Flujo neto ETF spot BTC (EE. UU.)",
    "value": -420000000,
@@ -300,6 +482,32 @@
    ]
   },
   {
+   "id": "etf_net_flow_usd_5d",
+   "label_es": "Flujo neto ETF — 5 sesiones",
+   "value": -610000000.0,
+   "display": "−$610 M",
+   "display_abs": "$610 M",
+   "unit": "USD",
+   "as_of": "2026-09-22T20:00:00Z",
+   "as_of_label": "sesión del martes 22 sep",
+   "source": {
+    "name": "SoSoValue",
+    "url": "https://sosovalue.com"
+   },
+   "is_provisional": true,
+   "freshness": "fresh",
+   "state": {
+    "axis": "demanda",
+    "code": "n/a",
+    "label_es": "",
+    "color": "none"
+   },
+   "salience": 0.6,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
    "id": "etf_flow_streak_days",
    "label_es": "Racha de sesiones con flujo del mismo signo",
    "value": -3,
@@ -321,6 +529,32 @@
     "color": "none"
    },
    "salience": 0.46,
+   "selected": true,
+   "interpretation_hints": [],
+   "caveats": []
+  },
+  {
+   "id": "funding_rate_agg_8h",
+   "label_es": "Funding agregado (8 h, ponderado por OI)",
+   "value": 0.012,
+   "display": "+0,012 %",
+   "display_abs": "0,012 %",
+   "unit": "pct",
+   "as_of": "2026-09-23T06:00:00Z",
+   "as_of_label": null,
+   "source": {
+    "name": "Coinalyze",
+    "url": "https://coinalyze.net"
+   },
+   "is_provisional": false,
+   "freshness": "fresh",
+   "state": {
+    "axis": "apalancamiento",
+    "code": "funding_neutral",
+    "label_es": "funding neutro",
+    "color": "none"
+   },
+   "salience": 0.4,
    "selected": true,
    "interpretation_hints": [],
    "caveats": []

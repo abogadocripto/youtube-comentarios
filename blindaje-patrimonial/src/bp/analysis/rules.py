@@ -210,8 +210,7 @@ class Analyzer:
             else:
                 raw = ("expansion" if m2.num > g["fixed"]["expansion_above_ann_pct"]
                        else "contraction" if m2.num < g["fixed"]["contraction_below_ann_pct"] else "neutral")
-            prev = self.prev_state("global_m2_chg_3m_ann_pct", m2.as_of)
-            m2_state = raw if prev is None or raw == prev else raw  # histéresis mensual: se aplica en la calibración (dato mensual)
+            m2_state = raw        # dato mensual: sin histéresis diaria (cada lectura es un mes nuevo)
             label = {"expansion": "expansión", "contraction": "contracción", "neutral": "neutral"}[m2_state]
             self.put("global_m2_chg_3m_ann_pct", m2, {"z": None}, m2_state, label)
             gm = self.latest("global_m2_usd")
@@ -232,9 +231,11 @@ class Analyzer:
             usl = self.latest("us_net_liquidity_usd")
             if usl:
                 self.put("us_net_liquidity_usd", usl, {"z": None})
-        if m2_state is None and us_state is None:
+        if m2_state is None:
+            # «Liquidez global» exige el componente global: con solo datos de EE. UU. no se emite el régimen
+            # (se conserva la señal de EE. UU. como hecho propio, pero no se rotula como global).
             return
-        m2s = m2_state or "neutral"
+        m2s = m2_state
         uss = us_state or "neutral"
         regime = lr["regime_matrix"][m2s][uss]
         color = lr["colors"][regime]

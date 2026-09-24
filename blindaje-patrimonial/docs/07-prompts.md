@@ -50,14 +50,14 @@ Entrada: `schema/examples/daily_input.example.json`, con datos ficticios pero re
 
 Salida del LLM: `schema/examples/daily_output.example.json`.
 
-Mensaje final renderizado (`schema/examples/daily_rendered.example.html`, ~1.730 caracteres visibles, 1–1,5 min de lectura):
+Mensaje final renderizado (`schema/examples/daily_rendered.example.html`, generado por el renderizador real; 2.250 caracteres visibles, 1,5–2 min de lectura). Los bloques ETF y derivados solo aparecen si se obtienen las licencias L3–L4; sin ellas, el filtro de licencias los retira:
 
 ```
 ☀️ BITCOIN MORNING BRIEF · Miércoles, 23 sep 2026 · 🤖 Lectura elaborada con IA
 
 ₿ Bitcoin
-$101.250 · 86.540 €
-24 h: +0,3 % · 7 d: −2,4 % (en euros: −0,6 %)
+$101.250 · 86.540 €
+24 h: +0,3 % · 7 d: −2,4 % (en euros: −0,6 %)
 Máximo histórico: $126.080 (6 oct 2025) · −19,7 % · 352 días
 
 🧠 Sentimiento
@@ -65,35 +65,25 @@ Miedo y Codicia: 58 — neutral · ayer 61 · hace 7 días 71 (fuente: alternati
 El índice pasa de 71 a 58 en siete días: el mercado se enfría sin llegar al miedo.
 
 🌊 Liquidez
-Liquidez global: 🟢 expansión (M2 global a agosto, provisional) · liquidez EE. UU. 4 sem.: +$84 mm
+Liquidez global: 🟢 expansión (M2 global a agosto, provisional) · liquidez EE. UU. 4 sem.: +1,5 %
 
 🏦 Demanda ETF · sesión del martes 22 sep
 Flujo neto: −$420 M · 5 sesiones: −$610 M · 3.ª sesión seguida de salidas
 Indicador de demanda a través de productos regulados, no de compras o ventas institucionales.
 
 ⚡ Derivados
-Interés abierto 24 h: +7,1 % (en BTC) · funding 0,012 %/8 h
+Funding: +0,012 %/8 h · Interés abierto 24 h: +7,1 % (en BTC)
 El apalancamiento crece sin movimiento de precio.
 
 🌡️ Liquidez 🟢 · Demanda 🔴 · Apalancamiento 🔴 · Sentimiento 🟢
 
 🧭 La lectura
-Bitcoin apenas se mueve, pero bajo la superficie cambian dos cosas: los ETF encadenan 3 sesiones
-seguidas de salidas y el interés abierto sube un 7,1 % sin que el precio acompañe. Es una combinación
-que suele reflejar más posicionamiento apalancado que demanda de contado, y que aumenta la
-sensibilidad a movimientos bruscos en el corto plazo. El fondo no ha cambiado: la liquidez global
-sigue en expansión y el sentimiento se ha normalizado tras salir de la zona de codicia.
+Bitcoin apenas se mueve, pero bajo la superficie cambian dos cosas: los ETF encadenan 3 sesiones seguidas de salidas y el interés abierto sube un 7,1 % sin que el precio acompañe. Es una combinación que suele reflejar más posicionamiento apalancado que demanda de contado, y que aumenta la sensibilidad a movimientos bruscos en el corto plazo. El fondo no ha cambiado: la liquidez global sigue en expansión y el sentimiento se ha normalizado tras salir de la zona de codicia.
 
 👀 Hoy vigilaría…
-Si los ETF vuelven a registrar salidas: con el apalancamiento al alza, la demanda de contado es hoy
-la variable que más pesa.
+Si los ETF vuelven a registrar salidas: con el apalancamiento al alza, la demanda de contado es hoy la variable que más pesa.
 
-ℹ️ Información general. No es asesoramiento financiero, fiscal ni jurídico personalizado ni una
-recomendación de inversión, y no tiene en cuenta tu situación. Los criptoactivos son volátiles y se
-puede perder todo lo invertido. Texto interpretativo generado por IA a partir de los datos citados;
-las cifras se insertan automáticamente desde las fuentes. ABAST y sus profesionales pueden mantener
-posiciones en bitcoin (declaración de intereses). Datos a 23/09 08:30: CoinGecko · alternative.me ·
-SoSoValue · Coinalyze · cálculo propio. Metodología, aviso legal y declaración de intereses
+ℹ️ Información general. No es asesoramiento financiero, fiscal ni jurídico personalizado ni una recomendación de inversión, y no tiene en cuenta tu situación. Los criptoactivos son volátiles y se puede perder todo lo invertido. Texto interpretativo generado por IA a partir de los datos citados; las cifras se insertan automáticamente desde las fuentes. ABAST y sus profesionales pueden mantener posiciones en bitcoin (declaración de intereses en el enlace). Datos a 23/09 08:50: CoinGecko · alternative.me · cálculo propio (Reserva Federal, BCE, BoE, PBoC, BoJ) · cálculo propio (Reserva Federal, Tesoro de EE. UU., Fed de Nueva York) · SoSoValue · Coinalyze. Metodología, aviso legal y declaración de intereses
 ```
 
 Notas sobre el ejemplo:

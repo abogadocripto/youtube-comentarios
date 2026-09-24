@@ -137,7 +137,10 @@ Hora de envío: domingo a las 18:00 (recomendada). Es cuando el lector planifica
   - `Persistent=true` solo en la ingesta. La publicación no se recupera sola después de las 10:30: pide confirmación humana.
   - Cada job es un proceso independiente: un fallo no contamina al siguiente.
   - Alternativa equivalente: `supercronic` con `CRON_TZ=Europe/Madrid` dentro del contenedor.
-- **Respaldo externo:** a las 09:07, Cloud Scheduler o GitHub Actions con zona horaria ejecuta `bp publish-daily --only-if-missing`. Nunca es el disparador principal: los cron de GitHub Actions sufren retrasos documentados y pueden descartarse.
+- **Respaldo de publicación:** a las 09:07, un segundo temporizador en el mismo VPS ejecuta `bp publish-daily --only-if-missing`. Cubre un fallo del job de las 09:00, no una caída del servidor.
+  - *Corrección respecto a la primera versión del diseño:* un disparador externo (Cloud Scheduler o GitHub Actions) no puede publicar por sí solo, porque publicar exige la base de datos con el borrador validado. Exponer PostgreSQL a internet para ello sería peor remedio que el problema.
+  - Ante una caída del VPS, la capa externa es la **alerta de Healthchecks** al operador (sin ping de publicación a las 09:02).
+- **Publicación sin borrador:** si a las 09:00 no hay borrador publicable, `publish-daily` genera en el acto la lectura por plantillas (sin LLM) y publica; si faltan los datos núcleo, no publica y avisa.
 - **Idempotencia.** Cada job registra `job_runs.idempotency_key` (`publish_daily:2026-09-23`); si ya terminó con éxito, no hace nada. Cada envío registra `publications.idempotency_key`. Reintentar nunca duplica.
 - **Bloqueos.** Se usa `pg_advisory_lock` por familia de jobs, para que dos procesos no construyan a la vez el mismo informe.
 - **Publicación desacoplada.** `publish_daily` solo envía un borrador ya validado. Si a las 08:58 no hay borrador `validated`, genera la versión de respaldo. Así la puntualidad de las 09:00 no depende de la latencia del LLM.
