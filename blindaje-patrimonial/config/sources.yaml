@@ -107,6 +107,8 @@ sources:
     name: Board of Governors of the Federal Reserve System
     kind: api
     base_url: "https://www.federalreserve.gov/datadownload"
+    # AVISO 16 jul 2026: la Fed retira «Build Your Package» la semana del 9 nov 2026 y después el DDP.
+    # Migrar H.4.1, H.6 y H.10 al XML publicado en cada página de publicación (federalreserve.gov/releases/…).
     licence: official_open
     attribution_short: "Reserva Federal"
     llm_input_allowed: true

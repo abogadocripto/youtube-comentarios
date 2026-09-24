@@ -2,7 +2,7 @@
 
 Sistema que publica cada mañana a las 09:00 (Europe/Madrid) un **Daily Bitcoin** en Telegram, elabora un **Informe semanal de Blindaje Patrimonial** por email y emite **Alertas patrimoniales** cuando ocurre algo relevante en los frentes financiero, fiscal, regulatorio o de protección.
 
-> **Empieza por [`docs/00-resumen-ejecutivo.md`](docs/00-resumen-ejecutivo.md).**
+> **Empieza por [`docs/00-resumen-ejecutivo.md`](docs/00-resumen-ejecutivo.md). Para retomar el trabajo en otra sesión: [`docs/13-traspaso.md`](docs/13-traspaso.md).**
 
 ## Principios
 
@@ -17,7 +17,7 @@ Sistema que publica cada mañana a las 09:00 (Europe/Madrid) un **Daily Bitcoin*
 ```
 docs/        Diseño (00 resumen · 01 arquitectura · 02 métricas y fuentes · 03 modelo de datos ·
              04 reglas · 05 noticias y alertas · 06 contrato LLM · 07 prompts · 08 validación ·
-             09 Telegram · 10 newsletter · 11 cumplimiento · 12 plan)
+             09 Telegram · 10 newsletter · 11 cumplimiento · 12 plan · 13 traspaso)
 config/      metrics.yaml · rules.yaml · sources.yaml · editorial.yaml · llm.yaml · fomc.yaml ·
              news_sources.yaml · calendar/
 schema/      schema.sql (PostgreSQL 16) · llm/*.schema.json · examples/
@@ -35,7 +35,7 @@ pip install -e ".[dev]"
 bp doctor                      # configuración, esquemas, prompts y variables de entorno
 bp demo                        # Daily completo con historia y fixtures SINTÉTICOS → out/demo/
 bp demo --llm static           # la misma ejecución por la ruta del LLM (backend simulado + verificador)
-pytest                         # 84 pruebas (+1 omitida); con BP_TEST_DATABASE_URL también contra PostgreSQL
+pytest                         # 83 pruebas (+3 omitidas); con BP_TEST_DATABASE_URL, 85 (incluye PostgreSQL)
 ```
 
 `bp demo` usa valores ficticios: sirve para probar la arquitectura de principio a fin, no el contenido.
@@ -59,7 +59,7 @@ Despliegue: [`deploy/README.md`](deploy/README.md).
 |---|---|---|
 | Diseño (docs 00–12, configuración, esquemas) | ✔ | |
 | 0 · Cimientos | ✔ | Configuración validada, `schema.sql` probado en PostgreSQL 16, `PostgresStore`, CLI, CI |
-| 1 · Datos núcleo | ◐ | Hechos: CoinGecko, alternative.me, mempool.space, Tesoro de EE. UU., Fed de Nueva York, Fiscal Data (TGA), H.4.1, BCE (EUR/USD), calendario. **Faltan:** componentes del M2 global (BCE, BoE, PBoC, BoJ, H.6), índice amplio del dólar, contraste con CoinMarketCap. **Formatos de respuesta sin verificar en vivo** (marcados `[VERIFICAR]`): se validan con `bp smoke` desde el VPS |
+| 1 · Datos núcleo | ◐ | **Urgente:** el conector H.4.1 depende del *Data Download Program*, cuya opción «Build Your Package» la Fed retira la semana del 9 nov 2026; migrar al XML de la publicación. Hechos: CoinGecko, alternative.me, mempool.space, Tesoro de EE. UU., Fed de Nueva York, Fiscal Data (TGA), H.4.1, BCE (EUR/USD), calendario. **Faltan:** componentes del M2 global (BCE, BoE, PBoC, BoJ, H.6), índice amplio del dólar, contraste con CoinMarketCap. **Formatos de respuesta sin verificar en vivo** (marcados `[VERIFICAR]`): se validan con `bp smoke` desde el VPS |
 | 2 · Análisis y selección | ✔ | Derivaciones, reglas por familia, ejes, saliencia, «Hoy vigilaría…», fact sheet validado contra el esquema; filtro de licencias en la selección y en la validación |
 | 3 · LLM, validación, render, Telegram | ◐ | Hechos: cliente de Claude con salida estructurada, verificador independiente, 28 validadores deterministas, respaldo por plantillas, renderizador, publicación idempotente, temporizadores. **Faltan:** bot de edición (previsualizar, retener, corregir) y prueba con el modelo real |
 | 4 · On-chain propio (BRK) | ☐ | Reglas y render listos; falta el conector y el servidor del nodo |

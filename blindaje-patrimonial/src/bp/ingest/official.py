@@ -122,7 +122,13 @@ class FiscalDataTGA(Connector):
 
 
 class FedH41(Connector):
-    """Balance de la Reserva Federal (H.4.1, nivel del miércoles) vía Data Download Program (CSV)."""
+    """Balance de la Reserva Federal (H.4.1, nivel del miércoles) vía Data Download Program (CSV).
+
+    PENDIENTE (bloqueante antes de noviembre de 2026): la Reserva Federal anunció el 16 jul 2026 que retira la opción
+    «Build Your Package» del DDP la semana del 9 nov 2026 y, después, el DDP entero. Sustituto oficial: el XML de cada
+    publicación en https://www.federalreserve.gov/releases/h41/current/ (o el ZIP SDMX completo). FRED no sirve como
+    fuente almacenada (docs/02 §1.4). Reescribir fetch/parse contra ese XML en cuanto se pueda inspeccionar en vivo.
+    """
 
     id = "fed_h41"
     source_id = "fed_board_ddp"

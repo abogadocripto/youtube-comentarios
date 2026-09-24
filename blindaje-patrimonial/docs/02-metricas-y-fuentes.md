@@ -95,6 +95,8 @@ Notas:
 | `liquidity_regime` | N | calculado (doc 04 §3.3) | — | SC | ✔ | ✔ |
 | `eurusd` | C | tipo de referencia del BCE (`eurofxref-daily.xml`) | Fed H.10 | OF ("Fuente: BCE") | P‑1 (16:00 CET; nada en fin de semana ni festivos TARGET) | ✔ |
 | `usd_index` | B | Índice Amplio Nominal del Dólar de la Fed (H.10, *Data Download Program*) | — | OF | semanal (3–9 días de retraso) → **solo Weekly** | ✔ |
+
+> **Aviso (verificado el 24 sep 2026):** la Reserva Federal anunció el 16 jul 2026 que retira la opción «Build Your Package» del *Data Download Program* la semana del 9 nov 2026, como paso previo a retirar el DDP. H.4.1 (`WALCL`), H.6 (M2 de EE. UU.) y H.10 (dólar) deben leerse del **XML publicado en cada página de publicación** (p. ej. `federalreserve.gov/releases/h41/current/`) o del ZIP SDMX completo. FRED sigue descartado como fuente almacenada. Fuente: [federalreserve.gov/feeds/datadownload.html](https://www.federalreserve.gov/feeds/datadownload.html).
 | `fed_next_meeting_date` | C | calendario de la Fed (`calendar.json`) | página del FOMC | OF | ✔ | ✔ |
 | `fed_next_meeting_cut_prob` | — | **descartada en el MVP**. La API FedWatch de CME (desde ~25 $/mes) no incluye difusión pública sin licencia específica. Kalshi y Polymarket: términos no comerciales; además, la DGOJ los bloquea en España desde el 26 may 2026 **[VERIFICAR]** | proxy gratuito: `us2y_minus_ffr_bp` | — | — | ✘ |
 

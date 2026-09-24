@@ -17,7 +17,7 @@
    - Glassnode y Coin Metrics.
 
    El diseño lo resuelve con cálculo propio (nodo Bitcoin + BRK para on-chain; fórmulas propias sobre series oficiales), datos oficiales reutilizables (Tesoro, Reserva Federal, Fed de Nueva York, BCE, BoE) y **pocos proveedores con licencia comercial expresa**. Un filtro de código impide publicar cualquier dato cuya fuente no lo permita (doc 02).
-2. **El LLM nunca escribe cifras.** Escribe marcadores (`{{f:etf_net_flow_usd_1d}}`) que el sistema sustituye por valores de la base de datos. En el Weekly, cada afirmación lleva una **cita literal** de la fuente, y el código comprueba que existe. Encima hay 27 validadores deterministas, un verificador LLM independiente y revisión humana en el Weekly y las alertas (docs 06–08).
+2. **El LLM nunca escribe cifras.** Escribe marcadores (`{{f:etf_net_flow_usd_1d}}`) que el sistema sustituye por valores de la base de datos. En el Weekly, cada afirmación lleva una **cita literal** de la fuente, y el código comprueba que existe. Encima hay 28 validadores deterministas, un verificador LLM independiente y revisión humana en el Weekly y las alertas (docs 06–08).
 3. **El Daily se publica siempre a las 09:00 si hay precio**, con degradación elegante:
    - sin LLM → lectura por plantillas;
    - sin una métrica → se omite su bloque.

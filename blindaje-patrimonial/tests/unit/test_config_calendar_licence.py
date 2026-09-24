@@ -51,3 +51,16 @@ def test_expiry_time_is_0800_utc():
     cfg = load_config()
     exp = next(e for e in build_events(cfg, date(2026, 9, 25), date(2026, 9, 25)) if e.event_key.startswith("deribit_expiry"))
     assert exp.scheduled_at == datetime(2026, 9, 25, 8, 0, tzinfo=timezone.utc)
+
+
+def test_uk_holidays_and_cme_last_trade_rule():
+    from bp.calendar.events import easter_sunday, uk_bank_holiday
+    assert easter_sunday(2026) == date(2026, 4, 5) and easter_sunday(2027) == date(2027, 3, 28)
+    assert uk_bank_holiday(date(2026, 4, 3))            # Viernes Santo 2026
+    assert uk_bank_holiday(date(2026, 12, 28))          # traslado de San Esteban (sábado 26)
+    assert not uk_bank_holiday(date(2026, 9, 25))
+    cfg = load_config()
+    # dic 2025: el último viernes es el 26 (San Esteban en el Reino Unido, hábil en EE. UU.) → el 24 (el 25 es festivo en ambos)
+    evs = build_events(cfg, date(2025, 12, 1), date(2025, 12, 31))
+    cme = [e for e in evs if e.event_key.startswith("cme_btc_last_trade")]
+    assert cme and cme[0].event_key == "cme_btc_last_trade:2025-12-24"

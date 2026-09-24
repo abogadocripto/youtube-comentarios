@@ -44,6 +44,40 @@ def nyse_early_closes(cfg: Config) -> set[date]:
     return out
 
 
+def easter_sunday(year: int) -> date:
+    """Domingo de Pascua (algoritmo gregoriano anónimo)."""
+    a, b, c = year % 19, year // 100, year % 100
+    d, e = b // 4, b % 4
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l_ = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l_) // 451
+    month = (h + l_ - 7 * m + 114) // 31
+    day = (h + l_ - 7 * m + 114) % 31 + 1
+    return date(year, month, day)
+
+
+def uk_bank_holiday(d: date) -> bool:
+    """Festivos bancarios de Inglaterra relevantes para vencimientos en viernes o días previos: Viernes Santo,
+    Lunes de Pascua, Navidad, San Esteban y Año Nuevo (con sus traslados). Fuera de estos, lunes: no afectan a un viernes."""
+    if d.weekday() >= 5:
+        return True
+    easter = easter_sunday(d.year)
+    if d in (easter - timedelta(days=2), easter + timedelta(days=1)):
+        return True
+    fixed = {date(d.year, 1, 1), date(d.year, 12, 25), date(d.year, 12, 26)}
+    # traslados: si Navidad/San Esteban/Año Nuevo caen en fin de semana, se disfrutan el siguiente día laborable
+    for f in sorted(list(fixed)):
+        if f.weekday() >= 5:
+            sub = f + timedelta(days=1)
+            while sub.weekday() >= 5 or sub in fixed:
+                sub += timedelta(days=1)
+            fixed.add(sub)
+    return d in fixed
+
+
 def is_us_session(d: date, holidays: set[date]) -> bool:
     return d.weekday() < 5 and d not in holidays
 
@@ -110,7 +144,9 @@ def build_events(cfg: Config, start: date, end: date) -> list[CalendarEvent]:
                 datetime.combine(lf, time(8, 0), tzinfo=UTC), "exact", country="GLOBAL", source_name="Deribit",
                 source_url="https://www.deribit.com"))
             cme_day = lf
-            while not is_us_session(cme_day, holidays):     # si el último viernes es festivo, día hábil anterior [VERIFICAR con CME]
+            # Reglamento CME, cap. 350: 16:00 de Londres del último viernes; si no es hábil en EE. UU. y en el Reino Unido,
+            # el día anterior que lo sea en ambos.
+            while not (is_us_session(cme_day, holidays) and not uk_bank_holiday(cme_day)):
                 cme_day -= timedelta(days=1)
             events.append(CalendarEvent(
                 f"cme_btc_last_trade:{cme_day}", "cme_btc_last_trade", "Último día de negociación de los futuros BTC de CME",
