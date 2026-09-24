@@ -1,0 +1,28 @@
+{
+ "data": [
+  {
+   "record_date": "2026-09-22",
+   "account_type": "Treasury General Account (TGA) Closing Balance",
+   "open_today_bal": "847000",
+   "close_today_bal": "null"
+  },
+  {
+   "record_date": "2026-09-21",
+   "account_type": "Treasury General Account (TGA) Closing Balance",
+   "open_today_bal": "845500",
+   "close_today_bal": "null"
+  },
+  {
+   "record_date": "2026-09-20",
+   "account_type": "Treasury General Account (TGA) Closing Balance",
+   "open_today_bal": "844000",
+   "close_today_bal": "null"
+  },
+  {
+   "record_date": "2026-09-19",
+   "account_type": "Treasury General Account (TGA) Closing Balance",
+   "open_today_bal": "842500",
+   "close_today_bal": "null"
+  }
+ ]
+}

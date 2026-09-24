@@ -1,0 +1,155 @@
+{
+ "code": 0,
+ "data": [
+  {
+   "date": "2026-09-23",
+   "total_net_inflow": -420000000,
+   "total_btc_holdings": 1320000
+  },
+  {
+   "date": "2026-09-22",
+   "total_net_inflow": -95000000,
+   "total_btc_holdings": 1319850
+  },
+  {
+   "date": "2026-09-21",
+   "total_net_inflow": -160000000,
+   "total_btc_holdings": 1319700
+  },
+  {
+   "date": "2026-09-18",
+   "total_net_inflow": 197598759,
+   "total_btc_holdings": 1319550
+  },
+  {
+   "date": "2026-09-17",
+   "total_net_inflow": -232492471,
+   "total_btc_holdings": 1319400
+  },
+  {
+   "date": "2026-09-16",
+   "total_net_inflow": -57479477,
+   "total_btc_holdings": 1319250
+  },
+  {
+   "date": "2026-09-15",
+   "total_net_inflow": -93752483,
+   "total_btc_holdings": 1319100
+  },
+  {
+   "date": "2026-09-14",
+   "total_net_inflow": 265529850,
+   "total_btc_holdings": 1318950
+  },
+  {
+   "date": "2026-09-11",
+   "total_net_inflow": 223689641,
+   "total_btc_holdings": 1318800
+  },
+  {
+   "date": "2026-09-10",
+   "total_net_inflow": 374525697,
+   "total_btc_holdings": 1318650
+  },
+  {
+   "date": "2026-09-09",
+   "total_net_inflow": -189142817,
+   "total_btc_holdings": 1318500
+  },
+  {
+   "date": "2026-09-08",
+   "total_net_inflow": 45345274,
+   "total_btc_holdings": 1318350
+  },
+  {
+   "date": "2026-09-04",
+   "total_net_inflow": -229141946,
+   "total_btc_holdings": 1318200
+  },
+  {
+   "date": "2026-09-03",
+   "total_net_inflow": -96953418,
+   "total_btc_holdings": 1318050
+  },
+  {
+   "date": "2026-09-02",
+   "total_net_inflow": 103748702,
+   "total_btc_holdings": 1317900
+  },
+  {
+   "date": "2026-09-01",
+   "total_net_inflow": -231424821,
+   "total_btc_holdings": 1317750
+  },
+  {
+   "date": "2026-08-31",
+   "total_net_inflow": -110813645,
+   "total_btc_holdings": 1317600
+  },
+  {
+   "date": "2026-08-28",
+   "total_net_inflow": 204919106,
+   "total_btc_holdings": 1317450
+  },
+  {
+   "date": "2026-08-27",
+   "total_net_inflow": 131459036,
+   "total_btc_holdings": 1317300
+  },
+  {
+   "date": "2026-08-26",
+   "total_net_inflow": -95691565,
+   "total_btc_holdings": 1317150
+  },
+  {
+   "date": "2026-08-25",
+   "total_net_inflow": 162485979,
+   "total_btc_holdings": 1317000
+  },
+  {
+   "date": "2026-08-24",
+   "total_net_inflow": 316601320,
+   "total_btc_holdings": 1316850
+  },
+  {
+   "date": "2026-08-21",
+   "total_net_inflow": -245450868,
+   "total_btc_holdings": 1316700
+  },
+  {
+   "date": "2026-08-20",
+   "total_net_inflow": 314073476,
+   "total_btc_holdings": 1316550
+  },
+  {
+   "date": "2026-08-19",
+   "total_net_inflow": 238697576,
+   "total_btc_holdings": 1316400
+  },
+  {
+   "date": "2026-08-18",
+   "total_net_inflow": -11824638,
+   "total_btc_holdings": 1316250
+  },
+  {
+   "date": "2026-08-17",
+   "total_net_inflow": -141164350,
+   "total_btc_holdings": 1316100
+  },
+  {
+   "date": "2026-08-14",
+   "total_net_inflow": 420049151,
+   "total_btc_holdings": 1315950
+  },
+  {
+   "date": "2026-08-13",
+   "total_net_inflow": -14383818,
+   "total_btc_holdings": 1315800
+  },
+  {
+   "date": "2026-08-12",
+   "total_net_inflow": -185077910,
+   "total_btc_holdings": 1315650
+  }
+ ]
+}

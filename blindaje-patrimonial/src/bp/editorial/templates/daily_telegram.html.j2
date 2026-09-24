@@ -1,0 +1,18 @@
+☀️ <b>{{ title }}</b> · {{ date_line }} · {{ ai_label }}
+
+₿ <b>Bitcoin</b>
+{% for line in bitcoin_lines %}{{ line }}
+{% endfor %}{% for block in blocks %}
+{{ block.emoji }} <b>{{ block.title }}</b>{% if block.as_of_label %} · {{ block.as_of_label }}{% endif %}
+{% for line in block.lines %}{{ line }}
+{% endfor %}{% if block.comment %}{{ block.comment }}
+{% endif %}{% endfor %}{% if axes_line %}
+🌡️ {{ axes_line }}
+{% endif %}
+🧭 <b>La lectura</b>
+{{ lectura }}
+
+👀 <b>Hoy vigilaría…</b>
+{{ vigilar }}
+
+<i>{{ footer }} Datos a {{ data_timestamp }}: {{ attributions }}.</i> <a href="{{ methodology_url }}">Metodología, aviso legal y declaración de intereses</a>

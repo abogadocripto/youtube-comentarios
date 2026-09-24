@@ -17,8 +17,8 @@ price:
     - {code: ath_zone,         min: -3.0,  label_es: "en zona de máximos"}
     - {code: ath_near,         min: -10.0, label_es: "cerca de máximos"}
     - {code: correction,       min: -20.0, label_es: "en corrección"}
-    - {code: correction_deep,  min: -35.0, label_es: "corrección profunda"}
-    - {code: drawdown_severe,  min: -100,  label_es: "caída prolongada desde máximos"}
+    - {code: correction_deep,  min: -35.0, label_es: "en corrección profunda"}
+    - {code: drawdown_severe,  min: -100,  label_es: "en caída prolongada desde máximos"}
   ath_band_hysteresis_pp: 1.0
   eur_vs_usd_hint_pp: 1.5
   range_break_windows: [30, 90]

@@ -1,0 +1,29 @@
+{
+ "refRates": [
+  {
+   "effectiveDate": "2026-09-22",
+   "type": "EFFR",
+   "percentRate": 3.88
+  },
+  {
+   "effectiveDate": "2026-09-21",
+   "type": "EFFR",
+   "percentRate": 3.88
+  },
+  {
+   "effectiveDate": "2026-09-20",
+   "type": "EFFR",
+   "percentRate": 3.88
+  },
+  {
+   "effectiveDate": "2026-09-17",
+   "type": "EFFR",
+   "percentRate": 3.88
+  },
+  {
+   "effectiveDate": "2026-09-16",
+   "type": "EFFR",
+   "percentRate": 3.63
+  }
+ ]
+}

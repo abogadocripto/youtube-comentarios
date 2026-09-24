@@ -1,0 +1,270 @@
+# Fuentes de DATOS (métricas) y su estado de licencia — ver docs/02 §1 y docs/03 (source_licences).
+# licence: self_computed | official_open | licensed_public | permission_pending | internal_only | prohibited
+# El renderizador solo publica hechos de fuentes self_computed, official_open o licensed_public (V-LIC).
+# llm_input_allowed=false → la fuente nunca entra en el fact sheet del LLM (I-LIC).
+# attribution_short: texto para la línea "Datos:" del pie. attribution_inline: debe ir junto al dato.
+
+version: 1
+updated: 2026-09-23
+
+sources:
+  coingecko_basic:
+    name: CoinGecko
+    kind: api
+    base_url: "https://pro-api.coingecko.com/api/v3"
+    auth: {header: "x-cg-pro-api-key", env: COINGECKO_API_KEY}
+    licence: licensed_public            # requiere plan Basic (L1)
+    attribution_short: "CoinGecko"
+    attribution_text: "Data provided by CoinGecko"
+    attribution_url: "https://www.coingecko.com/en/api"
+    llm_input_allowed: true
+
+  coinmarketcap_basic:
+    name: CoinMarketCap
+    kind: api
+    base_url: "https://pro-api.coinmarketcap.com"
+    auth: {header: "X-CMC_PRO_API_KEY", env: CMC_API_KEY}
+    licence: permission_pending         # confirmar "un producto" (L2); hasta entonces solo contraste interno
+    attribution_short: "CoinMarketCap"
+    attribution_text: "Data provided by CoinMarketCap"
+    llm_input_allowed: true
+
+  coinbase_exchange:
+    name: Coinbase Exchange (solo contraste interno)
+    kind: api
+    base_url: "https://api.exchange.coinbase.com"
+    licence: internal_only
+    llm_input_allowed: false
+
+  alternative_me:
+    name: alternative.me
+    kind: api
+    base_url: "https://api.alternative.me"
+    licence: licensed_public            # gratuito; uso comercial con atribución junto al dato
+    attribution_short: "alternative.me"
+    attribution_inline: true
+    attribution_text: "fuente: alternative.me"
+    llm_input_allowed: true
+
+  mempool_space:
+    name: mempool.space
+    kind: api
+    base_url: "https://mempool.space"
+    licence: self_computed              # solo hechos de la blockchain (altura, dificultad); nunca sus precios
+    attribution_short: "mempool.space"
+    llm_input_allowed: true
+
+  blockstream_esplora:
+    name: Blockstream Esplora
+    kind: api
+    base_url: "https://blockstream.info"
+    licence: self_computed
+    llm_input_allowed: true
+
+  own_node:
+    name: Nodo Bitcoin propio
+    kind: rpc
+    base_url: "http://node.internal:8332"
+    auth: {env: BITCOIN_RPC_AUTH}
+    licence: self_computed
+    attribution_short: "cálculo propio (nodo Bitcoin)"
+    llm_input_allowed: true
+
+  brk_selfhosted:
+    name: BRK (nodo propio)
+    kind: api
+    base_url: "http://node.internal:3110"
+    licence: self_computed
+    attribution_short: "cálculo propio (nodo Bitcoin)"
+    llm_input_allowed: true
+
+  us_treasury_xml:
+    name: U.S. Treasury
+    kind: api
+    base_url: "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/xml"
+    licence: official_open
+    attribution_short: "Tesoro de EE. UU."
+    llm_input_allowed: true
+
+  nyfed_markets:
+    name: Federal Reserve Bank of New York
+    kind: api
+    base_url: "https://markets.newyorkfed.org"
+    licence: official_open
+    attribution_short: "Fed de Nueva York"
+    attribution_text: "© 2026 Federal Reserve Bank of New York. Contenido de la Fed de Nueva York, sujeto a sus Terms of Use."
+    llm_input_allowed: true
+
+  fiscaldata_dts:
+    name: U.S. Treasury Fiscal Data (DTS)
+    kind: api
+    base_url: "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
+    licence: official_open
+    attribution_short: "Tesoro de EE. UU."
+    llm_input_allowed: true
+
+  fed_board_ddp:
+    name: Board of Governors of the Federal Reserve System
+    kind: api
+    base_url: "https://www.federalreserve.gov/datadownload"
+    licence: official_open
+    attribution_short: "Reserva Federal"
+    llm_input_allowed: true
+
+  fed_board_h15:
+    name: Reserva Federal (H.15)
+    kind: api
+    base_url: "https://www.federalreserve.gov/feeds/data/H15_H15.XML"
+    licence: official_open
+    attribution_short: "Reserva Federal"
+    llm_input_allowed: true
+
+  fed_calendar_json:
+    name: Reserva Federal (calendario)
+    kind: api
+    base_url: "https://www.federalreserve.gov/json/calendar.json"
+    licence: official_open
+    attribution_short: "Reserva Federal"
+    llm_input_allowed: true
+
+  config_fomc:
+    name: Configuración FOMC (comunicados)
+    kind: config
+    licence: official_open
+    attribution_short: "Reserva Federal"
+    llm_input_allowed: true
+
+  ecb_fx_xml:
+    name: BCE (tipos de referencia)
+    kind: api
+    base_url: "https://www.ecb.europa.eu/stats/eurofxref"
+    licence: official_open
+    attribution_short: "BCE"
+    attribution_text: "Fuente: BCE"
+    llm_input_allowed: true
+
+  ecb_sdmx:
+    name: BCE (Data Portal)
+    kind: api
+    base_url: "https://data-api.ecb.europa.eu/service/data"
+    licence: official_open
+    attribution_short: "BCE"
+    llm_input_allowed: true
+
+  boe_iadb:
+    name: Bank of England
+    kind: api
+    base_url: "https://www.bankofengland.co.uk/boeapps/database"
+    licence: official_open
+    attribution_short: "Bank of England (OGL v3.0)"
+    llm_input_allowed: true
+
+  boj_api:
+    name: Bank of Japan
+    kind: api
+    base_url: "https://www.stat-search.boj.or.jp/api/v1"
+    licence: permission_pending         # reproducción comercial requiere permiso (L6)
+    attribution_short: "Banco de Japón"
+    llm_input_allowed: true
+
+  pboc_html:
+    name: People's Bank of China
+    kind: html
+    base_url: "https://www.pbc.gov.cn/en/3688247/3688978/3709137/index.html"
+    licence: official_open
+    attribution_short: "Banco Popular de China"
+    llm_input_allowed: true
+
+  sosovalue_api:
+    name: SoSoValue
+    kind: api
+    base_url: "https://openapi.sosovalue.com/openapi/v1"
+    auth: {header: "x-soso-api-key", env: SOSOVALUE_API_KEY}
+    licence: permission_pending         # L3
+    attribution_short: "SoSoValue"
+    llm_input_allowed: true
+
+  coinglass_standard:
+    name: CoinGlass
+    kind: api
+    base_url: "https://open-api-v4.coinglass.com"
+    auth: {header: "CG-API-KEY", env: COINGLASS_API_KEY}
+    licence: permission_pending         # L5: Standard (299 $/mes) + confirmación escrita de difusión pública
+    attribution_short: "CoinGlass"
+    llm_input_allowed: true
+
+  coinalyze:
+    name: Coinalyze
+    kind: api
+    base_url: "https://api.coinalyze.net/v1"
+    auth: {header: "api_key", env: COINALYZE_API_KEY}
+    licence: permission_pending         # L4
+    attribution_short: "Coinalyze"
+    llm_input_allowed: true
+
+  cryptoquant_pro:
+    name: CryptoQuant
+    kind: api
+    base_url: "https://api.cryptoquant.com/v1"
+    auth: {header: "Authorization", env: CRYPTOQUANT_API_KEY, prefix: "Bearer "}
+    licence: permission_pending
+    attribution_short: "CryptoQuant"
+    llm_input_allowed: true
+
+  deribit_public:
+    name: Deribit
+    kind: api
+    base_url: "https://www.deribit.com/api/v2"
+    licence: permission_pending         # L8: datos derivados solo uso personal salvo aprobación; la FECHA de vencimiento es un hecho
+    attribution_short: "Deribit"
+    llm_input_allowed: true
+
+  grayscale_s3_xlsx:
+    name: Grayscale (ficheros diarios del emisor)
+    kind: api
+    licence: internal_only              # contraste de flujos por emisor (ΔParticipaciones × NAV)
+    llm_input_allowed: false
+
+  ishares_xls:
+    name: iShares (ficheros del emisor)
+    kind: api
+    licence: internal_only
+    llm_input_allowed: false
+
+  TBD_licensed_ndx:
+    name: Proveedor licenciado del Nasdaq-100 (por decidir, L9)
+    kind: api
+    licence: permission_pending
+    llm_input_allowed: true
+
+  bgeometrics:
+    name: BGeometrics
+    kind: api
+    base_url: "https://bitcoin-data.com"
+    licence: permission_pending
+    llm_input_allowed: true
+
+  coinmetrics_community:
+    name: Coin Metrics Community
+    kind: api
+    licence: prohibited                 # CC BY-NC + cláusula de modelos (según se informa)
+    llm_input_allowed: false
+
+  fred:
+    name: FRED (St. Louis Fed)
+    kind: api
+    licence: internal_only              # términos 2026: no almacenar ni usar con IA [VERIFICAR]
+    llm_input_allowed: false
+
+  calendar_events_table:
+    name: Calendario (fuentes oficiales)
+    kind: computed
+    licence: official_open
+    llm_input_allowed: true
+
+  computed:
+    name: Cálculo propio
+    kind: computed
+    licence: self_computed
+    attribution_short: "cálculo propio"
+    llm_input_allowed: true

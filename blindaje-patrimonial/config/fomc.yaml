@@ -1,0 +1,14 @@
+# Rango objetivo de los fondos federales — se actualiza con cada comunicado del FOMC (docs/02 §3.3).
+# Contraste diario automático con H.15 (DFEDTARU/DFEDTARL vía Reserva Federal).
+current:
+  lower: 3.75
+  upper: 4.00
+  decided: 2026-09-16
+  effective: 2026-09-17
+  source_url: "https://www.federalreserve.gov/newsevents/pressreleases/monetary20260916a.htm"
+  note: "Subida de 25 pb por unanimidad (12-0); primera subida desde 2023."
+history:
+  - {decided: 2026-09-16, lower: 3.75, upper: 4.00, change_bp: 25}
+meetings_2026:          # decisiones (hora 14:00 ET); fuente: calendario FOMC
+  - 2026-10-28
+  - 2026-12-09

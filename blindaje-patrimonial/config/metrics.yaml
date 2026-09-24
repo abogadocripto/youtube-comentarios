@@ -239,6 +239,20 @@ metrics:
     fallback: [{source: mempool_space, endpoint: "/api/blocks/tip/height"}, {source: blockstream_esplora, endpoint: "/api/blocks/tip/height"}]
     cross_check: {max_diff_blocks: 2}
 
+  block_time_avg_s:
+    label_es: "Tiempo medio entre bloques (época actual)"
+    family: cycle
+    axis: none
+    unit: s
+    fmt: int
+    freq: realtime
+    as_of: provider_ts
+    max_staleness: PT2H
+    layer: B
+    mvp: true
+    licence: self_computed
+    primary: {source: mempool_space, endpoint: "/api/v1/difficulty-adjustment", field: "timeAvg (ms)"}
+
   halving_last_date:
     label_es: "Último halving"
     family: cycle

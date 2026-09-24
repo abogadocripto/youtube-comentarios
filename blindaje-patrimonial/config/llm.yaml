@@ -1,0 +1,23 @@
+# Configuración de llamadas al LLM — ver docs/06 §2.
+# Cambiar de modelo es una decisión del despacho (docs/12 D8); por defecto claude-opus-5 en todo.
+defaults:
+  model: claude-opus-5
+  thinking: {type: adaptive}
+  fallbacks: default                      # beta server-side-fallback-2026-07-01 (no en Batch API)
+  fallback_beta: server-side-fallback-2026-07-01
+  timeout_s: 240
+  max_retries: 2
+
+calls:
+  daily:          {prompt_system: daily.system.md, prompt_user: daily.user.md, effort: high, max_tokens: 16000}
+  daily_verify:   {prompt_system: verify.system.md, effort: high, max_tokens: 16000}
+  weekly:         {prompt_system: weekly.system.md, prompt_user: weekly.user.md, effort: high, max_tokens: 64000, stream: true}
+  weekly_verify:  {prompt_system: verify.system.md, effort: high, max_tokens: 32000}
+  alert:          {prompt_system: alert.system.md, effort: high, max_tokens: 16000}
+  classify:       {prompt_system: classify.system.md, effort: low, max_tokens: 4000, batch: true}
+
+# Tarifas para el cálculo de coste (USD por millón de tokens). Revisar al cambiar de modelo.
+pricing:
+  claude-opus-5: {input: 5.0, output: 25.0, cache_read: 0.5}
+  claude-sonnet-5: {input: 2.0, output: 10.0, cache_read: 0.2}
+  claude-haiku-4-5: {input: 1.0, output: 5.0, cache_read: 0.1}

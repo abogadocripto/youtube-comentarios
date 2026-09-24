@@ -1,0 +1,36 @@
+{
+ "id": "bitcoin",
+ "symbol": "btc",
+ "last_updated": "2026-09-24T06:49:30.000Z",
+ "market_data": {
+  "current_price": {
+   "usd": 101250.0,
+   "eur": 86540.0
+  },
+  "price_change_percentage_24h_in_currency": {
+   "usd": 0.3,
+   "eur": 0.1
+  },
+  "price_change_percentage_7d_in_currency": {
+   "usd": -2.4,
+   "eur": -0.6
+  },
+  "price_change_percentage_30d_in_currency": {
+   "usd": 3.1,
+   "eur": 2.0
+  },
+  "ath": {
+   "usd": 126080.0,
+   "eur": 108400.0
+  },
+  "ath_date": {
+   "usd": "2025-10-06T18:57:42.558Z",
+   "eur": "2025-10-06T18:57:42.558Z"
+  },
+  "ath_change_percentage": {
+   "usd": -19.69,
+   "eur": -20.17
+  },
+  "last_updated": "2026-09-24T06:49:30.000Z"
+ }
+}
