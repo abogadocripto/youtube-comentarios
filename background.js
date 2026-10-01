@@ -759,6 +759,17 @@ async function handleInsertMain({ text, nonce }, sender) {
 function buildUserMessage(commentText, videoTitle, videoDescription, extraContext, transcript) {
   const lines = [];
 
+  // Misma fórmula que el tope duro de vetReply() en content.js (ahí se
+  // aplica de verdad: si se excede, la respuesta pasa a revisión en vez de
+  // autopublicarse). Aquí solo orienta al modelo con cifras concretas en
+  // vez de pedirle que estime "el doble o el triple" sin saber cuánto mide
+  // el comentario. El mínimo de 200 evita que un comentario de pocas
+  // palabras fuerce un tope absurdo (p.ej. 40 caracteres para "Gracias!").
+  const largoComentario = String(commentText || "").trim().length;
+  const objetivoMin = largoComentario * 2;
+  const objetivoMax = largoComentario * 3;
+  const topeDuro = Math.max(largoComentario * 5, 200);
+
   if (videoTitle) {
     lines.push(`VÍDEO: ${videoTitle}`);
     if (videoDescription) lines.push(`DESCRIPCIÓN: ${videoDescription}`);
@@ -785,6 +796,7 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
     // varios párrafos. Esa orden dura aplastaba las respuestas técnicas.
     "Instrucciones: lee el comentario con atención e identifica cada pregunta o punto que plantea. Respóndelos todos, de forma directa y técnica.",
     "La longitud la marcan los ejemplos, no un límite fijo: busca el ejemplo más parecido a este comentario y usa su extensión. Si es corto, metafórico o una corrección trivial, una o dos líneas bastan (ejemplos 4, 6, 7). Si plantea preguntas técnicas, desarrolla en párrafos separados tanto como haga falta para responderlas todas (ejemplos 9, 10, 12, 13). No alargues por alargar, pero tampoco recortes una respuesta técnica para que quepa en pocas líneas.",
+    `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): como objetivo aproximado, que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, sal de ese rango sin problema-, pero nunca superes los ${topeDuro} caracteres (cinco veces el comentario): si notas que te acercas a ese tamaño, resume y prioriza los puntos más importantes en vez de desarrollarlos todos con el mismo detalle.`,
     "Si el vídeo o la transcripción no cubren lo que se pregunta, responde con lo que sabes, sin inventar cifras, artículos ni consultas vinculantes."
   );
 

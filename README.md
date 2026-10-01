@@ -1,8 +1,24 @@
-# YouTube Reply Assistant v2.2.7
+# YouTube Reply Assistant v2.2.8
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.8 — longitud proporcional al comentario
+
+Pedido directo del usuario: algunas respuestas salían demasiado largas para
+comentarios cortos. Dos capas, no una sola:
+
+- **Orientación suave en el prompt** (`buildUserMessage`, `background.js`):
+  se le dice al modelo, con las cifras concretas ya calculadas a partir del
+  comentario, que ronde entre el doble y el triple de su longitud — "no
+  rígido, puede salirse si el comentario lo pide de verdad".
+- **Tope duro real** (`vetReply()`, `content.js`): si aun así la respuesta
+  supera 5 veces la longitud del comentario (con un mínimo de 200
+  caracteres para no castigar comentarios de pocas palabras), **no se
+  autopublica** — pasa a revisión en el panel, igual que ya hacía el
+  chequeo preexistente de "respuesta muy larga" (>2000 caracteres), que
+  sigue intacto y es independiente de este.
 
 ## Novedades en 2.2.5–2.2.7 — revisión exhaustiva con verificación adversarial
 

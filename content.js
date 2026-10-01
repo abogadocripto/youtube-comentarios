@@ -535,7 +535,7 @@
       }
 
       /* ---- Salvaguarda 2: control de calidad del texto generado ---------- */
-      const vet = vetReply(gen.reply);
+      const vet = vetReply(gen.reply, commentText);
       if (vet.fatal) return abortFlow(row, `Respuesta descartada: ${vet.issues.join("; ")}.`);
 
       const reasons = [];
@@ -1084,7 +1084,7 @@
      7. CONTROL DE CALIDAD DEL TEXTO GENERADO
      ========================================================================== */
 
-  function vetReply(raw) {
+  function vetReply(raw, commentText) {
     let t = String(raw || "").trim();
     t = t.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/, "").trim();
     if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("«") && t.endsWith("»"))) {
@@ -1095,6 +1095,20 @@
 
     if (!t || t.length < 2) { issues.push("respuesta vacia"); fatal = true; }
     if (t.length > 2000) issues.push(`respuesta muy larga (${t.length} caracteres)`);
+
+    // Tope duro de proporcion respecto al comentario (misma formula que la
+    // orientacion que ya recibe el modelo en buildUserMessage, background.js):
+    // nunca mas de 5 veces su longitud, con un minimo de 200 para no
+    // castigar comentarios de pocas palabras. No es fatal -la respuesta
+    // puede seguir siendo buena, solo desproporcionada- asi que pasa a
+    // revision en vez de autopublicarse, igual que "respuesta muy larga".
+    if (commentText) {
+      const largoComentario = String(commentText).trim().length;
+      const topeDuro = Math.max(largoComentario * 5, 200);
+      if (largoComentario && t.length > topeDuro) {
+        issues.push(`respuesta desproporcionada (${t.length} caracteres frente a ${largoComentario} del comentario)`);
+      }
+    }
 
     const leak = /COMENTARIO A RESPONDER|TRANSCRIPCI[OÓ]N DEL V[IÍ]DEO|CONTEXTO EXTRA|SYSTEM PROMPT/i;
     if (leak.test(t)) { issues.push("fuga del prompt"); fatal = true; }
@@ -1205,10 +1219,11 @@
         e.target.disabled = true;
         e.target.textContent = "Regenerando…";
         const live = liveRow(btn, row, meta.commentId);
+        const commentTextRegen = extractCommentText(live);
         const gen = await send({
           type: "GENERATE_REPLY",
           payload: {
-            commentText: extractCommentText(live),
+            commentText: commentTextRegen,
             videoTitle: meta.videoTitle,
             videoDescription: null,
             transcript: meta.transcript?.ok ? meta.transcript.text : null,
@@ -1217,7 +1232,7 @@
         });
         e.target.disabled = false;
         e.target.textContent = "Regenerar";
-        if (gen?.ok) { ta.value = vetReply(gen.reply).text; updateCount(); }
+        if (gen?.ok) { ta.value = vetReply(gen.reply, commentTextRegen).text; updateCount(); }
         else inlineMessage(panel, gen?.error || "Error al regenerar.", "error");
       }
     });

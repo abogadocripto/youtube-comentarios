@@ -112,6 +112,13 @@ t("incluye transcripcion, titulo y comentario", () => {
   const m = G.buildUserMessage("mi comentario", "Mi video", "Mi desc", "extra", "TRANS");
   ok(m.includes("mi comentario") && m.includes("Mi video") && m.includes("TRANS") && m.includes("extra"), "falta contexto");
 });
+t("orienta la longitud en proporcion al comentario, con cifras concretas", () => {
+  const comentario = "a".repeat(40); // 40 caracteres
+  const m = G.buildUserMessage(comentario, "T", "", "", null);
+  ok(m.includes("80") && m.includes("120"), "no calcula el objetivo 2x-3x a partir del comentario (deberia mencionar 80 y 120)");
+  ok(m.includes("200"), "no aplica el minimo de 200 caracteres como tope duro para comentarios cortos");
+  ok(/no es r[ií]gido/i.test(m), "no deja claro que la orientacion de longitud no es rigida");
+});
 t("los ejemplos prevalecen sobre cualquier regla de longitud", () => {
   const s = G.buildSystemPrompt("", "T", "", "");
   ok(/JERARQU[IÍ]A/.test(s), "no declara la prelacion");

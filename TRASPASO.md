@@ -543,6 +543,18 @@ Tres reglas que costó establecer y que hay que respetar:
 3. **`vetReply()` en content.js** es la última barrera: descarta respuestas
    vacías, fugas del prompt, y marca muletillas ("Excelente pregunta") o
    autoidentificación como IA. Con cualquier marca, no autopublica.
+4. **(v2.2.8) Tope de proporción respecto al comentario, independiente de
+   la regla 1.** El usuario pidió explícitamente que ninguna respuesta sea
+   "5 veces más larga" que el comentario que la origina, por mucho que los
+   ejemplos justifiquen desarrollarla. Esto NO contradice la regla 1: los
+   ejemplos siguen marcando el estilo/profundidad (cuántos puntos cubrir,
+   qué tono), pero ahora hay además un tope duro de seguridad por
+   proporción (`vetReply()`, con la misma fórmula orientativa ya en el
+   prompt de `buildUserMessage()`: objetivo 2x-3x, tope real 5x con mínimo
+   de 200 caracteres). Si un comentario realmente justifica una respuesta
+   larga (ejemplos 9/10/12/13) pero también es largo él mismo, el tope de
+   5x rara vez se alcanza en la práctica — solo actúa cuando la respuesta
+   se desproporciona de verdad frente a lo que se le preguntó.
 
 ---
 
