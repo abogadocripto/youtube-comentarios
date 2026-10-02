@@ -1,8 +1,18 @@
-# YouTube Reply Assistant v2.2.9
+# YouTube Reply Assistant v2.2.10
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.10 — tope bajado a 3x, por petición directa
+
+Tras la 2.2.9 (tope a 4x), el usuario pidió bajarlo directamente a 3x sin
+esperar a ver si 4x repetía el patrón. Aplicado en `vetReply()`
+(`content.js`) y en la orientación del prompt (`buildUserMessage()`,
+`background.js`). Con esto el tope real coincide exactamente con el extremo
+superior del objetivo (2x-3x): ya no hay margen entre "objetivo" y "límite
+absoluto". Si hiciera falta bajar más, el objetivo mismo tendría que
+estrecharse también — no queda recorrido en la fórmula actual.
 
 ## Novedades en 2.2.9 — el tope de proporción de 2.2.8 era demasiado permisivo
 

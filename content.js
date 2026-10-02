@@ -1098,16 +1098,16 @@
 
     // Tope duro de proporcion respecto al comentario (misma formula que la
     // orientacion que ya recibe el modelo en buildUserMessage, background.js):
-    // nunca mas de 4 veces su longitud (antes 5x: un caso real de 4.81x se
-    // publico sin revision pese a sentirse claramente desproporcionado,
-    // porque el modelo tiende a acercarse al tope en vez de quedarse en el
-    // objetivo 2x-3x), con un minimo de 200 para no castigar comentarios de
+    // nunca mas de 3 veces su longitud (primero 5x, luego 4x, bajado a 3x
+    // por peticion directa del usuario: coincide con el extremo superior
+    // del objetivo del prompt, asi que ya no hay margen entre "objetivo" y
+    // "tope real"), con un minimo de 200 para no castigar comentarios de
     // pocas palabras. No es fatal -la respuesta puede seguir siendo buena,
     // solo desproporcionada- asi que pasa a revision en vez de
     // autopublicarse, igual que "respuesta muy larga".
     if (commentText) {
       const largoComentario = String(commentText).trim().length;
-      const topeDuro = Math.max(largoComentario * 4, 200);
+      const topeDuro = Math.max(largoComentario * 3, 200);
       if (largoComentario && t.length > topeDuro) {
         issues.push(`respuesta desproporcionada (${t.length} caracteres frente a ${largoComentario} del comentario)`);
       }

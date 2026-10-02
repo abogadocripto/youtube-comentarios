@@ -112,15 +112,15 @@ t("incluye transcripcion, titulo y comentario", () => {
   const m = G.buildUserMessage("mi comentario", "Mi video", "Mi desc", "extra", "TRANS");
   ok(m.includes("mi comentario") && m.includes("Mi video") && m.includes("TRANS") && m.includes("extra"), "falta contexto");
 });
-t("orienta la longitud en proporcion al comentario, con cifras concretas (objetivo 2x-3x, tope real 4x)", () => {
-  const comentario = "a".repeat(100); // 100 caracteres: por encima del minimo de 200 en el tope, sin ambiguedad
+t("orienta la longitud en proporcion al comentario, con cifras concretas (objetivo 2x-3x, tope real = 3x)", () => {
+  const comentario = "a".repeat(100); // 100 caracteres: objetivoMax y topeDuro coinciden en 300 (3x), sin ambiguedad con el minimo de 200
   const m = G.buildUserMessage(comentario, "T", "", "", null);
   ok(m.includes("200") && m.includes("300"), "no calcula el objetivo 2x-3x a partir del comentario (deberia mencionar 200 y 300)");
-  ok(m.includes("400"), "no calcula el tope real de 4x (deberia mencionar 400)");
+  ok(/tres veces/i.test(m), "no menciona el tope real de 3x (deberia decir 'tres veces')");
   ok(/no es r[ií]gido/i.test(m), "no deja claro que la orientacion de longitud no es rigida");
 });
 t("aplica el minimo de 200 caracteres como tope duro para comentarios muy cortos", () => {
-  const m = G.buildUserMessage("a".repeat(10), "T", "", "", null); // 10 caracteres: 4x=40, por debajo del minimo
+  const m = G.buildUserMessage("a".repeat(10), "T", "", "", null); // 10 caracteres: 3x=30, por debajo del minimo
   ok(m.includes("200"), "no aplica el minimo de 200 caracteres como tope duro para comentarios cortos");
 });
 t("los ejemplos prevalecen sobre cualquier regla de longitud", () => {

@@ -782,7 +782,16 @@ seguridad real si el refuerzo no bastaba. Se hicieron los dos:
   cada concepto por separado con el mismo detalle".
 
 Si se repite el patrón (respuestas rondando el tope en vez del objetivo),
-el siguiente paso razonable es bajar más el tope (p.ej. a 3x) antes de
-seguir reescribiendo el prompt — un prompt más largo compite por atención
-con las reglas ya existentes (JERARQUÍA, PRECISIÓN, SEGURIDAD) y tiene
-rendimientos decrecientes.
+el siguiente paso razonable es bajar más el tope antes de seguir
+reescribiendo el prompt — un prompt más largo compite por atención con las
+reglas ya existentes (JERARQUÍA, PRECISIÓN, SEGURIDAD) y tiene rendimientos
+decrecientes.
+
+**Actualización inmediata (misma sesión):** el usuario pidió bajar el tope
+directamente a 3x, sin esperar a ver si 4x repetía el patrón. Aplicado: el
+tope real ahora coincide exactamente con el extremo superior del objetivo
+(`objetivoMax === topeDuro`, ambos `largoComentario * 3`, salvo el mínimo
+de 200). Ya no queda margen entre "objetivo" y "límite absoluto": si se
+vuelve a pedir bajar más, la fórmula ya no tiene recorrido natural (bajar
+el tope por debajo del objetivo significaría que el propio objetivo
+también hay que estrecharlo, p.ej. a 1.5x-2x).

@@ -768,12 +768,12 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
   const largoComentario = String(commentText || "").trim().length;
   const objetivoMin = largoComentario * 2;
   const objetivoMax = largoComentario * 3;
-  // Antes 5x: un caso real (comentario de 315 caracteres, respuesta de
-  // 1514 = 4.81x) se publico sin pasar por revision pese a sentirse
-  // claramente desproporcionado, porque el modelo se acerca sistematicamente
-  // al tope en vez de quedarse en el objetivo 2x-3x. Bajado a 4x para que
-  // ese tipo de caso si quede capturado como salvaguarda real.
-  const topeDuro = Math.max(largoComentario * 4, 200);
+  // Primero 5x (un caso real de 4.81x se publico sin revision pese a
+  // sentirse claramente desproporcionado), luego 4x (seguia dejando
+  // margen). Bajado a 3x por peticion directa del usuario: coincide con
+  // el extremo superior del objetivo de abajo, asi que ya no hay margen
+  // entre "objetivo" y "tope real": 3x es el limite absoluto, punto.
+  const topeDuro = Math.max(largoComentario * 3, 200);
 
   if (videoTitle) {
     lines.push(`VÍDEO: ${videoTitle}`);
@@ -801,7 +801,7 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
     // varios párrafos. Esa orden dura aplastaba las respuestas técnicas.
     "Instrucciones: lee el comentario con atención e identifica cada pregunta o punto que plantea. Respóndelos todos, de forma directa y técnica.",
     "La longitud la marcan los ejemplos, no un límite fijo: busca el ejemplo más parecido a este comentario y usa su extensión. Si es corto, metafórico o una corrección trivial, una o dos líneas bastan (ejemplos 4, 6, 7). Si plantea preguntas técnicas, desarrolla en párrafos separados tanto como haga falta para responderlas todas (ejemplos 9, 10, 12, 13). No alargues por alargar, pero tampoco recortes una respuesta técnica para que quepa en pocas líneas.",
-    `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): el objetivo REAL es que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres, no acercarte al tope de abajo. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, sal de ese rango sin problema-, pero antes de escribir, decide cuáles son los 2 o 3 puntos que de verdad hay que responder y desarrolla esos; el resto, resúmelo en una frase o fusiónalo con otro punto en vez de darle su propio párrafo. Un comentario corto con una pregunta densa (varios conceptos en pocas palabras) no es licencia para responder cada concepto por separado con el mismo detalle que si fueran preguntas distintas. Nunca superes los ${topeDuro} caracteres (cuatro veces el comentario) bajo ningún concepto.`,
+    `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): el objetivo es que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, acércate a la parte alta de ese rango sin problema-, pero antes de escribir, decide cuáles son los 2 o 3 puntos que de verdad hay que responder y desarrolla esos; el resto, resúmelo en una frase o fusiónalo con otro punto en vez de darle su propio párrafo. Un comentario corto con una pregunta densa (varios conceptos en pocas palabras) no es licencia para responder cada concepto por separado con el mismo detalle que si fueran preguntas distintas. Nunca superes los ${topeDuro} caracteres (tres veces el comentario) bajo ningún concepto: es el límite absoluto, no una zona de margen.`,
     "Si el vídeo o la transcripción no cubren lo que se pregunta, responde con lo que sabes, sin inventar cifras, artículos ni consultas vinculantes."
   );
 
