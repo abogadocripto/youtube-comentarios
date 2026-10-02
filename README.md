@@ -1,8 +1,25 @@
-# YouTube Reply Assistant v2.2.8
+# YouTube Reply Assistant v2.2.9
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.9 — el tope de proporción de 2.2.8 era demasiado permisivo
+
+Caso real traído por el usuario: comentario de 315 caracteres, respuesta
+publicada de 1514 (4.81x) — por debajo del tope de 5x de la 2.2.8, así que
+no se bloqueó, pero a simple vista se veía claramente desproporcionada. El
+modelo tendía a acercarse al tope en vez de quedarse en el objetivo real
+(2x-3x). Dos cambios:
+
+- **Tope duro: 5x → 4x** (mínimo 200 sin cambios) en `vetReply()`
+  (`content.js`) y en la orientación del prompt (`background.js`).
+- **Prompt más directivo**: ya no solo avisa del tope — pide decidir los
+  2-3 puntos que de verdad hay que responder y resumir o fusionar el
+  resto, dejando claro que un comentario corto con una pregunta densa no
+  es licencia para desarrollar cada concepto por separado.
+
+Detalle completo del diagnóstico en `TRASPASO.md` §12.
 
 ## Novedades en 2.2.8 — longitud proporcional al comentario
 
@@ -14,11 +31,11 @@ comentarios cortos. Dos capas, no una sola:
   comentario, que ronde entre el doble y el triple de su longitud — "no
   rígido, puede salirse si el comentario lo pide de verdad".
 - **Tope duro real** (`vetReply()`, `content.js`): si aun así la respuesta
-  supera 5 veces la longitud del comentario (con un mínimo de 200
-  caracteres para no castigar comentarios de pocas palabras), **no se
-  autopublica** — pasa a revisión en el panel, igual que ya hacía el
-  chequeo preexistente de "respuesta muy larga" (>2000 caracteres), que
-  sigue intacto y es independiente de este.
+  supera la proporción permitida (con un mínimo de 200 caracteres para no
+  castigar comentarios de pocas palabras), **no se autopublica** — pasa a
+  revisión en el panel, igual que ya hacía el chequeo preexistente de
+  "respuesta muy larga" (>2000 caracteres), que sigue intacto y es
+  independiente de este.
 
 ## Novedades en 2.2.5–2.2.7 — revisión exhaustiva con verificación adversarial
 

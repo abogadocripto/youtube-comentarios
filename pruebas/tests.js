@@ -125,9 +125,9 @@ const T = async (...a) => results.push(await run(...a));
     assert($$(".yra2-panel").length === 1, "no ha abierto el panel");
   });
 
-  await T("respuesta desproporcionada respecto al comentario (mas de 5x): pasa a revision",
-    // El comentario de la fila 0 mide 84 caracteres (tope duro = 84*5 = 420).
-    // Esta respuesta mide ~540: por encima del tope de proporcion pero muy
+  await T("respuesta desproporcionada respecto al comentario (mas de 4x): pasa a revision",
+    // El comentario de la fila 0 mide 84 caracteres (tope duro = 84*4 = 336).
+    // Esta respuesta mide ~584: por encima del tope de proporcion pero muy
     // por debajo de los 2000 caracteres del otro chequeo de longitud
     // absoluta, para aislar el nuevo chequeo del ya existente.
     { mock: { reply: "Esta es una frase neutra de relleno para la prueba automatizada. ".repeat(9) } },

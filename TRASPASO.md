@@ -747,3 +747,42 @@ arriba. Los otros 4:
 - **El catch de excepción dentro de `likeComment()`** no tiene test
   dedicado (bajo valor: es un try/catch trivial alrededor de código ya
   cubierto).
+
+---
+
+## 12. Ajuste del tope de proporción (v2.2.8 → v2.2.9): 5x era demasiado permisivo
+
+El usuario trajo un caso real de producción: comentario de 315 caracteres,
+respuesta publicada de 1514 — **4.81x**. Por debajo del tope duro de 5x que
+se había puesto en v2.2.8, así que el código no lo bloqueó, pero el usuario
+lo veía claramente como "excedido" a simple vista.
+
+Diagnóstico: el modelo no estaba apuntando al objetivo real (2x-3x), sino
+acercándose sistemáticamente al tope duro cuando el comentario planteaba
+varios conceptos aunque fuera corto (este caso: riesgo de custodia + MEDA/
+regulación + dilema liquidez-vs-custodia + Binance-vs-Bitso + elección de
+red de retiro + pregunta de cierre — seis puntos distintos desarrollados
+cada uno con su propio párrafo). La instrucción de v2.2.8 ("no es rígido,
+nunca superes el tope") dejaba demasiado margen para tratar cada concepto
+como si mereciera desarrollo propio.
+
+Dos cambios, no uno: bajar el tope SIN reforzar el prompt habría generado
+más paneles de revisión sin cambiar el comportamiento típico; reforzar el
+prompt SIN bajar el tope habría dejado el mismo caso límite sin red de
+seguridad real si el refuerzo no bastaba. Se hicieron los dos:
+
+- **Tope duro: 5x → 4x** (mínimo 200 sin cambios), en `vetReply()`
+  (`content.js`) y en la orientación de `buildUserMessage()`
+  (`background.js`) — misma fórmula en los dos sitios, hay que mantenerlos
+  sincronizados si se vuelve a tocar.
+- **Prompt más directivo**: ya no solo orienta un rango y avisa del tope;
+  pide explícitamente decidir los 2-3 puntos que de verdad hay que
+  responder y resumir o fusionar el resto, y dice sin rodeos que "un
+  comentario corto con una pregunta densa no es licencia para responder
+  cada concepto por separado con el mismo detalle".
+
+Si se repite el patrón (respuestas rondando el tope en vez del objetivo),
+el siguiente paso razonable es bajar más el tope (p.ej. a 3x) antes de
+seguir reescribiendo el prompt — un prompt más largo compite por atención
+con las reglas ya existentes (JERARQUÍA, PRECISIÓN, SEGURIDAD) y tiene
+rendimientos decrecientes.
