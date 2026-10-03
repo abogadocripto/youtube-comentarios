@@ -535,8 +535,39 @@
       }
 
       /* ---- Salvaguarda 2: control de calidad del texto generado ---------- */
-      const vet = vetReply(gen.reply, commentText);
+      let vet = vetReply(gen.reply, commentText);
       if (vet.fatal) return abortFlow(row, `Respuesta descartada: ${vet.issues.join("; ")}.`);
+
+      /* Reintento automatico de acortado. Antes, exceder el tope de longitud
+         interrumpia siempre con el panel de revision a la primera, pidiendo
+         intervencion manual por un motivo que el propio sistema puede
+         intentar arreglar solo. Si las UNICAS incidencias son de longitud
+         (nunca si hay fuga de prompt, muletilla u otro problema de fondo:
+         SOLO_LONGITUD exige que TODAS lo sean), se reintenta con una
+         instruccion reforzada de brevedad antes de rendirse.           */
+      const SOLO_LONGITUD = /muy larga|desproporcionada/;
+      const esSoloLongitud = (issues) => issues.length > 0 && issues.every((i) => SOLO_LONGITUD.test(i));
+      const MAX_INTENTOS_ACORTAR = 2;
+      const topeLongitud = Math.min(Math.max(commentText.trim().length * 3, 200), 2000);
+
+      for (let intento = 1; esSoloLongitud(vet.issues) && intento <= MAX_INTENTOS_ACORTAR; intento++) {
+        log(`Respuesta demasiado larga (${vet.text.length} car.); reintentando mas breve (${intento}/${MAX_INTENTOS_ACORTAR})`);
+        setLabel(`Acortando (${intento})…`);
+        const gen2 = await send({
+          type: "GENERATE_REPLY",
+          payload: {
+            commentText,
+            videoTitle,
+            videoDescription,
+            transcript: tr.ok ? tr.text : null,
+            acortar: { prevLength: vet.text.length, maxAllowed: topeLongitud },
+          },
+        });
+        if (!gen2 || !gen2.ok) break; // sin regeneracion posible: se sigue con la ultima version valida
+        const vet2 = vetReply(gen2.reply, commentText);
+        if (vet2.fatal) return abortFlow(row, `Respuesta descartada: ${vet2.issues.join("; ")}.`);
+        vet = vet2;
+      }
 
       const reasons = [];
       if (state.cfg.mode !== "auto") reasons.push("modo revision activado");

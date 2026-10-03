@@ -1,8 +1,20 @@
-# YouTube Reply Assistant v2.2.10
+# YouTube Reply Assistant v2.2.11
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.11 — reintento automático en vez de panel a la primera
+
+Caso real: el tope absoluto de "respuesta muy larga" (2000 caracteres)
+interrumpió con el panel. El usuario no quiere seguir viendo ese panel por
+este motivo — quiere que el sistema lo arregle solo primero. Ahora, si las
+únicas incidencias son de longitud (nunca si hay fuga de prompt, muletilla
+u otro problema real), se reintenta la generación hasta 2 veces con un
+aviso reforzado de brevedad antes de rendirse y mostrar el panel. El
+chequeo original sigue siendo la red de seguridad final: si el modelo no
+coopera tras los 2 intentos, se abre el panel igual que antes. Detalle en
+`TRASPASO.md` §13.
 
 ## Novedades en 2.2.10 — tope bajado a 3x, por petición directa
 

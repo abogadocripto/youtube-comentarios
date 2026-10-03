@@ -795,3 +795,37 @@ de 200). Ya no queda margen entre "objetivo" y "límite absoluto": si se
 vuelve a pedir bajar más, la fórmula ya no tiene recorrido natural (bajar
 el tope por debajo del objetivo significaría que el propio objetivo
 también hay que estrecharlo, p.ej. a 1.5x-2x).
+
+---
+
+## 13. Reintento automático de acortado (v2.2.11)
+
+El usuario trajo un caso real donde el tope absoluto de "respuesta muy
+larga" (2000 caracteres, independiente de la proporción) interrumpió con
+el panel de revisión. Su reacción: no quiere seguir viendo ese panel por
+este motivo — quiere que el sistema intente resolverlo solo antes de
+rendirse.
+
+Antes, exceder cualquiera de los dos topes de longitud (absoluto de 2000,
+o de proporción) iba directo al panel. Ahora, en `runFlow()`
+(`content.js`), si **todas** las incidencias de `vetReply()` son de
+longitud (nunca si hay fuga de prompt, muletilla u otro problema de
+fondo — `esSoloLongitud()` exige unanimidad), se reintenta la generación
+hasta 2 veces con un aviso reforzado de brevedad
+(`GENERATE_REPLY` con `payload.acortar = {prevLength, maxAllowed}`,
+consumido en `buildUserMessage()` en `background.js`, añadido al final del
+mensaje con prioridad de recencia sobre la instrucción de longitud
+original). Solo si tras los 2 reintentos sigue sin caber, se rinde y
+muestra el panel como antes — la red de seguridad original sigue intacta,
+esto solo le da al sistema una oportunidad de arreglarlo sin intervención
+manual antes de pedírsela al usuario.
+
+`maxAllowed` que se comunica al modelo es
+`Math.min(Math.max(comentario*3, 200), 2000)`: el menor de los dos topes
+reales que `vetReply()` aplica (proporción y absoluto), para que el
+reintento apunte a lo que de verdad hace falta cumplir.
+
+`pruebas/harness.js` gana soporte para que el mock de `GENERATE_REPLY`
+sea una función `(payload) => string` además de un string fijo, para poder
+simular que el modelo coopera (responde corto) o no coopera (sigue largo)
+al recibir el aviso de acortar. Dos tests en `tests.js` cubren ambos casos.

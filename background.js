@@ -83,7 +83,7 @@ async function handleGenerate(payload) {
   const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
   if (!cfg.apiKey) return { ok: false, error: "Falta la API key." };
 
-  const { commentText, videoTitle, videoDescription, transcript } = payload;
+  const { commentText, videoTitle, videoDescription, transcript, acortar } = payload;
 
   const body = {
     model: cfg.model,
@@ -92,7 +92,7 @@ async function handleGenerate(payload) {
     messages: [
       {
         role: "user",
-        content: buildUserMessage(commentText, videoTitle, videoDescription, cfg.extraContext, transcript),
+        content: buildUserMessage(commentText, videoTitle, videoDescription, cfg.extraContext, transcript, acortar),
       },
     ],
   };
@@ -756,7 +756,7 @@ async function handleInsertMain({ text, nonce }, sender) {
    4. Prompts
    ══════════════════════════════════════════════════════════════════════════ */
 
-function buildUserMessage(commentText, videoTitle, videoDescription, extraContext, transcript) {
+function buildUserMessage(commentText, videoTitle, videoDescription, extraContext, transcript, acortar) {
   const lines = [];
 
   // Misma fórmula que el tope duro de vetReply() en content.js (ahí se
@@ -804,6 +804,20 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
     `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): el objetivo es que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, acércate a la parte alta de ese rango sin problema-, pero antes de escribir, decide cuáles son los 2 o 3 puntos que de verdad hay que responder y desarrolla esos; el resto, resúmelo en una frase o fusiónalo con otro punto en vez de darle su propio párrafo. Un comentario corto con una pregunta densa (varios conceptos en pocas palabras) no es licencia para responder cada concepto por separado con el mismo detalle que si fueran preguntas distintas. Nunca superes los ${topeDuro} caracteres (tres veces el comentario) bajo ningún concepto: es el límite absoluto, no una zona de margen.`,
     "Si el vídeo o la transcripción no cubren lo que se pregunta, responde con lo que sabes, sin inventar cifras, artículos ni consultas vinculantes."
   );
+
+  // Reintento automatico de acortado: runFlow() en content.js llama de
+  // nuevo con esto cuando la primera respuesta incumplio el tope de
+  // longitud, en vez de darse por vencido e interrumpir con el panel de
+  // revision a la primera. Va al final, con prioridad maxima: una
+  // instruccion de recencia-alta suele pesar mas que una regla temprana
+  // del mismo mensaje cuando compiten (aqui compiten literalmente con la
+  // linea de arriba, que pedia "acercate a la parte alta" del rango).
+  if (acortar && acortar.maxAllowed) {
+    lines.push(
+      "",
+      `AVISO: tu intento anterior midió ${acortar.prevLength} caracteres, por encima del límite permitido. Repite la respuesta MUCHO más breve: elige solo el punto o los dos puntos realmente esenciales del comentario y responde solo esos, sin desarrollar los demás ni añadir matices adicionales. No repitas ideas ni reformules lo mismo dos veces. El resultado DEBE medir menos de ${acortar.maxAllowed} caracteres; no es negociable esta vez.`
+    );
+  }
 
   return lines.join("\n");
 }

@@ -125,22 +125,39 @@ const T = async (...a) => results.push(await run(...a));
     assert($$(".yra2-panel").length === 1, "no ha abierto el panel");
   });
 
-  await T("respuesta desproporcionada respecto al comentario (mas de 3x): pasa a revision",
+  await T("respuesta desproporcionada que el modelo nunca corrige: se rinde tras los reintentos y pasa a revision",
     // El comentario de la fila 0 mide 84 caracteres (tope duro = 84*3 = 252).
     // Esta respuesta mide ~584: por encima del tope de proporcion pero muy
     // por debajo de los 2000 caracteres del otro chequeo de longitud
-    // absoluta, para aislar el nuevo chequeo del ya existente.
-    { mock: { reply: "Esta es una frase neutra de relleno para la prueba automatizada. ".repeat(9) } },
-    async ({ wait, $$, $ }) => {
+    // absoluta, para aislar el nuevo chequeo del ya existente. El mock
+    // devuelve siempre lo mismo (no coopera con el aviso de acortar), asi
+    // que se agotan los 2 reintentos automaticos antes de rendirse.
+    { mock: { reply: () => "Esta es una frase neutra de relleno para la prueba automatizada. ".repeat(9) } },
+    async ({ wait, $$, $, mock }) => {
       await wait(600);
       const t = $$("ytcp-comment-thread")[0];
       t.querySelector(".yra2-btn").click();
-      await wait(2500);
+      await wait(3000);
       assert(!t.dataset.published, "ha publicado una respuesta desproporcionada");
       assert($$(".yra2-panel").length === 1, "no ha abierto el panel");
       // El panel se ancla a document.body, no dentro de la fila del hilo.
       const motivo = $(".yra2-why")?.textContent || "";
       assert(/desproporcionada/.test(motivo), `el motivo no menciona la desproporcion: "${motivo}"`);
+      const llamadas = mock.calls.filter((c) => c === "GENERATE_REPLY").length;
+      assert(llamadas === 3, `deberia haber intentado 1 generacion + 2 reintentos de acortado (3 en total), hizo ${llamadas}`);
+    });
+
+  await T("respuesta desproporcionada que el modelo SI corrige al pedirselo: se publica sin pasar por revision",
+    { mock: { reply: (payload) => payload.acortar
+        ? "Respuesta breve tras el aviso de acortar."
+        : "Esta es una frase neutra de relleno para la prueba automatizada. ".repeat(9) } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(3000);
+      assert(t.dataset.published === "Respuesta breve tras el aviso de acortar.", `no ha publicado la version acortada: "${t.dataset.published}"`);
+      assert($$(".yra2-panel").length === 0, "ha abierto el panel pese a que el reintento si acorto la respuesta");
     });
 
   await T("caja vacia abierta en otra fila: la cierra y sigue", {}, async ({ wait, $$ }) => {

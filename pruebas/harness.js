@@ -160,7 +160,13 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
         calls.push(msg.type);
         if (mudo && mudo.includes(msg.type)) return; // nunca contesta: simula el SW dormido
         setTimeout(() => {
-          if (msg.type === "GENERATE_REPLY") cb({ ok: true, reply });
+          // `reply` puede ser un string fijo o una funcion (payload) => string,
+          // para simular que el modelo responde distinto segun el payload
+          // (p.ej. mas breve cuando recibe payload.acortar).
+          if (msg.type === "GENERATE_REPLY") {
+            const texto = typeof reply === "function" ? reply(msg.payload) : reply;
+            cb({ ok: true, reply: texto });
+          }
           else if (msg.type === "FETCH_TRANSCRIPT")
             cb(transcriptOk ? { ok: true, text: "transcripcion simulada ".repeat(40), source: "watch" }
                             : { ok: false, reason: "el video no expone pistas de subtitulos" });

@@ -123,6 +123,15 @@ t("aplica el minimo de 200 caracteres como tope duro para comentarios muy cortos
   const m = G.buildUserMessage("a".repeat(10), "T", "", "", null); // 10 caracteres: 3x=30, por debajo del minimo
   ok(m.includes("200"), "no aplica el minimo de 200 caracteres como tope duro para comentarios cortos");
 });
+t("sin acortar, no incluye el aviso de reintento", () => {
+  const m = G.buildUserMessage("mi comentario", "T", "", "", null);
+  ok(!/AVISO: tu intento anterior/.test(m), "incluye el aviso de acortar sin que se haya pedido");
+});
+t("con acortar, incluye el aviso de reintento con las cifras exactas recibidas", () => {
+  const m = G.buildUserMessage("mi comentario", "T", "", "", null, { prevLength: 999, maxAllowed: 150 });
+  ok(/AVISO: tu intento anterior midió 999 caracteres/.test(m), "no menciona la longitud del intento anterior");
+  ok(/menos de 150 caracteres/.test(m), "no menciona el limite exacto a respetar");
+});
 t("los ejemplos prevalecen sobre cualquier regla de longitud", () => {
   const s = G.buildSystemPrompt("", "T", "", "");
   ok(/JERARQU[IÍ]A/.test(s), "no declara la prelacion");
