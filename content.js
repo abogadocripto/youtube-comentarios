@@ -536,6 +536,32 @@
 
       /* ---- Salvaguarda 2: control de calidad del texto generado ---------- */
       let vet = vetReply(gen.reply, commentText);
+
+      /* Reintento automatico cuando el modelo repite literalmente fragmentos
+         del prompt (encabezados como "COMENTARIO A RESPONDER"). No es un
+         problema de longitud -acortar no lo arregla-, asi que se regenera
+         desde cero con un aviso explicito de evitarlo, antes de rendirse al
+         panel de revision con el motivo "fuga del prompt" como si no hubiera
+         nada que hacer salvo intervencion manual. Caso real: se detectaba
+         bien pero interrumpia siempre a la primera (ver TRASPASO.md).    */
+      const MAX_INTENTOS_FUGA = 2;
+      for (let intento = 1; vet.issues.includes("fuga del prompt") && intento <= MAX_INTENTOS_FUGA; intento++) {
+        log(`Fuga de prompt detectada; regenerando sin fuga (${intento}/${MAX_INTENTOS_FUGA})`);
+        setLabel(`Regenerando (${intento})…`);
+        const genFix = await send({
+          type: "GENERATE_REPLY",
+          payload: {
+            commentText,
+            videoTitle,
+            videoDescription,
+            transcript: tr.ok ? tr.text : null,
+            evitarFuga: true,
+          },
+        });
+        if (!genFix || !genFix.ok) break; // sin regeneracion posible: se sigue con la ultima version valida
+        vet = vetReply(genFix.reply, commentText);
+      }
+
       if (vet.fatal) return abortFlow(row, `Respuesta descartada: ${vet.issues.join("; ")}.`);
 
       /* Reintento automatico de acortado. Antes, exceder el tope de longitud

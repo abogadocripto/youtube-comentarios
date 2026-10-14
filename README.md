@@ -1,8 +1,18 @@
-# YouTube Reply Assistant v2.2.11
+# YouTube Reply Assistant v2.2.12
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.12 — reintento automático también para la fuga de prompt
+
+Caso real: una respuesta con fuga de prompt (repetía literalmente
+"COMENTARIO A RESPONDER") se descartaba siempre a la primera con el panel
+de error, sin darle al sistema la oportunidad de arreglarlo solo — a
+diferencia de los problemas de longitud, que ya reintentaban automático
+desde la 2.2.11. Ahora `runFlow()` reintenta hasta 2 veces con un aviso
+explícito de no repetir encabezados del prompt (`payload.evitarFuga`)
+antes de rendirse y mostrar el panel. Detalle en `TRASPASO.md` §14.
 
 ## Novedades en 2.2.11 — reintento automático en vez de panel a la primera
 

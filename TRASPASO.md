@@ -829,3 +829,45 @@ reintento apunte a lo que de verdad hace falta cumplir.
 sea una función `(payload) => string` además de un string fijo, para poder
 simular que el modelo coopera (responde corto) o no coopera (sigue largo)
 al recibir el aviso de acortar. Dos tests en `tests.js` cubren ambos casos.
+
+---
+
+## 14. Reintento automático también para la fuga de prompt (v2.2.12)
+
+El usuario trajo un caso real (comentario sobre Hyperliquid, 253
+caracteres) donde la respuesta se descartó con el toast rojo
+"Respuesta descartada: respuesta desproporcionada (776 caracteres frente
+a 253 del comentario); fuga del prompt." — y pidió que esto se arreglase,
+en línea con su petición ya aplicada en la 2.2.11: no quiere ver estos
+avisos, quiere que el sistema lo resuelva solo.
+
+La causa: `vet.fatal` se comprobaba **antes** del bucle de reintento de
+acortado (§13), así que cualquier fuga de prompt (`fatal = true` en
+`vetReply()`) iba directa a `abortFlow()` sin pasar nunca por ningún
+reintento — a diferencia de los problemas de longitud, que desde la
+2.2.11 sí reintentan solos. Acortar tampoco habría arreglado una fuga de
+prompt aunque hubiera llegado al bucle: son problemas de naturaleza
+distinta (contenido de fondo vs. longitud), así que necesitaba su propio
+reintento con su propio aviso.
+
+Añadido en `runFlow()` (`content.js`), **antes** del chequeo
+`if (vet.fatal)`: si la única fuga detectada es `"fuga del prompt"`, se
+reintenta la generación hasta 2 veces con `payload.evitarFuga = true`,
+consumido en `buildUserMessage()` (`background.js`) para añadir, con
+prioridad de recencia máxima, un aviso explícito de no repetir
+encabezados ni delimitadores del prompt. Solo si tras los 2 reintentos
+sigue habiendo fuga se rinde y muestra el panel/toast como antes.
+
+No se ha extendido el mismo reintento a `"respuesta vacia"` (el otro
+motivo que marca `fatal = true` en `vetReply()`): no hay evidencia de que
+ocurra en la práctica y, a diferencia de la fuga, no hay un aviso
+específico y accionable que añadir al prompt para corregirlo — solo
+repetir la misma petición a ciegas. Si se repite como caso real, aplicar
+el mismo patrón.
+
+`tests.js` gana un segundo escenario de fuga ("el modelo SI corrige al
+pedírselo", mock por función que coopera cuando recibe
+`payload.evitarFuga`) y el escenario existente ahora verifica también el
+número exacto de llamadas (3: 1 inicial + 2 reintentos), igual que ya
+hacía el test equivalente de acortado. `tests-bg.js` gana dos tests para
+el nuevo parámetro `evitarFuga` de `buildUserMessage()`.

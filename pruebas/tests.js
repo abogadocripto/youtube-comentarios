@@ -108,13 +108,33 @@ const T = async (...a) => results.push(await run(...a));
     assert(!t.querySelector(".reply-box"), "ha abierto la caja pese a no tener texto");
   });
 
-  await T("fuga del prompt: descarta la respuesta", { mock: { reply: "COMENTARIO A RESPONDER: hola" } }, async ({ wait, $$ }) => {
-    await wait(600);
-    const t = $$("ytcp-comment-thread")[0];
-    t.querySelector(".yra2-btn").click();
-    await wait(2000);
-    assert(!t.dataset.published, "ha publicado una fuga del prompt");
-  });
+  await T("fuga del prompt que el modelo nunca corrige: se rinde tras los reintentos y descarta la respuesta",
+    // El mock devuelve siempre la misma fuga (no coopera con el aviso de
+    // evitarFuga), asi que se agotan los 2 reintentos automaticos antes de
+    // rendirse: 1 generacion inicial + 2 reintentos = 3 llamadas en total.
+    { mock: { reply: "COMENTARIO A RESPONDER: hola" } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(!t.dataset.published, "ha publicado una fuga del prompt");
+      const llamadas = mock.calls.filter((c) => c === "GENERATE_REPLY").length;
+      assert(llamadas === 3, `deberia haber intentado 1 generacion + 2 reintentos de fuga (3 en total), hizo ${llamadas}`);
+    });
+
+  await T("fuga del prompt que el modelo SI corrige al pedirselo: se publica sin pasar por revision",
+    { mock: { reply: (payload) => payload.evitarFuga
+        ? "Respuesta limpia tras el aviso de evitar la fuga."
+        : "COMENTARIO A RESPONDER: hola" } },
+    async ({ wait, $$ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Respuesta limpia tras el aviso de evitar la fuga.", `no ha publicado la version corregida: "${t.dataset.published}"`);
+      assert($$(".yra2-panel").length === 0, "ha abierto el panel pese a que el reintento si corrigio la fuga");
+    });
 
   await T("muletilla prohibida: pasa a revision en vez de publicar", { mock: { reply: "Excelente pregunta, mira..." } }, async ({ wait, $$ }) => {
     await wait(600);

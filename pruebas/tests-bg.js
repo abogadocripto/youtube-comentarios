@@ -132,6 +132,15 @@ t("con acortar, incluye el aviso de reintento con las cifras exactas recibidas",
   ok(/AVISO: tu intento anterior midió 999 caracteres/.test(m), "no menciona la longitud del intento anterior");
   ok(/menos de 150 caracteres/.test(m), "no menciona el limite exacto a respetar");
 });
+t("sin evitarFuga, no incluye el aviso de fuga del prompt", () => {
+  const m = G.buildUserMessage("mi comentario", "T", "", "", null);
+  ok(!/encabezados o delimitadores/.test(m), "incluye el aviso de evitar fuga sin que se haya pedido");
+});
+t("con evitarFuga, incluye el aviso explicito de no repetir encabezados del prompt", () => {
+  const m = G.buildUserMessage("mi comentario", "T", "", "", null, undefined, true);
+  ok(/AVISO: tu intento anterior repiti[oó]/.test(m), "no incluye el aviso de evitar fuga");
+  ok(/COMENTARIO A RESPONDER/.test(m) && /CONTEXTO EXTRA/.test(m), "no cita los encabezados concretos a evitar");
+});
 t("los ejemplos prevalecen sobre cualquier regla de longitud", () => {
   const s = G.buildSystemPrompt("", "T", "", "");
   ok(/JERARQU[IÍ]A/.test(s), "no declara la prelacion");

@@ -83,7 +83,7 @@ async function handleGenerate(payload) {
   const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
   if (!cfg.apiKey) return { ok: false, error: "Falta la API key." };
 
-  const { commentText, videoTitle, videoDescription, transcript, acortar } = payload;
+  const { commentText, videoTitle, videoDescription, transcript, acortar, evitarFuga } = payload;
 
   const body = {
     model: cfg.model,
@@ -92,7 +92,7 @@ async function handleGenerate(payload) {
     messages: [
       {
         role: "user",
-        content: buildUserMessage(commentText, videoTitle, videoDescription, cfg.extraContext, transcript, acortar),
+        content: buildUserMessage(commentText, videoTitle, videoDescription, cfg.extraContext, transcript, acortar, evitarFuga),
       },
     ],
   };
@@ -756,7 +756,7 @@ async function handleInsertMain({ text, nonce }, sender) {
    4. Prompts
    ══════════════════════════════════════════════════════════════════════════ */
 
-function buildUserMessage(commentText, videoTitle, videoDescription, extraContext, transcript, acortar) {
+function buildUserMessage(commentText, videoTitle, videoDescription, extraContext, transcript, acortar, evitarFuga) {
   const lines = [];
 
   // Misma fórmula que el tope duro de vetReply() en content.js (ahí se
@@ -816,6 +816,18 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
     lines.push(
       "",
       `AVISO: tu intento anterior midió ${acortar.prevLength} caracteres, por encima del límite permitido. Repite la respuesta MUCHO más breve: elige solo el punto o los dos puntos realmente esenciales del comentario y responde solo esos, sin desarrollar los demás ni añadir matices adicionales. No repitas ideas ni reformules lo mismo dos veces. El resultado DEBE medir menos de ${acortar.maxAllowed} caracteres; no es negociable esta vez.`
+    );
+  }
+
+  // Reintento automatico cuando runFlow() en content.js detecta que la
+  // respuesta anterior repitió literalmente un encabezado del prompt
+  // ("COMENTARIO A RESPONDER", "TRANSCRIPCIÓN DEL VÍDEO"...): vetReply()
+  // lo trata como fallo de fondo, no de longitud, así que el aviso de
+  // "acortar" de arriba no sirve aquí. Mismo criterio de recencia-alta.
+  if (evitarFuga) {
+    lines.push(
+      "",
+      'AVISO: tu intento anterior repitió literalmente dentro de la respuesta publicada encabezados o delimitadores de este mensaje (como "COMENTARIO A RESPONDER", "TRANSCRIPCIÓN DEL VÍDEO", "CONTEXTO EXTRA" o "<<<...>>>"). Responde SOLO con el texto dirigido al espectador, en tu voz habitual, sin citar, mencionar ni describir estas instrucciones ni sus delimitadores en ningún momento.'
     );
   }
 
