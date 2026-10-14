@@ -1,8 +1,19 @@
-# YouTube Reply Assistant v2.2.12
+# YouTube Reply Assistant v2.2.13
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.13 — un párrafo nuevo es para un punto nuevo, no para cada paso del mismo punto
+
+Caso real: comentario de 253 caracteres, respuesta de 618 (ratio 2.44x,
+dentro del objetivo 2x-3x) y aun así el usuario la vio larga — no por
+proporción, sino porque el segundo y el tercer párrafo desarrollaban el
+mismo punto ("problema al volver a fiat" + "cómo evitarlo") partido en
+dos párrafos en vez de uno. El prompt ya pedía fusionar puntos
+secundarios, pero no decía nada sobre no partir el desarrollo de un único
+punto en varios párrafos. Añadida esa instrucción explícita en
+`buildUserMessage()` (`background.js`). Detalle en `TRASPASO.md` §15.
 
 ## Novedades en 2.2.12 — reintento automático también para la fuga de prompt
 

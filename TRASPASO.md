@@ -871,3 +871,43 @@ pedírselo", mock por función que coopera cuando recibe
 número exacto de llamadas (3: 1 inicial + 2 reintentos), igual que ya
 hacía el test equivalente de acortado. `tests-bg.js` gana dos tests para
 el nuevo parámetro `evitarFuga` de `buildUserMessage()`.
+
+---
+
+## 15. Un párrafo nuevo es para un punto nuevo, no para cada paso del mismo punto (v2.2.13)
+
+Caso real: comentario de @macoliytb (253 caracteres) preguntando qué es
+"P2P directo" y si no supone un problema futuro al volver a fiat.
+Respuesta publicada: 618 caracteres, ratio 2.44x — **dentro** del objetivo
+2x-3x y lejos del tope duro de 3x (759). El usuario la vio larga igual:
+"le quitaría un párrafo".
+
+Esto confirma que no todo lo que se percibe como "demasiado largo" es un
+problema de proporción medible en caracteres — aquí el chequeo numérico
+estaba correctamente dentro de rango. El problema era estructural: la
+respuesta tenía 3 párrafos para lo que en realidad eran 2 puntos (qué es
+P2P directo; el problema al volver a fiat), porque el segundo punto se
+desarrolló en dos párrafos separados ("el problema es real..." / "la
+solución práctica es...") en vez de uno solo.
+
+El prompt (`buildUserMessage()`, `background.js`) ya pedía fusionar
+*puntos* secundarios en una frase en vez de darles su propio párrafo,
+pero no decía nada sobre partir el desarrollo de un *único* punto en
+varios párrafos (explicar el problema en uno y la solución en otro es,
+para el modelo, una razón tan buena como cualquier otra para abrir
+párrafo nuevo). Añadida una instrucción explícita justo después: "un
+párrafo nuevo es para un punto nuevo, no para cada paso de explicar el
+mismo punto" — problema + solución de la misma pregunta van en un solo
+párrafo, salvo que de verdad sean preguntas o temas distintos.
+
+No se ha tocado ningún número (ni el objetivo 2x-3x ni el tope duro de
+3x): el ratio de este caso ya cumplía la regla, así que bajar más los
+topes no habría arreglado nada — el ajuste correcto era de redacción, no
+de proporción. Si se repite el patrón tras esto, el siguiente paso
+razonable es añadir un ejemplo concreto de "problema + solución fusionados
+en un párrafo" a la lista de 13 ejemplos del system prompt
+(`buildSystemPrompt()`), que pesan más que cualquier regla general (ver
+JERARQUÍA).
+
+`tests-bg.js` gana un test que verifica que `buildUserMessage()` incluye
+esta instrucción.

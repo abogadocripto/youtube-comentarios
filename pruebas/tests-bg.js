@@ -141,6 +141,10 @@ t("con evitarFuga, incluye el aviso explicito de no repetir encabezados del prom
   ok(/AVISO: tu intento anterior repiti[oó]/.test(m), "no incluye el aviso de evitar fuga");
   ok(/COMENTARIO A RESPONDER/.test(m) && /CONTEXTO EXTRA/.test(m), "no cita los encabezados concretos a evitar");
 });
+t("advierte contra partir el desarrollo de un unico punto en varios parrafos", () => {
+  const m = G.buildUserMessage("mi comentario", "T", "", "", null);
+  ok(/un párrafo nuevo es para un punto nuevo/i.test(m), "no advierte contra 'problema' / 'solucion' como parrafos separados");
+});
 t("los ejemplos prevalecen sobre cualquier regla de longitud", () => {
   const s = G.buildSystemPrompt("", "T", "", "");
   ok(/JERARQU[IÍ]A/.test(s), "no declara la prelacion");
