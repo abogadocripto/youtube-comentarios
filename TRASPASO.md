@@ -1005,3 +1005,112 @@ el cierre funcione de verdad, que es lo que hacía falta.
 realista — con el código viejo (despacho en `document`), este test
 habría fallado exactamente con el mismo "no se ha podido cerrar" que
 reportó el usuario. Nuevo test en `tests.js`.
+
+---
+
+## 18. Revisión integral del proyecto (v2.2.16)
+
+Petición explícita del usuario: revisar todo el proyecto (no solo el
+último diff), encontrar errores reales y consolidar el código. Se usó el
+skill `code-review` a esfuerzo máximo con corrección automática
+(`--fix`), con doble verificación posterior manual (lectura del diff
+línea a línea + las dos suites de pruebas re-ejecutadas de forma
+independiente, no solo el autoinforme del propio review).
+
+**Corregido:**
+
+- **Timeout de `GENERATE_REPLY` demasiado corto (`content.js`).** `send()`
+  usaba su timeout genérico de 45 s para un mensaje que en `background.js`
+  puede legítimamente tardar mucho más: hasta 3 reintentos con backoff
+  (0/1.5/4 s) y 120 s de timeout de API **cada uno**. Con razonamiento
+  extendido activado (por defecto) y la API bajo carga, una sola llamada
+  podía superar 45 s sin que hubiera ningún fallo real — el content script
+  se rendía con "no ha respondido" mientras el service worker seguía
+  trabajando, y el resultado, al llegar tarde, se descartaba en silencio.
+  Añadida `GEN_REPLY_TIMEOUT_MS = 150000` (150 s) para los 4 puntos donde
+  se envía `GENERATE_REPLY` (generación inicial, reintento de fuga,
+  reintento de acortado, y "Regenerar" del panel). No cubre el peor caso
+  teórico absoluto (~366 s si los 3 reintentos agotan su propio timeout de
+  120 s cada uno) — subir a ese nivel haría que un fallo real tardase más
+  de 6 minutos en reportarse, un coste peor que el beneficio para un caso
+  límite raro (fallos repetidos de la API tipo 529/503). 150 s es una
+  cobertura pragmática del caso real reportado (razonamiento extendido
+  lento, sin reintentos), no una garantía matemática del peor caso.
+
+- **`extractCommentText()` descartaba comentarios reales de 1-4
+  caracteres (`content.js`).** El umbral `t.length > 4` se aplicaba
+  también cuando el texto venía de un selector YA conocido y de confianza
+  (`TEXT_SELECTORS`), no solo del recorrido ciego genérico donde ese
+  umbral tiene sentido (evitar confundir una etiqueta de interfaz como
+  "Me gusta" con el comentario real). Un comentario como ":)", "+1" u
+  "Ok" se perdía para siempre, sin aviso, dejando la fila sin botón.
+  Corregido: el selector conocido acepta cualquier texto no vacío
+  (`t.length > 0`); el umbral de `>10` del recorrido genérico de
+  respaldo no se toca, sigue cumpliendo su función original.
+
+- **"Regenerar" del panel no usaba el cerrojo `state.busy` (`content.js`).**
+  Solo deshabilitaba su propio botón mientras esperaba la API, así que
+  "Publicar" seguía activo en el mismo panel: un clic ahí durante una
+  regeneración en vuelo podía arrancar `publish()` en paralelo —
+  exactamente el escenario que el cerrojo de `runFlow()` existe para
+  evitar en el resto de la extensión, pero que este botón en concreto se
+  había quedado sin él. Ahora usa el mismo patrón que "Publicar" ya tenía
+  (`state.busy` + deshabilita todos los `.yra2-act` del panel + libera en
+  `finally`). De paso, se quita un campo `nonce` que este botón enviaba a
+  `background.js` sin que nadie lo leyera ahí (resto de limpieza).
+
+- **Toast y cuenta atrás se superponían en la misma esquina
+  (`content.js`).** `.yra2-countdown` y `.yra2-toast` comparten
+  exactamente `right:24px; bottom:24px` en `styles.css`, y el countdown
+  tiene mayor z-index. Si una cuenta atrás estaba visible en una fila
+  cuando se mostraba el aviso "Hay una respuesta en curso" (clic en otra
+  fila), el toast quedaba completamente tapado — invisible justo en el
+  caso en que más falta hace verlo. Ahora el toast se apila por encima
+  (`bottom: 110px`) cuando detecta un `.yra2-countdown` visible. Nota
+  honesta: esto es un ajuste visual en CSS/posicionamiento; la suite de
+  pruebas corre en jsdom, que no hace layout real, así que esta parte no
+  queda verificada por los tests — solo por lectura de código.
+
+- **`handleDiagnose()` lanzaba las cinco estrategias en serie
+  (`background.js`).** Irónicamente, la herramienta de diagnóstico de
+  transcripción acababa siendo más lenta que `fetchTranscript()`, el
+  propio camino que diagnostica (que ya las lanza en paralelo) — y
+  penalizaba más el caso de fallo, justo cuando más urge un diagnóstico
+  rápido. Reescrito con `Promise.all()`, igual que `fetchTranscript()`.
+  Riesgo de regresión propio de este cambio: `Promise.all()` no garantiza
+  que las promesas se *resuelvan* en orden, solo que el array de
+  resultados conserva el orden de *entrada* — si el informe se hubiera
+  construido iterando por orden de llegada en vez de por el array
+  devuelto, se habría perdido el orden de prioridad de las estrategias.
+  Nuevo test en `tests-bg.js` que verifica explícitamente que el orden se
+  conserva.
+
+**Encontrado pero NO corregido (quedan como hallazgos documentados):**
+
+- **`closeOpenBoxes()` puede cerrar la caja vacía de OTRA fila.** El
+  ascenso de hasta 8 niveles de ancestros en busca de un botón "Cancelar"
+  no tiene ningún límite de alcance por fila (a diferencia de
+  `findThreadRoot()`, que sí acota por tamaño/número de openers): con dos
+  cajas vacías abiertas a la vez, podría encontrar primero el "Cancelar"
+  de la fila equivocada. Impacto acotado (nunca toca una caja con texto,
+  solo vacías, así que no hay riesgo de perder un borrador), y arreglarlo
+  bien requeriría una búsqueda acotada por fila como la de
+  `findThreadRoot()` — no algo para parchear a ciegas sin confirmar el
+  alcance real del DOM con `diagnostico-dom.js` primero, siguiendo la
+  política ya establecida de este proyecto.
+
+- **`conTope()` no aborta el `fetch()` subyacente al expirar
+  (`background.js`).** Una estrategia de transcripción que supera su
+  timeout sigue consumiendo red/CPU de fondo aunque la carrera ya haya
+  resuelto con el error de timeout. Arreglarlo bien requiere enhebrar un
+  `AbortController` por cada función de estrategia (`tracksFromStudio`,
+  `tracksFromInnertube`, `tracksFromWatch`...), un cambio estructural
+  mayor que no encaja en un parche puntual de esta revisión.
+
+Ambos hallazgos sin corregir son de impacto bajo (ni pérdida de datos del
+usuario ni respuesta incorrecta publicada) y se documentan aquí en vez de
+parchearse de forma apresurada.
+
+Verificación: 45/45 pruebas de `tests-bg.js` y 40/40 de `tests.js`, las
+dos suites re-ejecutadas de forma independiente tras el review (no solo
+el autoinforme del propio proceso de revisión).

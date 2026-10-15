@@ -604,19 +604,34 @@ async function handleDiagnose({ videoId }) {
   L.push("");
   L.push("PISTAS DE SUBTITULOS");
 
-  let elegida = null;
-  for (const [id, etiqueta, fn] of trackStrategies(videoId)) {
-    try {
-      const t = await fn();
-      if (t?.length) {
-        const idiomas = t.map((x) => `${x.languageCode}${x.kind === "asr" ? "/auto" : ""}`).join(", ");
-        L.push(`  OK    ${id.padEnd(15)} ${t.length} pista(s): ${idiomas}`);
-        if (!elegida) elegida = { id, etiqueta, track: pickTrack(t) };
-      } else {
-        L.push(`  --    ${id.padEnd(15)} sin pistas`);
+  // Las cinco estrategias son independientes entre si (igual que en
+  // fetchTranscript): se lanzan en paralelo, no en serie, y solo despues se
+  // recorren en orden de prioridad para construir el informe. En serie
+  // -como antes- un diagnostico que solo existe para ver rapido DONDE se
+  // rompe la obtencion de la transcripcion acababa siendo el camino MAS
+  // lento de los dos (fetchTranscript ya la pedia en paralelo), ironia que
+  // sobre todo penaliza el caso de fallo, que es justo cuando el usuario mas
+  // necesita el diagnostico YA (hallazgo de revision).
+  const resultados = await Promise.all(
+    trackStrategies(videoId).map(async ([id, etiqueta, fn]) => {
+      try {
+        return { id, etiqueta, tracks: (await fn()) || [] };
+      } catch (e) {
+        return { id, etiqueta, tracks: [], error: e.message };
       }
-    } catch (e) {
-      L.push(`  ERROR ${id.padEnd(15)} ${e.message}`);
+    })
+  );
+
+  let elegida = null;
+  for (const { id, etiqueta, tracks: t, error } of resultados) {
+    if (error) {
+      L.push(`  ERROR ${id.padEnd(15)} ${error}`);
+    } else if (t?.length) {
+      const idiomas = t.map((x) => `${x.languageCode}${x.kind === "asr" ? "/auto" : ""}`).join(", ");
+      L.push(`  OK    ${id.padEnd(15)} ${t.length} pista(s): ${idiomas}`);
+      if (!elegida) elegida = { id, etiqueta, track: pickTrack(t) };
+    } else {
+      L.push(`  --    ${id.padEnd(15)} sin pistas`);
     }
   }
 

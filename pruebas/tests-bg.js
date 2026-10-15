@@ -231,6 +231,23 @@ t("las cinco estrategias se lanzan, no se encadenan", () => {
   ok(e.every(x => typeof x[2] === "function"), "alguna no es invocable por separado");
 });
 
+// handleDiagnose() lanzaba las cinco estrategias en serie (hallazgo de
+// revision: el diagnostico acababa siendo mas lento que el propio
+// fetchTranscript al que diagnostica). Reescrito con Promise.all igual que
+// fetchTranscript, con un riesgo de regresion propio: Promise.all no
+// garantiza que las promesas SE RESUELVAN en orden, solo que el array de
+// resultados conserva el orden de entrada — si el informe se construyera
+// iterando en el orden de llegada en vez del array devuelto, el orden de
+// prioridad (studio primero, innertube-anon al final) se perderia.
+ta("handleDiagnose conserva el orden de prioridad de las estrategias pese a lanzarlas en paralelo", async () => {
+  const res = await G.handleDiagnose({ videoId: "VIDEOID-DIAG" });
+  eq(res.ok, true, "deberia devolver ok:true incluso si todas las estrategias fallan");
+  const orden = ["studio", "innertube-auth", "watch-auth", "watch-anon", "innertube-anon"];
+  const posiciones = orden.map((id) => res.report.indexOf(id));
+  ok(posiciones.every((p) => p !== -1), `faltan estrategias en el informe: ${res.report}`);
+  ok(posiciones.every((p, i) => i === 0 || p > posiciones[i - 1]), "el informe no respeta el orden de prioridad de las estrategias");
+});
+
 console.log("\nERRORES DE API");
 t("404 explica que el modelo no existe", () => {
   ok(/no esta disponible|no existe/.test(G.friendlyApiError(404, "x", "claude-x")), "mensaje poco util");

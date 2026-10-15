@@ -1,8 +1,21 @@
-# YouTube Reply Assistant v2.2.15
+# YouTube Reply Assistant v2.2.16
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.16 — revisión integral del proyecto
+
+Review completo a máximo esfuerzo (no solo el último diff) con corrección
+automática y doble verificación manual posterior. Cinco bugs reales
+corregidos: timeout de `GENERATE_REPLY` demasiado corto para razonamiento
+extendido bajo carga, comentarios reales de 1-4 caracteres descartados
+por `extractCommentText()`, el botón "Regenerar" del panel sin el
+cerrojo `state.busy` que ya tenía "Publicar", toast tapado por la cuenta
+atrás en la misma esquina, y `handleDiagnose()` lanzando sus cinco
+estrategias en serie en vez de en paralelo. Dos hallazgos de impacto bajo
+quedan documentados sin corregir (no parcheados a ciegas). Detalle
+completo en `TRASPASO.md` §18.
 
 ## Novedades en 2.2.15 — objetivo de longitud bajado a 1.5x-2x (tope real 2x)
 

@@ -30,6 +30,17 @@
   const MARK = "data-yra2";
   const LABEL_IDLE = "✨ Responder con IA";
 
+  // send()'s generico es de 45 s (pensado para idas y vueltas cortas), pero
+  // GENERATE_REPLY la bate de largo: background.js reintenta hasta 3 veces
+  // (backoff 0/1500/4000 ms) con un timeout de API de 120000 ms CADA intento
+  // (vease API_TIMEOUT_MS alla), y el razonamiento extendido por si solo ya
+  // puede tardar mas de 45 s en una API cargada. Con el tope generico, el
+  // content script se rendia y mostraba "no ha respondido" mientras el
+  // service worker seguia trabajando de verdad (y su resultado, al llegar
+  // tarde, se descartaba en silencio): un reintento perfectamente valido se
+  // reportaba como fallo (hallazgo de revision).
+  const GEN_REPLY_TIMEOUT_MS = 150000;
+
   // apiKey NO esta en este DEFAULTS a proposito (hallazgo de revision): el
   // content script corre inyectado en studio.youtube.com, y aunque el
   // "isolated world" lo protege del JS de la propia pagina, cualquier
@@ -359,7 +370,16 @@
       const el = node.querySelector(sel);
       if (el) {
         const t = txt(el);
-        if (t.length > 4) return t;
+        // Cualquier texto no vacio encontrado por un selector CONOCIDO se
+        // acepta tal cual (hallazgo de revision): el umbral de longitud >10
+        // de la busqueda generica de mas abajo existe para evitar que un
+        // recorrido ciego por todos los nodos hoja confunda una etiqueta de
+        // la interfaz ("Me gusta", 9 caracteres) con el comentario real,
+        // pero aqui el selector YA apunta al nodo correcto, asi que ese
+        // mismo umbral solo servia para descartar comentarios reales de 1 a
+        // 4 caracteres (":)", "+1", "Ok"...) y dejar la fila sin boton para
+        // siempre, sin aviso ninguno.
+        if (t.length > 0) return t;
       }
     }
     let best = "";
@@ -526,7 +546,7 @@
           videoDescription,
           transcript: tr.ok ? tr.text : null,
         },
-      });
+      }, GEN_REPLY_TIMEOUT_MS);
 
       row = liveRow(btn, row, commentId);
 
@@ -557,7 +577,7 @@
             transcript: tr.ok ? tr.text : null,
             evitarFuga: true,
           },
-        });
+        }, GEN_REPLY_TIMEOUT_MS);
         if (!genFix || !genFix.ok) break; // sin regeneracion posible: se sigue con la ultima version valida
         vet = vetReply(genFix.reply, commentText);
       }
@@ -588,7 +608,7 @@
             transcript: tr.ok ? tr.text : null,
             acortar: { prevLength: vet.text.length, maxAllowed: topeLongitud },
           },
-        });
+        }, GEN_REPLY_TIMEOUT_MS);
         if (!gen2 || !gen2.ok) break; // sin regeneracion posible: se sigue con la ultima version valida
         const vet2 = vetReply(gen2.reply, commentText);
         if (vet2.fatal) return abortFlow(row, `Respuesta descartada: ${vet2.issues.join("; ")}.`);
@@ -1293,25 +1313,36 @@
       }
 
       if (act === "regen") {
-        if (state.busy) return;
-        e.target.disabled = true;
+        if (state.busy) { toast("Hay una respuesta en curso.", "warn"); return; }
+        // Cerrojo global mientras dura la llamada a la API (hallazgo de
+        // revision): antes solo se deshabilitaba este boton, asi que
+        // "Publicar" seguia activo en el mismo panel y un clic ahi mientras
+        // la regeneracion estaba en vuelo arrancaba publish() en paralelo
+        // -el mismo escenario que el cerrojo de runFlow() existe para
+        // evitar-, con el riesgo de publicar el texto viejo mientras el
+        // panel se reescribia por debajo con el nuevo.
+        state.busy = true;
+        panel.querySelectorAll(".yra2-act").forEach((b) => { b.disabled = true; });
         e.target.textContent = "Regenerando…";
-        const live = liveRow(btn, row, meta.commentId);
-        const commentTextRegen = extractCommentText(live);
-        const gen = await send({
-          type: "GENERATE_REPLY",
-          payload: {
-            commentText: commentTextRegen,
-            videoTitle: meta.videoTitle,
-            videoDescription: null,
-            transcript: meta.transcript?.ok ? meta.transcript.text : null,
-            nonce: Date.now(),
-          },
-        });
-        e.target.disabled = false;
-        e.target.textContent = "Regenerar";
-        if (gen?.ok) { ta.value = vetReply(gen.reply, commentTextRegen).text; updateCount(); }
-        else inlineMessage(panel, gen?.error || "Error al regenerar.", "error");
+        try {
+          const live = liveRow(btn, row, meta.commentId);
+          const commentTextRegen = extractCommentText(live);
+          const gen = await send({
+            type: "GENERATE_REPLY",
+            payload: {
+              commentText: commentTextRegen,
+              videoTitle: meta.videoTitle,
+              videoDescription: null,
+              transcript: meta.transcript?.ok ? meta.transcript.text : null,
+            },
+          }, GEN_REPLY_TIMEOUT_MS);
+          if (gen?.ok) { ta.value = vetReply(gen.reply, commentTextRegen).text; updateCount(); }
+          else inlineMessage(panel, gen?.error || "Error al regenerar.", "error");
+        } finally {
+          releaseBusy();
+          panel.querySelectorAll(".yra2-act").forEach((b) => { b.disabled = false; });
+          e.target.textContent = "Regenerar";
+        }
       }
     });
 
@@ -1386,6 +1417,16 @@
     const t = document.createElement("div");
     t.className = `yra2-toast yra2-toast--${kind}`;
     t.textContent = message;
+    // .yra2-countdown y .yra2-toast comparten exactamente la misma esquina
+    // (position:fixed; right:24px; bottom:24px en styles.css), y el
+    // countdown tiene el z-index mas alto: si hay una cuenta atras en marcha
+    // en OTRA fila cuando esto se dispara -p.ej. el aviso "Hay una respuesta
+    // en curso" al pulsar el boton de una segunda fila mientras la primera
+    // publica- el toast queda tapado por completo detras del countdown,
+    // invisible, justo el caso en que mas hace falta que se vea (hallazgo de
+    // revision). Si hay un countdown visible, el toast se apila encima de el
+    // en vez de solaparlo.
+    if (document.querySelector(".yra2-countdown")) t.style.bottom = "110px";
     document.body.appendChild(t);
     t.addEventListener("click", () => t.remove());
     setTimeout(() => t.remove(), kind === "err" ? 12000 : 4500);
