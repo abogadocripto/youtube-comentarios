@@ -766,14 +766,21 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
   // el comentario. El mínimo de 200 evita que un comentario de pocas
   // palabras fuerce un tope absurdo (p.ej. 40 caracteres para "Gracias!").
   const largoComentario = String(commentText || "").trim().length;
-  const objetivoMin = largoComentario * 2;
-  const objetivoMax = largoComentario * 3;
-  // Primero 5x (un caso real de 4.81x se publico sin revision pese a
-  // sentirse claramente desproporcionado), luego 4x (seguia dejando
-  // margen). Bajado a 3x por peticion directa del usuario: coincide con
-  // el extremo superior del objetivo de abajo, asi que ya no hay margen
-  // entre "objetivo" y "tope real": 3x es el limite absoluto, punto.
-  const topeDuro = Math.max(largoComentario * 3, 200);
+  // Historial del objetivo: 2x-3x primero, con el tope duro bajando por
+  // separado 5x -> 4x -> 3x. Tres bajadas del TOPE no bastaron: casos reales
+  // con ratio por debajo del tope de cada momento (2.44x, 2.78x) seguian
+  // viendose largos. Eso significa que el objetivo en si, no solo el techo,
+  // estaba puesto demasiado alto, asi que esta vez se estrecha el rango
+  // completo a 1.5x-2x (peticion directa del usuario tras confirmar dos
+  // casos reales conformes a la regla anterior que aun asi via largos: ver
+  // TRASPASO.md §16).
+  const objetivoMin = Math.round(largoComentario * 1.5);
+  const objetivoMax = largoComentario * 2;
+  // Igual que en la bajada anterior (3x), el tope duro coincide con el
+  // extremo superior del objetivo: no hay margen entre "objetivo" y "limite
+  // absoluto". Si se repite el patron, ya no queda recorrido en la formula
+  // sin estrechar tambien el minimo (1.5x).
+  const topeDuro = Math.max(largoComentario * 2, 200);
 
   if (videoTitle) {
     lines.push(`VÍDEO: ${videoTitle}`);
@@ -801,7 +808,7 @@ function buildUserMessage(commentText, videoTitle, videoDescription, extraContex
     // varios párrafos. Esa orden dura aplastaba las respuestas técnicas.
     "Instrucciones: lee el comentario con atención e identifica cada pregunta o punto que plantea. Respóndelos todos, de forma directa y técnica.",
     "La longitud la marcan los ejemplos, no un límite fijo: busca el ejemplo más parecido a este comentario y usa su extensión. Si es corto, metafórico o una corrección trivial, una o dos líneas bastan (ejemplos 4, 6, 7). Si plantea preguntas técnicas, desarrolla en párrafos separados tanto como haga falta para responderlas todas (ejemplos 9, 10, 12, 13). No alargues por alargar, pero tampoco recortes una respuesta técnica para que quepa en pocas líneas.",
-    `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): el objetivo es que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, acércate a la parte alta de ese rango sin problema-, pero antes de escribir, decide cuáles son los 2 o 3 puntos que de verdad hay que responder y desarrolla esos; el resto, resúmelo en una frase o fusiónalo con otro punto en vez de darle su propio párrafo. Un comentario corto con una pregunta densa (varios conceptos en pocas palabras) no es licencia para responder cada concepto por separado con el mismo detalle que si fueran preguntas distintas. Nunca superes los ${topeDuro} caracteres (tres veces el comentario) bajo ningún concepto: es el límite absoluto, no una zona de margen.`,
+    `Calibra también la extensión en proporción al comentario (tiene ${largoComentario} caracteres): el objetivo es que tu respuesta ronde entre ${objetivoMin} y ${objetivoMax} caracteres. No es rígido -si el comentario plantea de verdad varias preguntas técnicas, acércate a la parte alta de ese rango sin problema-, pero antes de escribir, decide cuáles son los 2 o 3 puntos que de verdad hay que responder y desarrolla esos; el resto, resúmelo en una frase o fusiónalo con otro punto en vez de darle su propio párrafo. Un comentario corto con una pregunta densa (varios conceptos en pocas palabras) no es licencia para responder cada concepto por separado con el mismo detalle que si fueran preguntas distintas. Nunca superes los ${topeDuro} caracteres (dos veces el comentario) bajo ningún concepto: es el límite absoluto, no una zona de margen.`,
     "Un párrafo nuevo es para un punto nuevo, no para cada paso de explicar el mismo punto: si estás desarrollando una sola idea (por ejemplo, primero el problema y después cómo evitarlo o solucionarlo), eso sigue siendo UN punto y va en UN solo párrafo. No lo partas en \"problema\" / \"solución\" como si fueran dos párrafos distintos salvo que de verdad sean dos preguntas o temas separados.",
     "Si el vídeo o la transcripción no cubren lo que se pregunta, responde con lo que sabes, sin inventar cifras, artículos ni consultas vinculantes."
   );

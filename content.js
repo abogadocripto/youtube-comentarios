@@ -574,7 +574,7 @@
       const SOLO_LONGITUD = /muy larga|desproporcionada/;
       const esSoloLongitud = (issues) => issues.length > 0 && issues.every((i) => SOLO_LONGITUD.test(i));
       const MAX_INTENTOS_ACORTAR = 2;
-      const topeLongitud = Math.min(Math.max(commentText.trim().length * 3, 200), 2000);
+      const topeLongitud = Math.min(Math.max(commentText.trim().length * 2, 200), 2000);
 
       for (let intento = 1; esSoloLongitud(vet.issues) && intento <= MAX_INTENTOS_ACORTAR; intento++) {
         log(`Respuesta demasiado larga (${vet.text.length} car.); reintentando mas breve (${intento}/${MAX_INTENTOS_ACORTAR})`);
@@ -1012,8 +1012,25 @@
       }
     }
     await sleep(350);
-    if (!conTexto && visibleFields().length) {
-      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+
+    /* Si sigue habiendo cajas VACIAS visibles (sin boton "Cancelar"
+       reconocible), Escape es el segundo intento. Antes se despachaba sobre
+       `document`: un evento de teclado despachado ahi solo invoca listeners
+       atados al propio document, nunca llega a los descendientes (los
+       eventos solo burbujean HACIA ARRIBA desde su origen real). Si Studio
+       escucha Escape en el propio campo o en un ancestro suyo -lo habitual
+       en un componente Angular/CDK-, ese despacho no llegaba nunca y la caja
+       jamas se cerraba por esta via, por vacia que estuviera. Ahora se
+       despacha sobre cada campo (con foco primero, como haria un usuario
+       real), para que SI burbujee por sus ancestros reales. Con reintento:
+       una caja recien montada puede tardar un ciclo en registrar el listener.   */
+    for (let intento = 1; intento <= 2 && !conTexto && visibleFields().length; intento++) {
+      for (const f of visibleFields()) {
+        try { f.focus(); } catch (e) {}
+        const opts = { key: "Escape", code: "Escape", keyCode: 27, which: 27, bubbles: true, cancelable: true };
+        f.dispatchEvent(new KeyboardEvent("keydown", opts));
+        f.dispatchEvent(new KeyboardEvent("keyup", opts));
+      }
       await sleep(350);
     }
     return { conTexto };
@@ -1155,16 +1172,17 @@
 
     // Tope duro de proporcion respecto al comentario (misma formula que la
     // orientacion que ya recibe el modelo en buildUserMessage, background.js):
-    // nunca mas de 3 veces su longitud (primero 5x, luego 4x, bajado a 3x
-    // por peticion directa del usuario: coincide con el extremo superior
-    // del objetivo del prompt, asi que ya no hay margen entre "objetivo" y
-    // "tope real"), con un minimo de 200 para no castigar comentarios de
-    // pocas palabras. No es fatal -la respuesta puede seguir siendo buena,
-    // solo desproporcionada- asi que pasa a revision en vez de
-    // autopublicarse, igual que "respuesta muy larga".
+    // nunca mas de 2 veces su longitud (historial: 5x -> 4x -> 3x -> 2x; las
+    // tres primeras bajadas no bastaron -casos reales con ratio por debajo
+    // del tope de turno que el usuario seguia viendo largos-, asi que esta
+    // vez se estrecha tambien el objetivo, no solo el tope: ver TRASPASO.md
+    // §16), con un minimo de 200 para no castigar comentarios de pocas
+    // palabras. No es fatal -la respuesta puede seguir siendo buena, solo
+    // desproporcionada- asi que pasa a revision en vez de autopublicarse,
+    // igual que "respuesta muy larga".
     if (commentText) {
       const largoComentario = String(commentText).trim().length;
-      const topeDuro = Math.max(largoComentario * 3, 200);
+      const topeDuro = Math.max(largoComentario * 2, 200);
       if (largoComentario && t.length > topeDuro) {
         issues.push(`respuesta desproporcionada (${t.length} caracteres frente a ${largoComentario} del comentario)`);
       }

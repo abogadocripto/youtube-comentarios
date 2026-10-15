@@ -1,8 +1,30 @@
-# YouTube Reply Assistant v2.2.13
+# YouTube Reply Assistant v2.2.15
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.15 — objetivo de longitud bajado a 1.5x-2x (tope real 2x)
+
+Dos casos reales seguidos cumplían el objetivo 2x-3x (ratios 2.44x y 2.78x,
+ambos por debajo del tope de 3x) y aun así el usuario los vio largos.
+Confirmado directamente con él: el objetivo en sí estaba puesto demasiado
+alto, no solo el tope. Bajado el rango completo a 1.5x-2x, con el tope
+duro ahora en 2x (mismo criterio que la bajada anterior: tope real =
+extremo superior del objetivo, sin margen entre ambos). Afecta a
+`vetReply()` y al reintento de acortado en `content.js`, y a la
+orientación del prompt en `buildUserMessage()` (`background.js`). Detalle
+en `TRASPASO.md` §16.
+
+## Novedades en 2.2.14 — Escape para cerrar una caja vacía se despachaba en `document`, nunca llegaba
+
+Caso real: "Hay un cuadro de respuesta abierto que no se ha podido
+cerrar" en una caja confirmada vacía (sin texto de borrador). Causa: el
+intento de cierre por Escape despachaba el evento en `document`, que solo
+invoca listeners atados al propio `document` — nunca llega a un listener
+en el campo o sus ancestros, que es donde Angular/CDK suele escucharlo.
+Ahora se despacha sobre cada campo (con foco primero, como un usuario
+real), con reintento. Detalle en `TRASPASO.md` §17.
 
 ## Novedades en 2.2.13 — un párrafo nuevo es para un punto nuevo, no para cada paso del mismo punto
 

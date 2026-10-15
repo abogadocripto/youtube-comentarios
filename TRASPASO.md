@@ -911,3 +911,97 @@ JERARQUÍA).
 
 `tests-bg.js` gana un test que verifica que `buildUserMessage()` incluye
 esta instrucción.
+
+---
+
+## 16. El objetivo en sí estaba demasiado alto, no solo el tope (v2.2.15)
+
+Dos casos reales seguidos, en la misma sesión que el §15:
+
+- Comentario de @macoliytb (253 car.) → respuesta de 618 car., ratio 2.44x.
+- Comentario de @torrizgz (253 car.) → respuesta de 704 car., ratio 2.78x.
+
+Ambos cumplen el objetivo 2x-3x vigente entonces (y el segundo también
+quedaba lejos del tope duro de 3x = 759). El usuario los marcó como
+"demasiado largo" igualmente. Esta vez, antes de tocar nada, se le
+preguntó directamente — dos preguntas con `AskUserQuestion`: si la
+extensión instalada estaba actualizada (respuesta: no lo había mirado) y
+si, independientemente de la versión, el objetivo numérico debería
+bajarse (respuesta: sí, bajar el objetivo).
+
+Esto confirma algo que las rondas anteriores (§12, 5x→4x→3x) solo
+tocaban a medias: bajar el **tope** no sirve de nada si el **objetivo**
+sigue siendo el mismo rango generoso, porque el modelo escribe para el
+objetivo, no para el tope — el tope solo actúa como red de seguridad
+cuando el modelo se pasa claramente, no cuando cumple el objetivo al pie
+de la letra y aun así resulta largo para el gusto del usuario.
+
+Cambio: el objetivo pasa de 2x-3x a **1.5x-2x**, y el tope duro baja de
+3x a **2x** (mismo criterio que en el §12: tope real = extremo superior
+del objetivo, sin margen entre ambos). Tocado en tres sitios, que deben
+mantenerse sincronizados:
+
+- `vetReply()` en `content.js` (el chequeo que de verdad bloquea).
+- El reintento automático de acortado en `content.js` (`topeLongitud`).
+- `buildUserMessage()` en `background.js` (orientación al modelo,
+  incluida la mención literal "dos veces el comentario").
+
+Si se repite el patrón otra vez tras esto, ya no queda recorrido en la
+fórmula sin estrechar también el mínimo del objetivo (1.5x): el siguiente
+paso razonable sería 1x-1.5x, aceptando que el estilo por defecto sea
+mucho más breve y reservando el desarrollo largo solo para los ejemplos
+9/10/12/13 del system prompt cuando el comentario de verdad lo exige.
+
+`tests-bg.js` y `tests.js` actualizados con los números nuevos (150/200
+en vez de 200/300 para el mismo comentario de prueba; tope de fila 0
+recalculado a 84×2=168).
+
+---
+
+## 17. Escape para cerrar una caja vacía se despachaba en `document`, nunca llegaba (v2.2.14)
+
+Caso real: el usuario reportó "Hay un cuadro de respuesta abierto que no
+se ha podido cerrar. Ciérralo y vuelve a pulsar." en una caja **confirmada
+vacía** (si tuviera texto, el mensaje habría sido el otro: "con texto
+escrito"). Pidió explícitamente que, en ese caso, el sistema la cerrase
+solo y publicase, en vez de darse por vencido.
+
+Causa raíz, no cosmética: `closeOpenBoxes()` intenta primero un botón
+"Cancelar" reconocible (`CANCEL_TEXTS`); si no lo encuentra, su único
+plan B era `document.dispatchEvent(new KeyboardEvent("keydown", {key:
+"Escape", bubbles: true}))`. Un evento despachado directamente sobre
+`document` **solo invoca listeners atados al propio `document`** (o a
+`window` en fase de captura) — los eventos burbujean hacia ARRIBA desde
+su origen real hacia sus ancestros, nunca hacia abajo hacia los
+descendientes. Si Studio escucha Escape en el campo o en un componente
+Angular/CDK ancestro suyo (lo habitual: overlays y cajas de edición
+suelen manejar su propio cierre por teclado en el propio elemento, no en
+`document`), ese despacho **no llegaba nunca**, por vacía que estuviera
+la caja. No era un problema de reintentos ni de timing: el mecanismo en
+sí no podía funcionar salvo que Studio tuviera un listener global en
+`document`, que evidentemente no tiene.
+
+Arreglado en `closeOpenBoxes()` (`content.js`): ahora, para cada campo
+vacío que sigue visible, se le da el foco (como haría un usuario real) y
+se despacha el Escape **sobre el propio campo** (`keydown` + `keyup`),
+que sí burbujea por sus ancestros reales. Con reintento (hasta 2 veces,
+350ms entre intentos) por si una caja recién montada tarda un ciclo en
+registrar su listener.
+
+No se ha forzado "publicar igualmente si no se cierra": sigue siendo
+necesario que la caja realmente se cierre antes de continuar (abortar
+con el mensaje de siempre si, tras esto, aún no se ha cerrado). La razón
+no cambia: `publish()` usa `before.size === 0` para aceptar un campo que
+se renderiza fuera de la fila (ver comentario en el Paso 2 de `publish()`)
+precisamente para no confundirlo con una caja ajena que siga abierta —
+publicar a ciegas con una caja fantasma presente reintroduciría el riesgo
+de escribir en la fila equivocada que el propio diseño existe para
+evitar. El arreglo correcto no es saltarse la salvaguarda: es hacer que
+el cierre funcione de verdad, que es lo que hacía falta.
+
+`pruebas/harness.js` gana la opción `sinBotonCancelar`: omite el botón
+"Cancelar" y simula el listener real de Angular atado al propio campo
+(nunca a `document`), para poder probar el camino de Escape de forma
+realista — con el código viejo (despacho en `document`), este test
+habría fallado exactamente con el mismo "no se ha podido cerrar" que
+reportó el usuario. Nuevo test en `tests.js`.

@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url: "https://studio.youtube.com/channel/UCabc/comments/inbox", pretendToBeVisual: true, runScripts: "outside-only" }
@@ -81,18 +81,24 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
         // boton de enviar real NO lleva id="submit-button" (solo texto
         // "Responder"), asi que aqui tampoco se le pone: hay que ejercitar
         // la misma ruta de busqueda por texto que usara la extension real.
+        // sinBotonCancelar reproduce un caso real: Studio a veces no expone
+        // ningun boton reconocible como "Cancelar" (texto/aria-label distinto,
+        // o ausente). El unico cierre posible entonces es la tecla Escape,
+        // manejada por Angular en el propio campo o un ancestro suyo -nunca
+        // en `document`-, que es justo lo que este modo ejercita.
+        const botonCancelar = sinBotonCancelar ? "" : '<ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>';
         box.innerHTML = campoTextarea ? `
           <ytcp-commentbox>
             <textarea id="textarea" placeholder="Añade una respuesta..."></textarea>
           </ytcp-commentbox>
-          <ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>
+          ${botonCancelar}
           <ytcp-button class="submit-real" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
         ` : `
           <ytcp-mentionable-textarea>
             ${campoExtra ? '<div class="mention-overlay" contenteditable="true"></div>' : ""}
             <div id="contenteditable-root" contenteditable="true"></div>
           </ytcp-mentionable-textarea>
-          <ytcp-button class="cancel"><button>Cancelar</button></ytcp-button>
+          ${botonCancelar}
           <ytcp-button class="submit-real" ${submitStartsEnabled ? "" : "disabled"}><button>Responder</button></ytcp-button>
         `;
         // La caja de respuesta se inserta pegada al comentario principal
@@ -135,7 +141,15 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
           thread.dataset.published = valorCampo();
           box.remove();
         });
-        box.querySelector(".cancel button").addEventListener("click", () => box.remove());
+        if (sinBotonCancelar) {
+          // Simula el listener real de Angular: atado al CAMPO (o a un
+          // ancestro suyo), nunca a `document`. Solo responde a Escape
+          // despachado sobre el propio campo (o que burbujee desde el),
+          // exactamente como lo haria un usuario real pulsando la tecla.
+          field.addEventListener("keydown", (e) => { if (e.key === "Escape") box.remove(); });
+        } else {
+          box.querySelector(".cancel button").addEventListener("click", () => box.remove());
+        }
       }, openDelay);
     };
     // soloPuntero reproduce los componentes de Studio que reaccionan al gesto

@@ -146,7 +146,7 @@ const T = async (...a) => results.push(await run(...a));
   });
 
   await T("respuesta desproporcionada que el modelo nunca corrige: se rinde tras los reintentos y pasa a revision",
-    // El comentario de la fila 0 mide 84 caracteres (tope duro = 84*3 = 252).
+    // El comentario de la fila 0 mide 84 caracteres (tope duro = 84*2 = 168).
     // Esta respuesta mide ~584: por encima del tope de proporcion pero muy
     // por debajo de los 2000 caracteres del otro chequeo de longitud
     // absoluta, para aislar el nuevo chequeo del ya existente. El mock
@@ -190,6 +190,26 @@ const T = async (...a) => results.push(await run(...a));
     assert(threads[0].dataset.published === "Respuesta de prueba.", "no ha publicado en la fila correcta");
     assert(!threads[2].dataset.published, "ha publicado en la fila equivocada");
   });
+
+  await T("caja vacia abierta en otra fila SIN boton Cancelar: solo Escape puede cerrarla, y lo hace",
+    { studio: { sinBotonCancelar: true } },
+    async ({ wait, $$ }) => {
+      // Caso real reportado: Studio no siempre expone un boton "Cancelar"
+      // reconocible. El unico cierre posible es Escape, y antes se
+      // despachaba sobre `document` -que nunca llega a un listener atado al
+      // campo o a un ancestro suyo, como hace este mock a proposito-. Si
+      // closeOpenBoxes() siguiera despachando en document, este test fallaria
+      // con el mismo "no se ha podido cerrar" que reporto el usuario.
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      threads[2].querySelector(".open-reply").click();
+      await wait(600);
+      threads[0].querySelector(".yra2-btn").click();
+      await wait(3000);
+      assert(threads[0].dataset.published === "Respuesta de prueba.", "no ha publicado en la fila correcta");
+      assert(!threads[2].querySelector(".reply-box"), "no ha cerrado la caja vacia sin boton Cancelar (deberia haberla cerrado con Escape)");
+      assert(!threads[0].querySelector(".yra2-inline--error"), "ha avisado de conflicto pese a que la caja vacia se cerro");
+    });
 
   await T("caja con texto a medias en otra fila: aborta y no la destruye", {}, async ({ wait, $$ }) => {
     await wait(600);
