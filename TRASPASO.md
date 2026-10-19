@@ -1246,3 +1246,32 @@ FILA» en `tests.js` (51 en total). `harness.js` admite `comentarios`,
 guarda ahora `payloads` (tipo + payload de cada mensaje) para poder afirmar
 **qué** vídeo se ha pedido, no solo que se ha pedido algo. `tests-bg.js`
 sin cambios (45/45).
+
+---
+
+## 20. Los emoticonos del comentario llegaban vacíos: Studio los pinta como `<img>` (v2.2.18)
+
+Caso real, el mismo día de instalar la 2.2.17: comentario «👏👏👏»
+(@perrocosmicoblanco13) contestado con «Parece que no hay comentario aquí
+:)». Eso no es un fallo del camino del emoticono: es el modelo contestando a
+un comentario vacío. Causa: en el DOM real de Studio los emoticonos del
+comentario no son texto sino `<img class="emoji" alt="👏" src="…">`, así que
+`txt(#content-text)` (innerText) devolvía «». `extractCommentText()` seguía
+entonces con la búsqueda genérica (el texto hoja más largo de la fila, con
+más de 10 caracteres), que devolvía una etiqueta de la interfaz («2
+suscriptores», «hace 7 días») o el título del vídeo, y eso iba al modelo.
+
+Corrección: `textWithEmoji(root)` recorre los nodos del comentario y compone
+el texto con los nodos de texto, el `alt` de cada `<img>`, `\n` por `<br>` y
+por bloque. Se usa para todos los `TEXT_SELECTORS` (con `txt()` de
+respaldo). Además, si un selector conocido encuentra el nodo del comentario
+pero no se le saca texto, `extractCommentText()` devuelve `null` (la fila
+aborta con «No se ha podido leer el texto del comentario») en vez de caer en
+la búsqueda genérica: antes era preferible publicar algo, ahora sabemos que
+ese «algo» era contestar a una etiqueta.
+
+Tres pruebas nuevas en «COMENTARIOS DE REACCION»: emoticonos-imagen → 🤙 sin
+llamar al modelo; texto + emoticono-imagen («Grande 🔥») → reacción, y una
+pregunta con emoticono-imagen llega al modelo con el emoticono dentro del
+texto; nodo de comentario sin texto legible → aborta sin llamar al modelo.
+54/54 y 45/45.

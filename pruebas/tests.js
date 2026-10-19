@@ -576,6 +576,47 @@ const T = async (...a) => results.push(await run(...a));
 
   console.log("\nCOMENTARIOS DE REACCION (emoticono)");
 
+  await T("emoticonos pintados como <img alt> (DOM real de Studio) se leen y se contestan con el emoticono",
+    { studio: { rows: 1, comentarios: ['<img class="emoji" alt="👏" src="https://x/e1.png"><img class="emoji" alt="👏" src="https://x/e2.png"><img alt="👏" src="https://x/e3.png">'] }, mock: { reply: "NO DEBE USARSE" } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      assert(t.querySelector(".yra2-btn"), "la fila de emoticonos-imagen no tiene boton");
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "🤙", `ha publicado "${t.dataset.published}", esperaba 🤙`);
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha llamado al modelo (caso real: contesto 'Parece que no hay comentario aqui')");
+    });
+
+  await T("texto + emoticono-imagen («Grande 🔥») tambien es reaccion, y una pregunta con emoticono-imagen va al modelo con el emoticono en el texto",
+    { studio: { rows: 2, comentarios: ['Grande <img alt="🔥" src="https://x/e.png">', 'Y en Andorra que pasa? <img alt="🙏" src="https://x/e.png">'] } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      threads[0].querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(threads[0].dataset.published === "🤙", `fila 0: "${threads[0].dataset.published}"`);
+      threads[1].querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(threads[1].dataset.published === "Respuesta de prueba.", `fila 1: "${threads[1].dataset.published}"`);
+      const gen = mock.payloads.find((p) => p.type === "GENERATE_REPLY");
+      assert(gen && gen.payload.commentText === "Y en Andorra que pasa? 🙏", `el modelo ha recibido: "${gen && gen.payload.commentText}"`);
+    });
+
+  await T("si el nodo del comentario existe pero no tiene texto legible, aborta en vez de mandar al modelo una etiqueta de la interfaz",
+    { studio: { rows: 1, comentarios: ['<img src="https://x/sin-alt.png">'] }, mock: { reply: "NO DEBE USARSE" } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      const btn = t.querySelector(".yra2-btn");
+      if (btn) {
+        btn.click();
+        await wait(2500);
+      }
+      assert(!t.dataset.published, `ha publicado "${t.dataset.published}"`);
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha mandado al modelo un texto que no era el comentario");
+    });
+
   await T("un comentario de solo emoticonos se responde con el emoticono, sin modelo ni transcripcion",
     { studio: { rows: 1, comentarios: ["👏👏👏"] }, mock: { reply: "NO DEBE USARSE" } },
     async ({ wait, $$, mock }) => {

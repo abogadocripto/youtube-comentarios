@@ -1,8 +1,21 @@
-# YouTube Reply Assistant v2.2.17
+# YouTube Reply Assistant v2.2.18
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.18 — los emoticonos del comentario se leen (Studio los pinta como imágenes)
+
+Caso real, nada más instalar la 2.2.17: a «👏👏👏» se le contestó «Parece
+que no hay comentario aquí :)». Studio no pinta los emoticonos como texto
+sino como imágenes (`<img alt="👏">`), así que el texto del comentario
+llegaba vacío, la búsqueda genérica de respaldo cogía una etiqueta de la
+interfaz («2 suscriptores», «hace 7 días») y eso era lo que recibía el
+modelo. Ahora el texto del comentario se compone recorriendo los nodos y
+sustituyendo cada imagen por su `alt`, con lo que «👏👏👏» se lee como tal y
+entra por el camino del emoticono. Además, si el nodo del comentario existe
+pero no se le saca texto, se aborta con aviso en vez de caer en la búsqueda
+genérica. Detalle en `TRASPASO.md` §20.
 
 ## Novedades en 2.2.17 — el vídeo de la fila, nunca el de otra; respuesta con emoticono
 

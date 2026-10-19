@@ -366,12 +366,36 @@
     return el.parentElement || el;
   }
 
+  // Texto de un comentario INCLUYENDO los emoticonos. Studio no pinta los
+  // emoticonos como texto sino como <img alt="👏" src=".../emoji/..."> (caso
+  // real, 19/10/2026: un comentario «👏👏👏» llegaba al modelo vacio -innerText
+  // de una fila de imagenes es ""-, la busqueda generica cogia una etiqueta de
+  // la interfaz como «2 suscriptores» y el modelo contestaba «Parece que no hay
+  // comentario aqui :)»). Se recorren los nodos: texto tal cual, <img> por su
+  // alt (si lo tiene), saltos de linea por <br> y bloques.
+  function textWithEmoji(root) {
+    let out = "";
+    const walk = (n) => {
+      if (n.nodeType === 3) { out += n.nodeValue; return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName;
+      if (tag === "IMG") { out += n.getAttribute("alt") || ""; return; }
+      if (tag === "BR") { out += "\n"; return; }
+      if (tag === "SCRIPT" || tag === "STYLE") return;
+      for (const c of n.childNodes) walk(c);
+      if (tag === "P" || tag === "DIV") out += "\n";
+    };
+    walk(root);
+    return out.replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\s*\n\s*/g, "\n").trim();
+  }
+
   function extractCommentText(node) {
     if (!node) return null;
+    let conocidoVacio = false;
     for (const sel of TEXT_SELECTORS) {
       const el = node.querySelector(sel);
       if (el) {
-        const t = txt(el);
+        const t = textWithEmoji(el) || txt(el);
         // Cualquier texto no vacio encontrado por un selector CONOCIDO se
         // acepta tal cual (hallazgo de revision): el umbral de longitud >10
         // de la busqueda generica de mas abajo existe para evitar que un
@@ -382,8 +406,14 @@
         // 4 caracteres (":)", "+1", "Ok"...) y dejar la fila sin boton para
         // siempre, sin aviso ninguno.
         if (t.length > 0) return t;
+        conocidoVacio = true;
       }
     }
+    // Si el nodo del comentario existe pero no se le saca texto (p.ej. solo
+    // imagenes sin alt), NO se cae en la busqueda generica: esa coge el texto
+    // hoja mas largo de la fila, que es una etiqueta de la interfaz o el
+    // titulo del video, y el modelo acabaria contestando a eso. Mejor abortar.
+    if (conocidoVacio) return null;
     let best = "";
     node.querySelectorAll("*").forEach((el) => {
       if (el.children.length === 0) {
