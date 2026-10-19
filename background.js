@@ -20,6 +20,8 @@ const DEFAULTS = {
   countdown: 4,
   requireTranscript: true,
   likeOnPublish: true,
+  emojiReply: true,
+  emojiReplyText: "🤙",
   debug: true,
 };
 

@@ -58,6 +58,8 @@
     countdown: 4, // segundos de ventana de escape; 0 = publica al instante
     requireTranscript: true, // sin transcripcion -> no publica sola
     likeOnPublish: true, // dar "me gusta" al comentario tras publicar la respuesta
+    emojiReply: true, // comentarios de solo emoticonos o elogio corto -> responder con un emoticono
+    emojiReplyText: "🤙", // el emoticono con el que se responde
     debug: true,
   };
 
@@ -400,33 +402,146 @@
     return null;
   }
 
-  function getVideoContext(rowRoot) {
-    let title = null;
-    const scopes = [rowRoot];
-    let a = rowRoot?.parentElement;
-    for (let i = 0; i < 6 && a; i++) { scopes.push(a); a = a.parentElement; }
+  /* ── Identificacion del video de la fila ────────────────────────────────
+     Caso real (19/10/2026): un comentario «top!» en el video «Asi los ricos
+     ESCONDEN su bitcoin en una SOCIEDAD» se respondio con un parrafo sobre
+     Ledger y ataques a la cadena de suministro: el tema de OTRO video del
+     canal. Causa: getVideoId() y getVideoContext() subian hasta seis
+     ancestros de la fila y se quedaban con el PRIMER thumbnail / titulo que
+     encontraban en ese ambito. En la bandeja de comentarios del canal
+     (Comunidad > Comentarios) el padre de una fila es la lista con TODAS las
+     filas, asi que en cuanto la busqueda dentro de la propia fila fallaba
+     (miniatura aun sin src por carga diferida, enlace sin renderizar, fila
+     reciclada por la virtualizacion...) el "primer match" era la miniatura
+     de la primera fila de la lista -normalmente el video mas reciente-, no
+     la de este comentario. Transcripcion, titulo y respuesta salian de otro
+     video, y ninguna salvaguarda lo detectaba porque todo era coherente
+     entre si.
 
-    outer: for (const scope of scopes) {
-      if (!scope) continue;
-      for (const sel of ROW_VIDEO_TITLE_SELECTORS) {
-        const el = scope.querySelector(sel);
+     Regla nueva: un ambito solo vale si no contiene ninguna otra fila de
+     comentario y en el aparece UN unico video. Se empieza por la fila; solo
+     se sube a un ancestro si ese ancestro no engloba otras filas. Si en un
+     ambito aparecen dos videos distintos, es ambiguo y se devuelve null (sin
+     transcripcion ni titulo: con requireTranscript activo eso pasa a
+     revision, que es lo correcto). Los datos de pagina (URL, h1,
+     document.title, descripcion) solo se usan en la pagina de comentarios
+     de UN video (/video/<id>/comments), nunca en la bandeja del canal. */
+
+  function videoIdFromUrl(h) {
+    const s = String(h || "");
+    const m =
+      s.match(/\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\//) ||
+      s.match(/[?&]v=([A-Za-z0-9_-]{11})(?:[&#]|$)/) ||
+      s.match(/[?&]video_id=([A-Za-z0-9_-]{11})(?:[&#]|$)/) ||
+      s.match(/\/video\/([A-Za-z0-9_-]{11})(?:[/?#]|$)/) ||
+      s.match(/\/shorts\/([A-Za-z0-9_-]{11})(?:[/?#]|$)/) ||
+      s.match(/\/live\/([A-Za-z0-9_-]{11})(?:[/?#]|$)/) ||
+      s.match(/youtu\.be\/([A-Za-z0-9_-]{11})(?:[/?#]|$)/);
+    return m ? m[1] : null;
+  }
+
+  // Todos los videos distintos referenciados dentro de un ambito (miniaturas
+  // de i.ytimg.com y enlaces a /video/, /watch?v=, /shorts/...).
+  function videoIdsInScope(scope) {
+    const ids = new Set();
+    for (const img of scope.querySelectorAll("img")) {
+      const id = videoIdFromUrl(img.getAttribute("src") || img.src || "");
+      if (id) ids.add(id);
+    }
+    for (const a of scope.querySelectorAll("a[href]")) {
+      // Un enlace pegado por el comentarista dentro de su comentario no dice
+      // nada del video en el que esta el comentario: se ignora.
+      if (a.closest(TEXT_SELECTORS.join(","))) continue;
+      const id = videoIdFromUrl(a.href || a.getAttribute("href") || "");
+      if (id) ids.add(id);
+    }
+    return ids;
+  }
+
+  // ¿Contiene este ambito alguna fila de comentario que no sea la nuestra?
+  // Si la contiene, estamos ya en la lista: todo lo que haya ahi puede ser
+  // de otro video y no se puede usar.
+  function containsOtherRow(scope, rowRoot) {
+    const propio = rowRoot.closest("ytcp-comment-thread") || rowRoot;
+    const esAjeno = (el) => el !== propio && !propio.contains(el) && !el.contains(propio);
+    const threads = scope.querySelectorAll("ytcp-comment-thread");
+    if (threads.length) return [...threads].some(esAjeno);
+    return [...scope.querySelectorAll(THREAD_TAGS.join(",") + ",[comment-id]")].some(esAjeno);
+  }
+
+  // Ambitos validos, de dentro hacia fuera: la fila y los ancestros que no
+  // engloben otras filas (p.ej. un envoltorio que agrupe hilo + miniatura).
+  function rowScopes(rowRoot) {
+    const scopes = [];
+    if (!rowRoot) return scopes;
+    scopes.push(rowRoot);
+    let a = rowRoot.parentElement;
+    for (let i = 0; i < 6 && a && a !== document.body; i++) {
+      if (containsOtherRow(a, rowRoot)) break;
+      scopes.push(a);
+      a = a.parentElement;
+    }
+    return scopes;
+  }
+
+  function titleInScope(scope) {
+    for (const sel of ROW_VIDEO_TITLE_SELECTORS) {
+      const el = scope.querySelector(sel);
+      if (el) {
+        const t = txt(el);
+        if (t.length > 2 && t.length < 300) return t;
+      }
+    }
+    return null;
+  }
+
+  // Pagina de comentarios de UN video (/video/<id>/comments o ?video_id=).
+  // En la bandeja del canal devuelve null.
+  function pageVideoId() {
+    return videoIdFromUrl(location.href);
+  }
+
+  // Devuelve { videoId, title, description, source }. source: "fila",
+  // "ancestro N", "pagina", "ambiguo" o "ninguno" (para el log).
+  function getVideoInfo(rowRoot) {
+    let videoId = null;
+    let title = null;
+    let source = "ninguno";
+    let ambiguo = false;
+
+    const scopes = rowScopes(rowRoot);
+    for (let i = 0; i < scopes.length; i++) {
+      const scope = scopes[i];
+      const ids = videoIdsInScope(scope);
+      if (ids.size > 1) { ambiguo = true; break; } // dos videos en el mismo ambito: no se puede saber cual
+      if (!title) title = titleInScope(scope);
+      if (ids.size === 1) {
+        videoId = [...ids][0];
+        source = i === 0 ? "fila" : `ancestro ${i}`;
+        break;
+      }
+    }
+
+    if (ambiguo) {
+      return { videoId: null, title: null, description: null, source: "ambiguo" };
+    }
+
+    let description = null;
+    const pageId = pageVideoId();
+    if (pageId) {
+      // Pagina de un solo video: todas las filas son de ese video, asi que
+      // los datos de pagina son validos como respaldo.
+      if (!videoId) { videoId = pageId; source = "pagina"; }
+      if (!title) title = extractPageTitle();
+      for (const sel of PAGE_DESCRIPTION_SELECTORS) {
+        const el = document.querySelector(sel);
         if (el) {
           const t = txt(el);
-          if (t.length > 2 && t.length < 300) { title = t; break outer; }
+          if (t.length > 10 && t.length < 1500) { description = t; break; }
         }
       }
     }
-    if (!title) title = extractPageTitle();
-
-    let description = null;
-    for (const sel of PAGE_DESCRIPTION_SELECTORS) {
-      const el = document.querySelector(sel);
-      if (el) {
-        const t = txt(el);
-        if (t.length > 10 && t.length < 1500) { description = t; break; }
-      }
-    }
-    return { title, description };
+    return { videoId, title, description, source };
   }
 
   function extractPageTitle() {
@@ -440,39 +555,49 @@
     return document.title.replace(/[-–|]?\s*YouTube Studio.*$/i, "").trim() || null;
   }
 
-  // Extraccion del videoId. Frente a la v1 se añade la miniatura de i.ytimg.com,
-  // que es la fuente mas fiable en la bandeja de comentarios porque siempre
-  // esta presente en cada fila.
-  function getVideoId(rowRoot) {
-    const scopes = [rowRoot];
-    let a = rowRoot?.parentElement;
-    for (let i = 0; i < 6 && a; i++) { scopes.push(a); a = a.parentElement; }
-
-    for (const scope of scopes) {
-      if (!scope) continue;
-      for (const img of scope.querySelectorAll("img[src]")) {
-        const m = img.src.match(/\/vi\/([A-Za-z0-9_-]{11})\//);
-        if (m) return m[1];
-      }
-      for (const el of scope.querySelectorAll("a[href]")) {
-        const h = el.href || "";
-        const m =
-          h.match(/[?&]v=([A-Za-z0-9_-]{11})/) ||
-          h.match(/\/video\/([A-Za-z0-9_-]{11})/) ||
-          h.match(/\/shorts\/([A-Za-z0-9_-]{11})/) ||
-          h.match(/\/live\/([A-Za-z0-9_-]{11})/) ||
-          h.match(/youtu\.be\/([A-Za-z0-9_-]{11})/);
-        if (m) return m[1];
-      }
-    }
-    const u = location.href.match(/[?&]video_id=([A-Za-z0-9_-]{11})/) ||
-              location.href.match(/\/video\/([A-Za-z0-9_-]{11})/);
-    return u ? u[1] : null;
-  }
-
   function getCommentId(rowRoot) {
     const el = rowRoot.querySelector("[comment-id]") || (rowRoot.hasAttribute?.("comment-id") ? rowRoot : null);
     return el?.getAttribute("comment-id") || null;
+  }
+
+  /* ── Comentarios de reaccion (solo emoticonos o elogio corto) ───────────
+     Criterio deliberadamente conservador: NUNCA es reaccion si contiene una
+     pregunta, y solo lo es si, quitados los emoticonos y los signos, no
+     queda nada o quedan como mucho ocho palabras y TODAS son de elogio o
+     relleno conocido. «Gracias, pero ¿y en Andorra?» o «muy bueno aunque
+     no estoy de acuerdo» van al modelo como siempre. */
+
+  const REACCION_EMOJI_RE = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}‍️⃣]/gu;
+
+  const VOCAB_REACCION = new Set((
+    "top crack cracks grande grandisimo genial brutal gracias graciass muchas muchisimas mil " +
+    "buenisimo buenisima excelente muy bueno buena buen bien gran video videos contenido " +
+    "explicacion explicado explicar explicarlo compartir compartirlo ayudar ayuda ayudas " +
+    "me encanta encanto gusta gusto bravo enhorabuena felicidades como siempre el la lo " +
+    "los las un una de del por y e que mas mejor eres es sergi andres abogado cripto " +
+    "maquina fenomeno tio bro capo genio idolo maestro master pro perfecto perfecta " +
+    "increible espectacular impresionante tremendo fuego oro joya joyita calidad claro " +
+    "clarisimo clarito entendido util utilisimo interesante interesantisimo info " +
+    "informacion aporte aportazo buenas hola saludos abrazo abrazos fuerte apoyo apoyando " +
+    "suscrito suscrita nuevo nueva sub like likes dale vamos sigue asi seguid seguir " +
+    "adelante agradecido agradecida ok okey vale exacto totalmente acuerdo cierto verdad " +
+    "razon tienes toda super nice good great thanks thank you awesome amazing love it " +
+    "this max maximo respeto equipo trabajo trabajazo mucho muchisimo cada dia primero " +
+    "primer first pin fijame crack top10 10 100 bestial brutalisimo bueno buenazo " +
+    "curradisimo currado curro didactico claridad clarito sencillo facil entender " +
+    "gracias por todo grande sergi abogado cripto"
+  ).split(/\s+/));
+
+  function esComentarioDeReaccion(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return false;
+    if (/[?¿]/.test(raw)) return false; // una pregunta nunca es una reaccion
+    const sinEmoji = raw.replace(REACCION_EMOJI_RE, "");
+    const plano = sinEmoji.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const tokens = plano.split(/[^a-z0-9]+/).filter(Boolean);
+    if (!tokens.length) return true; // solo emoticonos (o solo signos)
+    if (tokens.length > 8) return false;
+    return tokens.every((t) => VOCAB_REACCION.has(t) || /^(j[aeiou]){2,}j?$/.test(t) || /^(xd|lol|wow|uff|olee?)$/.test(t));
   }
 
   /* ==========================================================================
@@ -525,16 +650,42 @@
         }
       }
 
+      /* ---- Comentario de reaccion: se responde con un emoticono -----------
+         Un «top!», «👏👏👏» o «grande Sergi» no pide una respuesta
+         argumentada. Pedirsela al modelo produce texto inventado sobre el
+         video (caso real: a un «top!» se le contesto un parrafo sobre
+         Ledger). Se contesta con el emoticono configurado, sin transcripcion
+         ni API: interaccion rapida y proporcionada. El modo revision y la
+         cuenta atras se respetan igual que con cualquier otra respuesta. */
+      if (state.cfg.emojiReply !== false && esComentarioDeReaccion(commentText)) {
+        const emoji = String(state.cfg.emojiReplyText || "").trim() || DEFAULTS.emojiReplyText;
+        log("Comentario de reaccion: se responde con emoticono", { commentId, commentText, emoji });
+        const metaReaccion = { videoTitle: null, transcript: { ok: false }, commentId, reaccion: true };
+        if (state.cfg.mode !== "auto") {
+          showPanel(row, btn, emoji, { ...metaReaccion, reasons: ["modo revision activado"] });
+          return;
+        }
+        const resEmoji = await publish(btn, row, openerAtInject, emoji, setLabel);
+        if (!resEmoji.ok) {
+          showPanel(row, btn, emoji, { ...metaReaccion, reasons: [resEmoji.error] });
+          return;
+        }
+        toast("Respuesta publicada (emoticono).", "ok");
+        if (state.cfg.likeOnPublish) likeComment(liveRow(btn, row, commentId));
+        return;
+      }
+
       /* ---- Contexto del video ------------------------------------------- */
-      const { title: videoTitle, description: videoDescription } = getVideoContext(row);
-      const videoId = getVideoId(row);
+      const { videoId, title: videoTitle, description: videoDescription, source: videoSource } = getVideoInfo(row);
 
       setLabel("Transcripcion…");
       const tr = videoId
         ? await send({ type: "FETCH_TRANSCRIPT", payload: { videoId } }, 20000)
-        : { ok: false, reason: "no se ha podido identificar el video" };
+        : { ok: false, reason: videoSource === "ambiguo"
+            ? "no se ha podido identificar el video de esta fila sin ambiguedad"
+            : "no se ha podido identificar el video de esta fila" };
 
-      log("Contexto", { videoId, commentId, videoTitle, transcript: tr.ok ? `${tr.text.length} car. (${tr.source})` : `NO — ${tr.reason}` });
+      log("Contexto", { videoId, videoSource, commentId, videoTitle, transcript: tr.ok ? `${tr.text.length} car. (${tr.source})` : `NO — ${tr.reason}` });
 
       /* ---- Generacion ---------------------------------------------------- */
       setLabel("Generando…");
@@ -1238,9 +1389,11 @@
     const panel = document.createElement("div");
     panel.className = "yra2-panel";
 
-    const trBadge = meta.transcript?.ok
-      ? `<span class="yra2-tag yra2-tag--ok">transcripcion ${Math.round(meta.transcript.text.length / 1000)}k</span>`
-      : `<span class="yra2-tag yra2-tag--warn">sin transcripcion</span>`;
+    const trBadge = meta.reaccion
+      ? `<span class="yra2-tag yra2-tag--ok">comentario de reaccion · emoticono</span>`
+      : meta.transcript?.ok
+        ? `<span class="yra2-tag yra2-tag--ok">transcripcion ${Math.round(meta.transcript.text.length / 1000)}k</span>`
+        : `<span class="yra2-tag yra2-tag--warn">sin transcripcion</span>`;
 
     panel.innerHTML = `
       <div class="yra2-panel-head">

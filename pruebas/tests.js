@@ -511,6 +511,148 @@ const T = async (...a) => results.push(await run(...a));
       assert($$(".yra2-panel").length === 1, "no ha dejado el texto original disponible en el panel tras abortar");
     });
 
+  console.log("\nVIDEO DE LA FILA (nunca el de otra fila)");
+
+  await T("pide la transcripcion del video de SU fila (miniatura dentro del hilo)", {}, async ({ wait, $$, mock }) => {
+    await wait(600);
+    const t = $$("ytcp-comment-thread")[2];
+    t.querySelector(".yra2-btn").click();
+    await wait(2500);
+    const tr = mock.payloads.find((p) => p.type === "FETCH_TRANSCRIPT");
+    assert(tr, "no ha pedido la transcripcion");
+    assert(tr.payload.videoId === "VID20000000", `ha pedido el video ${tr.payload.videoId}, esperaba VID20000000`);
+    assert(t.dataset.published === "Respuesta de prueba.", "no ha publicado en la fila");
+  });
+
+  await T("si la miniatura de su fila aun no ha cargado, NO coge el video de la primera fila de la lista",
+    { studio: { sinMiniaturaEn: [1] } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      threads[1].querySelector(".yra2-btn").click();
+      await wait(2500);
+      const tr = mock.payloads.find((p) => p.type === "FETCH_TRANSCRIPT");
+      assert(!tr, `ha pedido la transcripcion del video ${tr && tr.payload.videoId}: es el de OTRA fila (caso real del 19/10/2026)`);
+      // Sin video identificado no hay transcripcion; con requireTranscript
+      // (por defecto) eso pasa a revision en vez de publicarse solo.
+      assert(!threads[1].dataset.published, "ha publicado sin saber de que video era el comentario");
+      assert($$(".yra2-panel").length === 1, "no ha abierto el panel de revision");
+      const gen = mock.payloads.find((p) => p.type === "GENERATE_REPLY");
+      assert(gen && gen.payload.videoTitle === "Europa quiere PROHIBIR las wallets", "el titulo de la propia fila si debe usarse");
+    });
+
+  await T("acepta un envoltorio hermano con la miniatura (fila = envoltorio > hilo + miniatura) y se para en la lista",
+    { studio: { miniaturaFuera: true } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[1];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      const tr = mock.payloads.find((p) => p.type === "FETCH_TRANSCRIPT");
+      assert(tr, "no ha pedido la transcripcion aunque la miniatura esta en el envoltorio de la fila");
+      assert(tr.payload.videoId === "VID10000000", `ha pedido ${tr.payload.videoId}, esperaba VID10000000`);
+      assert(t.dataset.published === "Respuesta de prueba.", "no ha publicado");
+    });
+
+  await T("con envoltorio hermano Y miniatura sin cargar, tampoco coge la de otra fila",
+    { studio: { miniaturaFuera: true, sinMiniaturaEn: [2] } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      $$("ytcp-comment-thread")[2].querySelector(".yra2-btn").click();
+      await wait(2500);
+      const tr = mock.payloads.find((p) => p.type === "FETCH_TRANSCRIPT");
+      assert(!tr, `ha pedido el video ${tr && tr.payload.videoId} de otra fila`);
+    });
+
+  await T("en la pagina de comentarios de UN video usa el id de la URL como respaldo",
+    { studio: { sinMiniaturaEn: [0, 1, 2], url: "https://studio.youtube.com/video/PAGINA00001/comments" } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      $$("ytcp-comment-thread")[1].querySelector(".yra2-btn").click();
+      await wait(2500);
+      const tr = mock.payloads.find((p) => p.type === "FETCH_TRANSCRIPT");
+      assert(tr && tr.payload.videoId === "PAGINA00001", `esperaba PAGINA00001, ha pedido ${tr && tr.payload.videoId}`);
+    });
+
+  console.log("\nCOMENTARIOS DE REACCION (emoticono)");
+
+  await T("un comentario de solo emoticonos se responde con el emoticono, sin modelo ni transcripcion",
+    { studio: { rows: 1, comentarios: ["👏👏👏"] }, mock: { reply: "NO DEBE USARSE" } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      assert(t.querySelector(".yra2-btn"), "la fila de solo emoticonos no tiene boton");
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "🤙", `ha publicado "${t.dataset.published}", esperaba 🤙`);
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha llamado al modelo para un comentario de solo emoticonos");
+      assert(!mock.calls.includes("FETCH_TRANSCRIPT"), "ha pedido la transcripcion para un comentario de solo emoticonos");
+      assert(t.dataset.liked === "1", "no ha dado me gusta");
+    });
+
+  await T("«top!» y «Grande Sergi, crack!!» son elogios cortos: emoticono configurado",
+    { studio: { rows: 2, comentarios: ["top!", "Grande Sergi, crack!!"] }, mock: { reply: "NO DEBE USARSE", cfg: { emojiReplyText: "🙌" } } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      threads[0].querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(threads[0].dataset.published === "🙌", `fila 0: "${threads[0].dataset.published}"`);
+      threads[1].querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(threads[1].dataset.published === "🙌", `fila 1: "${threads[1].dataset.published}"`);
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha llamado al modelo");
+    });
+
+  await T("una pregunta o un comentario con palabras que no son de elogio van al modelo como siempre",
+    { studio: { rows: 3, comentarios: ["Gracias, ¿y en Andorra?", "muy bueno pero no estoy de acuerdo", "👏 y el modelo 721 que"] } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const threads = $$("ytcp-comment-thread");
+      for (const t of threads) {
+        t.querySelector(".yra2-btn").click();
+        await wait(2500);
+        assert(t.dataset.published === "Respuesta de prueba.", `"${t.querySelector("[id='content-text']").textContent}" -> "${t.dataset.published}"`);
+      }
+      assert(mock.calls.filter((c) => c === "GENERATE_REPLY").length === 3, "no ha llamado al modelo las tres veces");
+    });
+
+  await T("con emojiReply desactivado, los emoticonos van al modelo",
+    { studio: { rows: 1, comentarios: ["🔥🔥"] }, mock: { reply: "Del modelo.", cfg: { emojiReply: false } } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Del modelo.", `ha publicado "${t.dataset.published}"`);
+      assert(mock.calls.includes("GENERATE_REPLY"), "no ha llamado al modelo");
+    });
+
+  await T("en modo revision, la reaccion abre el panel con el emoticono y no publica sola",
+    { studio: { rows: 1, comentarios: ["💪💪"] }, mock: { reply: "NO", cfg: { mode: "review" } } },
+    async ({ wait, $$, $ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(1500);
+      assert(!t.dataset.published, "ha publicado en modo revision");
+      assert($$(".yra2-panel").length === 1, "no ha abierto el panel");
+      assert($(".yra2-panel .yra2-text").value === "🤙", `el panel no lleva el emoticono: "${$(".yra2-panel .yra2-text").value}"`);
+    });
+
+  await T("la cuenta atras tambien se aplica al emoticono (se puede cancelar)",
+    { studio: { rows: 1, comentarios: ["👍"] }, mock: { reply: "NO", cfg: { countdown: 5 } } },
+    async ({ wait, $$, $ }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(1200);
+      assert($$(".yra2-countdown").length === 1, "no ha aparecido la cuenta atras");
+      $(".yra2-countdown [data-cd='cancel']").click();
+      await wait(2000);
+      assert(!t.dataset.published, "ha publicado pese a cancelar");
+    });
+
   console.log("\nRUTA SPA");
 
   await T("al salir de /comments retira botones y paneles", {}, async ({ wait, $$, window }) => {

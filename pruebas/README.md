@@ -4,8 +4,8 @@ Requiere Node 18+ y jsdom.
 
 ```bash
 npm install jsdom
-node tests.js      # 24 pruebas: flujo de publicacion, DOM, salvaguardas, SPA
-node tests-bg.js   # 33 pruebas: parseo, transcripcion, prompts, errores de API
+node tests.js      # 51 pruebas: flujo de publicacion, DOM, salvaguardas, SPA
+node tests-bg.js   # 45 pruebas: parseo, transcripcion, prompts, errores de API
 ```
 
 `harness.js` monta un YouTube Studio simulado. Reproduce lo esencial del
@@ -22,6 +22,10 @@ Variantes del simulador (parametro `studio` en cada prueba):
 | `submitStartsEnabled: true` | El boton de enviar ya viene habilitado |
 | `openDelay: N` | Milisegundos que tarda la caja en aparecer |
 | `rows: N` | Numero de comentarios en la lista |
+| `comentarios: [...]` | Textos de las filas (p.ej. solo emoticonos o elogios cortos) |
+| `sinMiniaturaEn: [i, ...]` | Filas cuya miniatura aun no tiene `src` ni enlace al video (carga diferida) |
+| `miniaturaFuera: true` | La miniatura cuelga de un envoltorio hermano del hilo, no del hilo |
+| `url: "..."` | URL de la pagina simulada (bandeja del canal por defecto; `/video/<id>/comments` para la pagina de un video) |
 
 AVISO: que las pruebas pasen no significa que funcione en Studio. Significa que
 la logica es coherente con el modelo de DOM que se supuso. Ese modelo es

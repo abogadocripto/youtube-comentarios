@@ -5,10 +5,10 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox" } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
-    { url: "https://studio.youtube.com/channel/UCabc/comments/inbox", pretendToBeVisual: true, runScripts: "outside-only" }
+    { url, pretendToBeVisual: true, runScripts: "outside-only" }
   );
   const { window } = dom;
   const doc = window.document;
@@ -34,11 +34,21 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
   };
 
   const app = doc.getElementById("app");
-  const comments = [
+  // `comentarios` permite fijar los textos de las filas (p.ej. para probar
+  // comentarios de solo emoticonos o elogios cortos).
+  const comments = comentarios || [
     "Muy buenos directos, muchas gracias por compartir tu conocimiento y ayudarnos tanto!",
     "Si pido un prestamo con mis tokens como colateral, ese fiat, no tributa?",
     "Se escucha con un poco de eco. Pero muy bien",
   ];
+
+  // sinMiniaturaEn: filas cuya miniatura aun no tiene src (carga diferida de
+  // Studio) y cuyo enlace al video no se ha renderizado. Es el caso real en
+  // que la extension se quedaba con el video de OTRA fila.
+  const miniatura = (i) => sinMiniaturaEn.includes(i)
+    ? `<img data-lazy="1" />`
+    : `<a href="https://studio.youtube.com/video/VID${i}0000000/comments">ver</a>
+      <img src="https://i.ytimg.com/vi/VID${i}0000000/hq.jpg" />`;
 
   for (let i = 0; i < rows; i++) {
     const thread = doc.createElement("ytcp-comment-thread");
@@ -60,10 +70,24 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
           <ytcp-button class="open-reply-existing"><button>Responder</button></ytcp-button>
         </div>
       </div>` : ""}
-      <a href="https://studio.youtube.com/video/VID${i}0000000/comments">ver</a>
-      <img src="https://i.ytimg.com/vi/VID${i}0000000/hq.jpg" />
+      ${miniaturaFuera ? "" : miniatura(i)}
     `;
-    app.appendChild(thread);
+    // miniaturaFuera reproduce un DOM en el que la miniatura y el enlace del
+    // video NO cuelgan del hilo sino de un envoltorio hermano (fila =
+    // envoltorio > [hilo, miniatura]). La extension debe aceptar ese
+    // envoltorio (no contiene otras filas) y pararse en la lista.
+    if (miniaturaFuera) {
+      const fila = doc.createElement("div");
+      fila.className = "fila-envoltorio";
+      fila.appendChild(thread);
+      const caja = doc.createElement("div");
+      caja.className = "miniatura";
+      caja.innerHTML = miniatura(i);
+      fila.appendChild(caja);
+      app.appendChild(fila);
+    } else {
+      app.appendChild(thread);
+    }
 
     thread.querySelector(".like-btn button")?.addEventListener("click", () => {
       thread.dataset.liked = "1";
@@ -167,11 +191,13 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
     requireTranscript: true, debug: false, ...cfg,
   };
   const calls = [];
+  const payloads = []; // { type, payload } de cada mensaje, para inspeccionar p.ej. el videoId pedido
   window.chrome = {
     runtime: {
       lastError: null,
       sendMessage: (msg, cb) => {
         calls.push(msg.type);
+        payloads.push({ type: msg.type, payload: msg.payload });
         if (mudo && mudo.includes(msg.type)) return; // nunca contesta: simula el SW dormido
         setTimeout(() => {
           // `reply` puede ser un string fijo o una funcion (payload) => string,
@@ -198,7 +224,7 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
     },
   };
   window.navigator.clipboard = { writeText: async () => {} };
-  return { calls, settings };
+  return { calls, payloads, settings };
 }
 
 async function run(name, opts, assertions) {

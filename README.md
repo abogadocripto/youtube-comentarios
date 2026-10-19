@@ -1,8 +1,39 @@
-# YouTube Reply Assistant v2.2.16
+# YouTube Reply Assistant v2.2.17
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.2.17 — el vídeo de la fila, nunca el de otra; respuesta con emoticono
+
+**Corregido el cruce de vídeos.** Caso real: a un «top!» en el vídeo «Así los
+ricos ESCONDEN su bitcoin en una SOCIEDAD» se le contestó un párrafo sobre
+Ledger y ataques a la cadena de suministro, el tema de otro vídeo. La
+extensión buscaba la miniatura y el título del vídeo subiendo hasta seis
+niveles por encima de la fila y se quedaba con el **primer** resultado. En
+la bandeja de Comunidad > Comentarios, el padre de una fila es la lista con
+todas las filas: si la miniatura de la fila aún no había cargado (o el
+enlace no estaba renderizado), el «primer resultado» era la miniatura de la
+primera fila de la lista, normalmente el vídeo más reciente. Ahora solo se
+mira dentro de la fila (y, como mucho, en un envoltorio que no contenga otras
+filas); si en el ámbito aparecen dos vídeos distintos, se considera ambiguo
+y no se usa ninguno. Sin vídeo identificado no hay transcripción, y con «No
+publicar sola si falta la transcripción» (por defecto) la respuesta pasa a
+revisión. En la consola, la línea `[YRA2] Contexto` muestra ahora
+`videoSource` (`fila`, `ancestro N`, `pagina`, `ambiguo` o `ninguno`).
+Detalle en `TRASPASO.md` §19.
+
+**Respuesta con emoticono.** Los comentarios de solo emoticonos («👏👏👏») o
+de elogio corto («top!», «grande Sergi, crack») ya no pasan por el modelo: se
+contestan con el emoticono configurado en el popup (por defecto 🤙), con la
+misma cuenta atrás, el mismo modo (revisión o automático) y el «me gusta».
+Nunca se aplica a un comentario con una pregunta ni a uno con palabras que
+no sean de elogio o relleno conocido. Se puede desactivar en el popup.
+
+**Diagnóstico ampliado.** `diagnostico-dom.js` incluye una sección 4b que
+dice, para las primeras filas, qué miniaturas, enlaces y título hay dentro
+de cada hilo y cuántos vídeos distintos ve en el padre. Si sospechas otro
+cruce de vídeos, pásalo y pega la salida.
 
 ## Novedades en 2.2.16 — revisión integral del proyecto
 
@@ -242,15 +273,18 @@ puedes separar el consumo de cada extensión mientras pruebas en paralelo.
 Pulsas **Responder con IA** una sola vez. A partir de ahí:
 
 1. Lee el comentario del DOM en ese instante.
-2. Saca el `videoId` de la miniatura de la fila y descarga la transcripción.
-3. Llama a la API con tu prompt de estilo.
-4. Revisa el texto generado (vacío, fugas del prompt, muletillas prohibidas).
-5. Abre el cuadro de respuesta **de esa fila**.
-6. Escribe el texto y **comprueba que está realmente dentro**.
-7. Espera a que se habilite el botón de enviar, que es la prueba de que
+2. Si el comentario es solo emoticonos o un elogio corto, salta al paso 5 con
+   el emoticono configurado (sin modelo ni transcripción).
+3. Saca el `videoId` de la miniatura o el enlace **de esa fila** (nunca de la
+   lista) y descarga la transcripción.
+4. Llama a la API con tu prompt de estilo.
+5. Revisa el texto generado (vacío, fugas del prompt, muletillas prohibidas).
+6. Abre el cuadro de respuesta **de esa fila**.
+7. Escribe el texto y **comprueba que está realmente dentro**.
+8. Espera a que se habilite el botón de enviar, que es la prueba de que
    YouTube ha registrado el texto.
-8. Te da unos segundos para cancelar.
-9. Envía y confirma que el cuadro se ha cerrado.
+9. Te da unos segundos para cancelar.
+10. Envía y confirma que el cuadro se ha cerrado.
 
 **Si cualquier paso falla, aborta y no publica.** Abre el panel con el texto ya
 escrito, y además lo deja en el portapapeles.
@@ -276,6 +310,12 @@ descubras a mitad de una tanda.
 
 **Razonamiento extendido.** Mejor criterio técnico, entre 5 y 15 segundos más
 por respuesta. Para comentarios de una línea puedes apagarlo.
+
+**Responder con un emoticono a los comentarios de solo emoticonos o elogio
+corto.** Activado por defecto, con 🤙. Un «top!», «👏👏👏» o «grande Sergi»
+se contesta con ese emoticono (o el texto corto que pongas) sin llamar al
+modelo. Cualquier comentario con una pregunta o con palabras que no sean de
+elogio sigue yendo al modelo.
 
 **Contexto del vídeo.** Se añade a todas las respuestas. Útil cuando trabajas
 los comentarios de un solo vídeo.

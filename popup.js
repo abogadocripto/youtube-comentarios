@@ -11,6 +11,8 @@
     countdown: 4,
     requireTranscript: true,
     likeOnPublish: true,
+    emojiReply: true,
+    emojiReplyText: "🤙",
     debug: true,
   };
 
@@ -25,6 +27,8 @@
     secsRow: $("secsRow"),
     requireTranscript: $("requireTranscript"),
     likeOnPublish: $("likeOnPublish"),
+    emojiReply: $("emojiReply"),
+    emojiReplyText: $("emojiReplyText"),
     extraContext: $("extraContext"),
     customInstructions: $("customInstructions"),
     testBtn: $("testBtn"),
@@ -47,6 +51,8 @@
     el.extendedThinking.checked = !!cfg.extendedThinking;
     el.requireTranscript.checked = !!cfg.requireTranscript;
     el.likeOnPublish.checked = cfg.likeOnPublish !== false;
+    el.emojiReply.checked = cfg.emojiReply !== false;
+    el.emojiReplyText.value = cfg.emojiReplyText || DEFAULTS.emojiReplyText;
     el.extraContext.value = cfg.extraContext || "";
     el.customInstructions.value = cfg.customInstructions || "";
     el.countdown.value = Number(cfg.countdown) > 0 ? Number(cfg.countdown) : 4;
@@ -91,6 +97,8 @@
       countdown,
       requireTranscript: el.requireTranscript.checked,
       likeOnPublish: el.likeOnPublish.checked,
+      emojiReply: el.emojiReply.checked,
+      emojiReplyText: el.emojiReplyText.value.trim() || DEFAULTS.emojiReplyText,
       debug: true,
     };
   }

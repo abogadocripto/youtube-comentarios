@@ -1114,3 +1114,135 @@ parchearse de forma apresurada.
 Verificación: 45/45 pruebas de `tests-bg.js` y 40/40 de `tests.js`, las
 dos suites re-ejecutadas de forma independiente tras el review (no solo
 el autoinforme del propio proceso de revisión).
+
+---
+
+## 19. Respuesta con el contexto de OTRO vídeo, y respuesta con emoticono (v2.2.17)
+
+### El caso real
+
+19/10/2026. Comentario «top!» (de @HNWIRelocator) en el vídeo «Así los ricos
+ESCONDEN su bitcoin en una SOCIEDAD». La extensión publicó un párrafo sobre
+«supply chain attack», Ledger y «comprar siempre en el fabricante oficial»:
+el tema de otro vídeo del canal. El texto era coherente, bien escrito y
+proporcionado (cumplía todas las salvaguardas de `vetReply()`), pero hablaba
+del vídeo equivocado. Era el mismo síntoma que el caso Hyperliquid / Travel
+Rule que §8 del traspaso dejaba como «sin confirmar, probablemente versión
+vieja». No era la versión vieja: era un defecto de diseño que seguía en la
+2.2.16.
+
+### Causa (confirmada leyendo el código, no deducida del síntoma)
+
+`getVideoId(rowRoot)` y `getVideoContext(rowRoot)` construían una lista de
+ámbitos `[fila, padre, abuelo, ... (6 niveles)]` y devolvían el **primer**
+`img` con `/vi/<id>/` o el primer enlace con id de vídeo (y el primer título)
+que encontraban recorriendo esa lista. Dentro de la fila eso es correcto.
+Pero en la bandeja de Comunidad > Comentarios, el **padre de una fila es la
+lista con todas las filas**. En cuanto la búsqueda dentro de la propia fila
+fallaba por cualquier motivo —miniatura con carga diferida y todavía sin
+`src`, enlace no renderizado, fila reciclada por la virtualización de la
+lista—, el siguiente ámbito era la lista entera y el «primer match» era la
+miniatura de la **primera fila**, normalmente el vídeo más reciente del
+canal. Transcripción, título y, por tanto, respuesta: todos del vídeo
+equivocado, y todos coherentes entre sí, por lo que ninguna salvaguarda lo
+detectaba. El comentario, en cambio, se leía bien (sale de `row`, sin subir),
+de ahí que la respuesta «contestara» al comentario correcto con el contexto
+incorrecto.
+
+Que el comentario fuera «top!» (sin contenido) hizo el síntoma más visible:
+el modelo rellenó la respuesta con la transcripción que tenía, que era la de
+Ledger.
+
+### Corrección
+
+Nueva función `getVideoInfo(rowRoot)` (sustituye a las dos anteriores) con
+una regla explícita: **un ámbito solo vale si no contiene ninguna otra fila
+de comentario y en él aparece un único vídeo.**
+
+- `rowScopes()`: la fila y, como mucho, los ancestros que **no engloben otra
+  fila** (`containsOtherRow()`: otro `ytcp-comment-thread` que no sea el
+  nuestro ni lo contenga; de respaldo, cualquier `THREAD_TAGS`/`[comment-id]`
+  ajeno). Esto admite un envoltorio «hilo + miniatura» si Studio lo tuviera,
+  y se para en la lista, siempre.
+- `videoIdsInScope()`: conjunto de vídeos distintos en el ámbito (miniaturas
+  `/vi/` y `/vi_webp/`, enlaces `/video/`, `?v=`, `/shorts/`, `/live/`,
+  `youtu.be`, con límite de 11 caracteres acotado). Si hay **dos o más** →
+  ambiguo → `videoId = null` y `title = null`, y no se sube más (subir solo
+  puede empeorar). Si hay uno → ese. Si no hay ninguno → siguiente ámbito.
+- Datos de página (`location.href`, `h1`, `document.title`, descripción)
+  **solo** cuando la URL es la de los comentarios de un vídeo
+  (`/video/<id>/comments` o `?video_id=`). En la bandeja del canal no se
+  usan nunca: antes, `extractPageTitle()` podía devolver el `h1` de la
+  página como «título del vídeo».
+- Sin vídeo identificado → `FETCH_TRANSCRIPT` no se pide, motivo «no se ha
+  podido identificar el video de esta fila [sin ambiguedad]» → con
+  `requireTranscript` (por defecto) la respuesta pasa a revisión. Es el
+  comportamiento deseado: mejor pedir revisión que publicar sobre otro vídeo.
+- El log `[YRA2] Contexto` incluye `videoSource` (`fila`, `ancestro N`,
+  `pagina`, `ambiguo`, `ninguno`) para poder diagnosticar un caso nuevo sin
+  pedir nada más.
+
+`diagnostico-dom.js` incorpora la sección **4b**: para las primeras cuatro
+filas dice qué vídeos, imágenes y título hay dentro del hilo y cuántos
+vídeos distintos ve en el padre. Es lo que hay que pedir al usuario si
+vuelve a aparecer un cruce.
+
+### Lo que NO se ha verificado
+
+El DOM real de la bandeja no se ha vuelto a inspeccionar en esta ronda (no
+había sesión de Studio disponible). La corrección no depende de la
+estructura exacta: en cualquiera de las dos posibles (miniatura dentro del
+hilo o en un envoltorio hermano) el resultado es el vídeo de la fila o
+`null`, nunca el de otra fila. Las cinco pruebas nuevas de «VIDEO DE LA
+FILA» cubren ambas estructuras, la miniatura sin cargar, el envoltorio y la
+página de un solo vídeo. Si en el DOM real la miniatura no cuelga ni del
+hilo ni de un envoltorio sin otras filas, el efecto será «sin
+transcripción → revisión» en todas las filas: visible de inmediato en la
+primera prueba y diagnosticable con la sección 4b.
+
+### Respuesta con emoticono (petición del usuario)
+
+Los comentarios de solo emoticonos («👏👏👏», «🔥») o de elogio corto
+(«top!», «grande Sergi, crack») no piden una respuesta argumentada, y
+pedírsela al modelo es justo lo que produjo el párrafo sobre Ledger. Ahora
+se contestan con un emoticono: `esComentarioDeReaccion()` en `content.js`,
+ajustes `emojiReply` (true) y `emojiReplyText` («🤙», el gesto de
+Ronaldinho, elegido por el usuario) en `DEFAULTS` de `content.js`,
+`background.js` y `popup.js`, y en el popup.
+
+Criterio, deliberadamente conservador:
+
+1. Nunca es reacción si contiene `?` o `¿` (una pregunta siempre va al
+   modelo).
+2. Se quitan los emoticonos (`\p{Extended_Pictographic}`, modificadores,
+   banderas, ZWJ, VS16, keycap) y se normaliza (minúsculas, sin acentos).
+3. Si no queda nada → reacción (solo emoticonos o signos).
+4. Si quedan hasta ocho palabras y **todas** están en `VOCAB_REACCION`
+   (elogio y relleno: «gracias», «grande», «crack», «muy», «el», «sergi»…)
+   o son risas (`jajaja`, `xd`) → reacción. Una sola palabra fuera del
+   vocabulario («pero», «no», «tengo», «duda», «721») → modelo.
+
+El camino de reacción se evalúa tras la salvaguarda 1 (cajas cerradas) y
+antes de pedir vídeo o transcripción: no llama a `FETCH_TRANSCRIPT` ni a
+`GENERATE_REPLY`. Respeta el modo (en revisión abre el panel con el
+emoticono y una etiqueta «comentario de reaccion · emoticono»), la cuenta
+atrás y `likeOnPublish`. `vetReply()` no se aplica (un emoticono de un solo
+code unit daría «respuesta vacía»); la inserción y la verificación de
+`publish()` son las de siempre (`norm()` no toca emoticonos, comprobado).
+
+Sobre la estrategia, para que conste: responder a todo con emoticonos no
+«posiciona» por sí mismo; lo que YouTube mide es la interacción total del
+vídeo (comentarios, respuestas, likes, tiempo de visualización). Una
+respuesta del creador cuenta como comentario y suele provocar más
+interacción, así que un emoticono rápido a los elogios tiene sentido como
+volumen barato, siempre que las preguntas de verdad sigan recibiendo texto.
+Por eso el criterio excluye cualquier cosa con contenido.
+
+### Pruebas
+
+Seis pruebas nuevas de «COMENTARIOS DE REACCION» y cinco de «VIDEO DE LA
+FILA» en `tests.js` (51 en total). `harness.js` admite `comentarios`,
+`sinMiniaturaEn`, `miniaturaFuera` y `url`, y el mock de `chrome.runtime`
+guarda ahora `payloads` (tipo + payload de cada mensaje) para poder afirmar
+**qué** vídeo se ha pedido, no solo que se ha pedido algo. `tests-bg.js`
+sin cambios (45/45).

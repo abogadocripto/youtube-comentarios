@@ -144,6 +144,40 @@
   if (conId.length) say(`   ejemplo: ${ident(conId[0])} → ${conId[0].getAttribute("comment-id")}`);
   say("");
 
+  /* 4b. Video de cada fila ----------------------------------------------------
+     Para la correccion de v2.2.17 (respuesta con el contexto de OTRO video):
+     dice, para las primeras filas, que miniaturas y enlaces de video hay
+     DENTRO del hilo, si el titulo del video cuelga del hilo, y cuantos
+     videos distintos ve en el padre del hilo (si ve varios, el padre es la
+     lista y jamas debe usarse como ambito).                               */
+  say("4b. VIDEO DE CADA FILA (miniatura, enlace y titulo dentro del hilo)");
+  const idDeUrl = (h) => {
+    const m = String(h || "").match(/\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\//) ||
+              String(h || "").match(/\/video\/([A-Za-z0-9_-]{11})(?:[/?#]|$)/) ||
+              String(h || "").match(/[?&]v=([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  };
+  const idsEn = (scope) => {
+    const ids = new Set();
+    scope.querySelectorAll("img").forEach((i) => { const v = idDeUrl(i.getAttribute("src") || i.src); if (v) ids.add(v); });
+    scope.querySelectorAll("a[href]").forEach((a) => { const v = idDeUrl(a.href); if (v) ids.add(v); });
+    return [...ids];
+  };
+  const hilos = [...document.querySelectorAll("ytcp-comment-thread")];
+  say(`   hilos (ytcp-comment-thread): ${hilos.length}`);
+  hilos.slice(0, 4).forEach((h, i) => {
+    const texto = (h.querySelector("#content-text")?.innerText || "").trim().slice(0, 40);
+    const imgs = [...h.querySelectorAll("img")].map((im) => (im.getAttribute("src") || "(sin src)").slice(0, 70));
+    const titulo = h.querySelector(".video-title, [class*='video-title'], a[href*='/video/']");
+    const padre = h.parentElement;
+    say(`   fila ${i}: "${texto}"`);
+    say(`      videos dentro del hilo: ${JSON.stringify(idsEn(h))}`);
+    say(`      imgs dentro del hilo: ${imgs.length ? imgs.join(" | ") : "ninguna"}`);
+    say(`      titulo dentro del hilo: ${titulo ? JSON.stringify((titulo.innerText || "").trim().slice(0, 60)) : "NO"}`);
+    say(`      padre: ${ident(padre)} → videos distintos en el padre: ${idsEn(padre).length}, hilos en el padre: ${padre ? padre.querySelectorAll("ytcp-comment-thread").length : 0}`);
+  });
+  say("");
+
   /* 5. Que ve la extension ------------------------------------------------- */
   say("5. ELEMENTOS DE LA EXTENSION EN LA PAGINA");
   ["yra2-btn", "yra2-panel", "yra2-toast", "yra2-countdown"].forEach((c) => {
