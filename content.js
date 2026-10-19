@@ -215,6 +215,7 @@
     });
     state.observer.observe(document.body, { childList: true, subtree: true });
 
+    injectScamButton();
     scan();
     // Red de seguridad mientras Studio carga en diferido. A diferencia de la
     // v1 no se apaga a los 2 minutos: el scroll infinito de comentarios sigue
@@ -252,7 +253,8 @@
     state.observer = null;
     clearTimeout(state.scanTimer);
     clearInterval(state.scanTimer2);
-    document.querySelectorAll(`.${BTN_CLASS}, .yra2-panel, .yra2-toast, .yra2-countdown`).forEach((e) => e.remove());
+    document.querySelectorAll(`.${BTN_CLASS}, .yra2-panel, .yra2-toast, .yra2-countdown, .yra2-scam-fab, .yra2-scam-panel, .yra2-scam-tag`).forEach((e) => e.remove());
+    document.querySelectorAll(".yra2-scam-hit").forEach((e) => e.classList.remove("yra2-scam-hit"));
     state.processed = new WeakSet();
   }
 
@@ -1064,7 +1066,7 @@
 
   // Cualquier elemento de la propia extension queda fuera de las busquedas.
   function esNuestro(el) {
-    return !!el.closest?.(".yra2-panel, .yra2-countdown, .yra2-toast") || el.classList?.contains(BTN_CLASS);
+    return !!el.closest?.(".yra2-panel, .yra2-countdown, .yra2-toast, .yra2-scam-panel, .yra2-scam-fab, .yra2-scam-tag") || el.classList?.contains(BTN_CLASS);
   }
 
   // El campo real de Studio (confirmado con diagnostico-dom.js) es un
@@ -1687,6 +1689,296 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  /* ==========================================================================
+     10. ESTAFAS  —  boton «🚫 Buscar estafas» (v2.3.0)
+     --------------------------------------------------------------------------
+     Peticion de Sergi (19/10/2026): en los comentarios entran enjambres de
+     bots («gracias a la persona X gane dinero», WhatsApp de un «asesor»,
+     «X is a position») y quiere quitarlos desde Studio de un tiron. El boton
+     revisa los comentarios CARGADOS en pantalla (reglas + enjambre + Claude
+     para los dudosos), marca en rojo los de estafa y les MARCA LA CASILLA de
+     Studio. Nada mas: el borrado / denuncia / ocultar usuario lo hace Sergi
+     con un clic en la barra de acciones de Studio que aparece al marcar
+     casillas. La extension nunca ejecuta una accion irreversible sola.
+     ========================================================================== */
+
+  const SCAM_FAB = "yra2-scam-fab";
+  const SCAM_PANEL = "yra2-scam-panel";
+  const SCAM_HIT = "yra2-scam-hit";
+  const SCAM_TAG = "yra2-scam-tag";
+  const CHECKBOX_SEL = "ytcp-checkbox-lit, tp-yt-paper-checkbox, [role='checkbox'], input[type='checkbox']";
+  const OWN_AUTHOR_RE = /sergi[\s_.-]?andr[eé]s/i; // nunca se marca un comentario del propio canal
+
+  // Limites de palabra que funcionan con acentos (\b de JS solo entiende ASCII:
+  // «ayudó» seguido de espacio no tiene \b detras de la «ó»).
+  const W0 = "(?<![\\p{L}\\p{N}_])";
+  const W1 = "(?![\\p{L}\\p{N}_])";
+  const rx = (body) => new RegExp(`${W0}(?:${body})${W1}`, "iu");
+
+  const SCAM_TELEFONO = /(?:\+|00)\s?\d{1,3}[\s().-]*\d{2,4}[\s().-]*\d{2,4}[\s().-]*\d{2,4}/u;
+  const SCAM_CONTACTO = new RegExp(
+    `${W0}(?:whats?app|telegram|signal|wickr|dm (?:him|her|them)|write (?:to )?(?:him|her)|` +
+    `escr[ií]b(?:ele|ale|e)|cont[aá]ct(?:a|ale|o|ar)|contact (?:him|her|them)|` +
+    `lo+k (?:him|her|them) up|google (?:him|her|the name)|b[uú]scal[oa])${W1}|t\\.me/`, "iu");
+  const SCAM_MENTOR = rx(
+    "asesor|asesora|mentor|mentora|broker|coach|analista|expert[oa]?|se[ñn]ales|signals|" +
+    "trader|managed? (?:my )?(?:account|portfolio)|gestion[oó] mi cuenta|ganancias?|profits?|" +
+    "returns?|rentabilidad|payout|withdraw|retir[eé]|cambi[oó] mi vida|changed my life|" +
+    "financial freedom|libertad financiera|recuper(?:ar|é|e|aci[oó]n) (?:mis |mi )?(?:fondos|bitcoin|btc|cripto)|" +
+    "recover(?:y|ed)? (?:my )?(?:funds|bitcoin|btc|crypto)");
+  const SCAM_TESTIMONIO = rx(
+    "gracias a|thanks to|all thanks to|because of|recomend(?:ó|o|ada|ado)|recommend(?:ed|ing)?|" +
+    "me ayud[oó]|helped me|guid(?:ed|ance)|bajo (?:la )?(?:gu[ií]a|direcci[oó]n) de|under (?:the )?guidance");
+  const SCAM_NOMBRE = /(?<![\p{L}])(\p{Lu}\p{Ll}{2,}(?:\s\p{Lu}\p{Ll}{2,}){0,2})(?![\p{L}])/gu;
+  const SCAM_RUIDO = new Set(["Gracias", "Hola", "Bitcoin", "Ethereum", "Ledger", "Hacienda", "Andorra", "Sergi",
+    "Andres", "Andrés", "España", "Spain", "Europa", "Europe", "The", "This", "That", "Thank", "Thanks", "Great",
+    "Nice", "Good", "Very", "Yes", "Binance", "Coinbase", "Kraken", "Revolut", "Crypto", "Cripto", "Youtube",
+    "YouTube", "Saludos", "Muchas", "Muy", "Buen", "Buenas", "Buenos", "Que", "Qué", "Por", "Para", "Pero", "Como",
+    "Cómo", "Hay", "Este", "Esta", "Eso", "Esto", "Gran", "Excelente", "Increíble", "Trezor", "Tangem", "Bit2Me"]);
+
+  function scamReglas(texto) {
+    const t = String(texto || "");
+    const tel = SCAM_TELEFONO.test(t), con = SCAM_CONTACTO.test(t), men = SCAM_MENTOR.test(t), tes = SCAM_TESTIMONIO.test(t);
+    if (tel && (con || men || tes)) return "teléfono de contacto de un «asesor»";
+    if (con && (men || tes)) return "pide contactar (WhatsApp/Telegram) con un «asesor»";
+    if (men && tes && scamNombres(t).size) return "testimonio de ganancias gracias a una persona";
+    return null;
+  }
+
+  function scamNombres(texto) {
+    const out = new Set();
+    for (const m of String(texto || "").matchAll(SCAM_NOMBRE)) {
+      if (!SCAM_RUIDO.has(m[1].split(/\s/)[0])) out.add(m[1]);
+    }
+    return out;
+  }
+
+  // Hilos con 3 o mas cuentas distintas citando el mismo nombre propio: todo el
+  // hilo es sospechoso, incluido el comentario cebo que lo abre (a solas parece
+  // inocuo: «This isn't a trade. Bitensity is a position.»).
+  function scamEnjambre(units) {
+    const out = new Map();
+    const hilos = new Map();
+    for (const u of units) {
+      if (!hilos.has(u.hilo)) hilos.set(u.hilo, []);
+      hilos.get(u.hilo).push(u);
+    }
+    for (const grupo of hilos.values()) {
+      const citas = new Map();
+      for (const u of grupo) {
+        for (const n of scamNombres(u.texto)) {
+          if (!citas.has(n)) citas.set(n, new Set());
+          citas.get(n).add(u.autor || u.id);
+        }
+      }
+      for (const [n, autores] of citas) {
+        if (autores.size >= 3) {
+          for (const u of grupo) out.set(u.id, `enjambre: ${autores.size} cuentas citan a «${n}»`);
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
+  // Cada comentario visible (principal o respuesta) como unidad independiente:
+  // el ancestro mas alto del nodo de texto que no contiene OTRO nodo de texto.
+  function scamUnits() {
+    const textos = [...document.querySelectorAll("#content-text, [id='content-text']")]
+      .filter((el, i, arr) => arr.indexOf(el) === i && !esNuestro(el) && isVisible(el) && !el.closest(SCAM_PANEL_SEL()));
+    const units = [];
+    textos.forEach((el, i) => {
+      let unit = el;
+      while (unit.parentElement && unit.parentElement !== document.body) {
+        const p = unit.parentElement;
+        const dentro = [...p.querySelectorAll("#content-text, [id='content-text']")].filter((x) => x !== el);
+        if (dentro.length) break;
+        unit = p;
+      }
+      const hiloEl = el.closest("ytcp-comment-thread") || unit;
+      const primero = hiloEl.querySelector("#content-text, [id='content-text']");
+      units.push({
+        id: `u${i}`,
+        el,
+        unit,
+        hilo: hiloEl,
+        texto: textWithEmoji(el) || txt(el),
+        autor: scamAutor(unit),
+        padre: primero && primero !== el ? (textWithEmoji(primero) || txt(primero)) : "",
+      });
+    });
+    return units;
+  }
+
+  function SCAM_PANEL_SEL() { return `.${SCAM_PANEL}, .${SCAM_FAB}`; }
+
+  function scamAutor(unit) {
+    for (const sel of ["[id='author-text']", "a[id='name']", "[id='name']", "[id*='author']", ".author", "[class*='author']"]) {
+      const el = unit.querySelector(sel);
+      const t = el && txt(el);
+      if (t && t.length < 80) return t.replace(/\s+/g, " ").trim();
+    }
+    for (const el of unit.querySelectorAll("a, span, yt-formatted-string")) {
+      if (el.children.length) continue;
+      const t = txt(el);
+      if (t.startsWith("@") && t.length < 60) return t;
+    }
+    return "";
+  }
+
+  function isChecked(cb) {
+    return cb.getAttribute("aria-checked") === "true" || cb.checked === true || cb.hasAttribute("checked");
+  }
+
+  // La casilla de Studio de ESTE comentario. Se sube desde el texto y se usa el
+  // primer ancestro con casillas: si tiene una, es esa; si tiene varias (hilo
+  // con respuestas), la que esta a la altura del comentario, y solo si no hay
+  // duda (si dos estan a la misma altura, null: se marca en rojo y se avisa).
+  function scamCheckbox(u) {
+    const top = u.unit.getBoundingClientRect().top;
+    let a = u.el;
+    for (let i = 0; i < 14 && a && a !== document.body; i++, a = a.parentElement) {
+      const cands = [...a.querySelectorAll(CHECKBOX_SEL)]
+        .filter((c) => !esNuestro(c) && isVisible(c))
+        .filter((c, _, arr) => !arr.some((o) => o !== c && o.contains(c)));
+      if (!cands.length) continue;
+      if (cands.length === 1) {
+        // Una sola casilla en el ambito, pero el ambito puede ser ya el hilo
+        // entero: solo vale si no hay otro comentario entre medias.
+        const otros = [...a.querySelectorAll("#content-text, [id='content-text']")].filter((x) => x !== u.el);
+        if (!otros.length || a === u.unit || u.unit.contains(cands[0])) return cands[0];
+      }
+      const dist = cands.map((c) => ({ c, d: Math.abs(c.getBoundingClientRect().top - top) }))
+        .sort((x, y) => x.d - y.d);
+      if (dist[0].d < 60 && (dist.length === 1 || dist[1].d - dist[0].d > 30)) return dist[0].c;
+      return null;
+    }
+    return null;
+  }
+
+  function scamLimpiar() {
+    document.querySelectorAll(`.${SCAM_HIT}`).forEach((e) => e.classList.remove(SCAM_HIT));
+    document.querySelectorAll(`.${SCAM_TAG}, .${SCAM_PANEL}`).forEach((e) => e.remove());
+  }
+
+  function injectScamButton() {
+    if (document.querySelector(`.${SCAM_FAB}`)) return;
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = SCAM_FAB;
+    b.textContent = "🚫 Buscar estafas";
+    b.title = "Revisa los comentarios cargados, marca en rojo los de estafa y les marca la casilla. Tú decides qué hacer con ellos.";
+    b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); runScamScan(b); });
+    document.body.appendChild(b);
+  }
+
+  async function runScamScan(btn) {
+    if (state.scamBusy) return;
+    state.scamBusy = true;
+    btn.disabled = true;
+    btn.textContent = "Revisando…";
+    try {
+      scamLimpiar();
+      const units = scamUnits().filter((u) => u.texto && !OWN_AUTHOR_RE.test(u.autor));
+      if (!units.length) { toast("No veo comentarios cargados en la página.", "warn"); return; }
+
+      const veredicto = new Map(units.map((u) => [u.id, scamReglas(u.texto)]));
+      for (const [id, motivo] of scamEnjambre(units)) if (!veredicto.get(id)) veredicto.set(id, motivo);
+
+      const dudosos = units.filter((u) => !veredicto.get(u.id));
+      let fallo = "";
+      for (let i = 0; i < dudosos.length; i += 40) {
+        btn.textContent = `Revisando con Claude… ${Math.min(i + 40, dudosos.length)}/${dudosos.length}`;
+        const lote = dudosos.slice(i, i + 40);
+        const res = await send({
+          type: "CLASSIFY_SCAMS",
+          payload: { items: lote.map((u) => ({ id: u.id, autor: u.autor, texto: u.texto.slice(0, 600), padre: u.padre.slice(0, 150) })) },
+        }, 120000);
+        if (!res?.ok) { fallo = res?.error || "sin respuesta"; break; }
+        for (const v of res.items || []) {
+          if (v && v.estafa && veredicto.has(v.id) && !veredicto.get(v.id)) veredicto.set(v.id, String(v.motivo || "lo detecta Claude"));
+        }
+      }
+
+      const hits = units.filter((u) => veredicto.get(u.id));
+      let marcados = 0;
+      const sinCasilla = [];
+      for (const u of hits) {
+        u.motivo = veredicto.get(u.id);
+        u.unit.classList.add(SCAM_HIT);
+        const tag = document.createElement("div");
+        tag.className = SCAM_TAG;
+        tag.textContent = `🚫 Estafa: ${u.motivo}`;
+        u.el.insertAdjacentElement("afterend", tag);
+        u.cb = scamCheckbox(u);
+        if (u.cb) {
+          if (!isChecked(u.cb)) realClick(u.cb);
+          marcados++;
+        } else {
+          sinCasilla.push(u);
+        }
+      }
+      log("Estafas", { revisados: units.length, estafas: hits.length, marcados, sinCasilla: sinCasilla.length, fallo });
+      showScamPanel(units.length, hits, marcados, sinCasilla, fallo);
+    } catch (err) {
+      warn(err);
+      toast(`Error al buscar estafas: ${err.message}`, "err");
+    } finally {
+      state.scamBusy = false;
+      btn.disabled = false;
+      btn.textContent = "🚫 Buscar estafas";
+    }
+  }
+
+  function showScamPanel(revisados, hits, marcados, sinCasilla, fallo) {
+    document.querySelectorAll(`.${SCAM_PANEL}`).forEach((p) => p.remove());
+    const p = document.createElement("div");
+    p.className = SCAM_PANEL;
+    const lista = hits.map((u, i) => `
+      <li data-i="${i}">
+        <div><b>${escapeHtml(u.autor || "(sin autor)")}</b> <span class="yra2-scam-why">${escapeHtml(u.motivo)}</span></div>
+        <div class="yra2-scam-snip">${escapeHtml(u.texto.slice(0, 140))}${u.texto.length > 140 ? "…" : ""}</div>
+        <button type="button" class="yra2-act" data-scam="quitar" data-i="${i}">No es estafa</button>
+        <button type="button" class="yra2-act" data-scam="ver" data-i="${i}">Ver</button>
+      </li>`).join("");
+    p.innerHTML = `
+      <div class="yra2-panel-head">
+        <div class="yra2-panel-title">🚫 ${hits.length ? `${hits.length} comentario${hits.length === 1 ? "" : "s"} de estafa` : "Ninguna estafa"}</div>
+        <button class="yra2-x" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="yra2-why">
+        Revisados ${revisados} comentarios cargados en la página.
+        ${hits.length ? `He marcado la casilla de ${marcados}. Revisa los que están en rojo y, arriba, en la barra de Studio, elige qué hacer con ellos (eliminar, denunciar como spam u ocultar al usuario del canal).` : ""}
+        ${sinCasilla.length ? `<br><b>${sinCasilla.length} sin casilla reconocible</b>: están en rojo, hazlo a mano.` : ""}
+        ${fallo ? `<br><b>Claude no ha podido revisar los dudosos</b> (${escapeHtml(fallo)}): solo se han aplicado las reglas.` : ""}
+        <br>Si hay más comentarios abajo, baja hasta el final para que Studio los cargue y vuelve a pulsar.
+      </div>
+      ${hits.length ? `<ol class="yra2-scam-list">${lista}</ol>` : ""}
+      <div class="yra2-panel-foot">
+        ${hits.length ? `<button class="yra2-act" data-scam="limpiar" type="button">Quitar todas las marcas</button>` : ""}
+      </div>`;
+    document.body.appendChild(p);
+    p.querySelector(".yra2-x").addEventListener("click", () => p.remove());
+    p.addEventListener("click", (e) => {
+      const act = e.target?.dataset?.scam;
+      if (!act) return;
+      if (act === "limpiar") {
+        for (const u of hits) if (u.cb?.isConnected && isChecked(u.cb)) realClick(u.cb);
+        scamLimpiar();
+        return;
+      }
+      const u = hits[Number(e.target.dataset.i)];
+      if (!u) return;
+      if (act === "ver") { u.unit.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+      if (act === "quitar") {
+        if (u.cb?.isConnected && isChecked(u.cb)) realClick(u.cb);
+        u.unit.classList.remove(SCAM_HIT);
+        u.el.parentElement?.querySelector(`.${SCAM_TAG}`)?.remove();
+        e.target.closest("li")?.remove();
+      }
+    });
   }
 
   /* ── Escape global: cierra panel y cancela cuenta atras ─────────────────── */

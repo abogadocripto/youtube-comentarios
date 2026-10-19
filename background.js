@@ -68,6 +68,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     TEST_API: () => handleTest(),
     DIAGNOSE: () => handleDiagnose(message.payload),
     HAS_API_KEY: () => handleHasApiKey(),
+    CLASSIFY_SCAMS: () => handleClassifyScams(message.payload),
     PING: async () => ({ ok: true }),
   };
   const h = handlers[message?.type];
@@ -149,6 +150,90 @@ async function handleGenerate(payload) {
         lastError = e.name === "AbortError"
           ? "La API ha tardado demasiado (timeout)."
           : `Error de red: ${e.message}`;
+      }
+    }
+    return { ok: false, error: lastError || "Error desconocido al llamar a la API." };
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1b. Comentarios de estafa (boton «🚫 Buscar estafas», v2.3.0)
+   El content script ya ha aplicado las reglas y el enjambre; aqui solo llegan
+   los dudosos (hasta 40 por llamada). Devuelve [{id, estafa, motivo}]. Sin
+   razonamiento extendido: es una clasificacion corta.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. Tu única tarea es detectar COMENTARIOS DE ESTAFA: los que reclutan víctimas para un «asesor», «mentor», «broker», plataforma o persona que «me ayudó a ganar dinero», «cambió mi vida» o «recuperó mis bitcoin robados», con o sin teléfono, WhatsApp o Telegram; los testimonios falsos en enjambre (varias cuentas citando el mismo nombre en el mismo hilo); el comentario cebo que abre esos hilos («This isn't a trade, X is a position»); y los que piden escribir a alguien o buscar un nombre para «empezar». Suelen ir en inglés, ruso o castellano, con un nombre propio y vocabulario de ganancias.
+NO es estafa: opiniones, críticas, quejas, preguntas, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos conocidos sin reclutamiento, bromas, ni un comentario que simplemente nombre a otra persona. Ante la duda, NO es estafa: marcar a un espectador real es peor que dejar un bot.
+Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","estafa":true|false,"motivo":"3 a 12 palabras en castellano"}], un elemento por cada id recibido.`;
+
+function parseScamVerdicts(text) {
+  const t = String(text || "");
+  const a = t.indexOf("["), b = t.lastIndexOf("]");
+  if (a < 0 || b <= a) return null;
+  try {
+    const arr = JSON.parse(t.slice(a, b + 1));
+    if (!Array.isArray(arr)) return null;
+    return arr
+      .filter((x) => x && typeof x.id === "string")
+      .map((x) => ({ id: x.id, estafa: x.estafa === true, motivo: String(x.motivo || "").slice(0, 120) }));
+  } catch {
+    return null;
+  }
+}
+
+async function handleClassifyScams(payload) {
+  const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
+  if (!cfg.apiKey) return { ok: false, error: "Falta la API key." };
+  const items = (payload?.items || []).slice(0, 40);
+  if (!items.length) return { ok: true, items: [] };
+
+  const lineas = items.map((it) =>
+    `id=${it.id} · autor ${it.autor || "(desconocido)"}${it.padre ? ` [responde a: «${it.padre}»]` : " [abre el hilo]"}\n«${it.texto}»`);
+  const body = {
+    model: cfg.model,
+    max_tokens: 4000,
+    temperature: 0,
+    system: SCAM_SYSTEM,
+    messages: [{ role: "user", content: "COMENTARIOS A CLASIFICAR:\n\n" + lineas.join("\n\n") }],
+  };
+
+  const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo(() => {}), 20000);
+  let lastError = "";
+  try {
+    for (const espera of [0, 1500, 4000]) {
+      if (espera) await sleep(espera);
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), API_TIMEOUT_MS);
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          signal: ctrl.signal,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": cfg.apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true",
+          },
+          body: JSON.stringify(body),
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.content?.find((x) => x.type === "text")?.text ?? "";
+          const parsed = parseScamVerdicts(text);
+          if (parsed) return { ok: true, items: parsed };
+          lastError = "La API no ha devuelto una lista válida.";
+          continue;
+        }
+        const err = await res.json().catch(() => null);
+        lastError = friendlyApiError(res.status, err?.error?.message || `HTTP ${res.status}`, cfg.model);
+        if (![429, 500, 502, 503, 529].includes(res.status)) return { ok: false, error: lastError };
+      } catch (e) {
+        clearTimeout(timer);
+        lastError = e.name === "AbortError" ? "La API ha tardado demasiado (timeout)." : `Error de red: ${e.message}`;
       }
     }
     return { ok: false, error: lastError || "Error desconocido al llamar a la API." };

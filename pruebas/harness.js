@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox" } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox", casillas = false, autores = null, respuestas = null } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url, pretendToBeVisual: true, runScripts: "outside-only" }
@@ -50,14 +50,28 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
     : `<a href="https://studio.youtube.com/video/VID${i}0000000/comments">ver</a>
       <img src="https://i.ytimg.com/vi/VID${i}0000000/hq.jpg" />`;
 
+  // casillas: la casilla de seleccion de Studio en cada comentario (principal y
+  // respuestas), con el aria-checked que alterna al pulsarla.
+  const cbHtml = () => '<ytcp-checkbox-lit class="cb" role="checkbox" aria-checked="false"><div class="box"></div></ytcp-checkbox-lit>';
+
   for (let i = 0; i < rows; i++) {
     const thread = doc.createElement("ytcp-comment-thread");
     thread.dataset.row = String(i);
     thread.setAttribute("comment-id", `Ugx-comment-${i}`);
     thread.innerHTML = `
       <ytcp-comment-info>
+        ${casillas ? cbHtml() : ""}
+        <a id="author-text"><span>${autores ? autores[i % autores.length] : `@usuario${i}`}</span></a>
         <div id="content-text">${comments[i % comments.length]}</div>
       </ytcp-comment-info>
+      ${(respuestas && respuestas[i] || []).map(([autor, texto]) => `
+      <div class="reply-item">
+        <ytcp-comment-info>
+          ${casillas ? cbHtml() : ""}
+          <a id="author-text"><span>${autor}</span></a>
+          <div id="content-text">${texto}</div>
+        </ytcp-comment-info>
+      </div>`).join("")}
       <div class="comment-actions">
         <ytcp-button class="open-reply"><button>Responder</button></ytcp-button>
         <span class="video-title">Europa quiere PROHIBIR las wallets</span>
@@ -88,6 +102,10 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
     } else {
       app.appendChild(thread);
     }
+
+    thread.querySelectorAll("ytcp-checkbox-lit.cb").forEach((cb) => cb.addEventListener("click", () => {
+      cb.setAttribute("aria-checked", cb.getAttribute("aria-checked") === "true" ? "false" : "true");
+    }));
 
     thread.querySelector(".like-btn button")?.addEventListener("click", () => {
       thread.dataset.liked = "1";
@@ -184,7 +202,7 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
   return { dom, window, doc };
 }
 
-function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo = null, apiKeyMissing = false }) {
+function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo = null, apiKeyMissing = false, scamVeredictos = null, scamFalla = false }) {
   const settings = {
     apiKey: apiKeyMissing ? "" : "sk-ant-test", model: "claude-sonnet-4-6", extendedThinking: true,
     extraContext: "", customInstructions: "", mode: "auto", countdown: 0,
@@ -211,6 +229,11 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
             cb(transcriptOk ? { ok: true, text: "transcripcion simulada ".repeat(40), source: "watch" }
                             : { ok: false, reason: "el video no expone pistas de subtitulos" });
           else if (msg.type === "INSERT_MAIN") cb({ ok: false, error: "no disponible en el banco" });
+          else if (msg.type === "CLASSIFY_SCAMS") {
+            // scamVeredictos: funcion (item) => {estafa, motivo} | null; por defecto nada es estafa.
+            if (scamFalla) cb({ ok: false, error: "API caida en el banco" });
+            else cb({ ok: true, items: msg.payload.items.map((it) => ({ id: it.id, ...(scamVeredictos ? (scamVeredictos(it) || { estafa: false }) : { estafa: false }), motivo: "lo dice el modelo" })) });
+          }
           // El content script real ya no pide la key en si (ver DEFAULTS de
           // content.js): solo comprueba su presencia con este mensaje.
           else if (msg.type === "HAS_API_KEY") cb({ ok: true, has: !!settings.apiKey });

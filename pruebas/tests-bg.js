@@ -7,9 +7,9 @@ const fs = require("fs"), vm = require("vm");
 let scriptingHandler = null;
 
 const sandbox = {
-  console, setTimeout, clearTimeout, URL, fetch: async () => { throw new Error("sin red"); },
+  console, setTimeout, clearTimeout, setInterval, clearInterval, URL, fetch: async () => { throw new Error("sin red"); },
   chrome: {
-    runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} } },
+    runtime: { onMessage: { addListener(){} }, onInstalled: { addListener(){} }, getPlatformInfo(cb) { cb && cb({}); } },
     storage: { local: { get: async () => ({}), set: async () => {} }, sync: { get: async () => ({}), remove: async () => {} } },
     scripting: { executeScript: async (opts) => scriptingHandler(opts) },
   },
@@ -323,6 +323,58 @@ ta("handleTranscript deduplica dos llamadas concurrentes para el mismo videoId (
     eq(r1.ok, r2.ok, "las dos llamadas concurrentes no han devuelto el mismo resultado");
     eq(fetchCalls, llamadasUnaVez,
       `deduplicacion incorrecta: ${fetchCalls} llamadas a fetch para dos peticiones concurrentes del mismo video (se esperaban ${llamadasUnaVez}, las de una sola peticion)`);
+  } finally {
+    sandbox.fetch = origFetch;
+  }
+});
+
+console.log("\nESTAFAS (CLASSIFY_SCAMS)");
+
+t("parseScamVerdicts lee el array aunque venga con texto alrededor", () => {
+  const r = G.parseScamVerdicts('Aqui va:\n[{"id":"u1","estafa":true,"motivo":"asesor por WhatsApp"},{"id":"u2","estafa":false,"motivo":"pregunta"}]\nfin');
+  eq(r.length, 2, "no ha leido los dos veredictos");
+  eq(r[0].estafa, true, "u1 deberia ser estafa");
+  eq(r[1].estafa, false, "u2 no deberia ser estafa");
+});
+
+t("parseScamVerdicts: basura o sin array devuelve null; estafa solo es true si es true literal", () => {
+  eq(G.parseScamVerdicts("no hay nada"), null, "deberia ser null");
+  eq(G.parseScamVerdicts("[roto"), null, "deberia ser null");
+  const r = G.parseScamVerdicts('[{"id":"u1","estafa":"si"},{"estafa":true}]');
+  eq(r.length, 1, "deberia descartar el elemento sin id");
+  eq(r[0].estafa, false, "'si' no es true");
+});
+
+ta("handleClassifyScams llama a la API sin razonamiento, con temperatura 0 y los comentarios, y devuelve los veredictos", async () => {
+  const origFetch = sandbox.fetch, origGet = sandbox.chrome.storage.local.get;
+  let body = null;
+  sandbox.chrome.storage.local.get = async (d) => ({ ...d, apiKey: "sk-ant-test", model: "claude-sonnet-4-6", extendedThinking: true });
+  sandbox.fetch = async (url, opts) => {
+    body = JSON.parse(opts.body);
+    return { ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: '[{"id":"u3","estafa":true,"motivo":"enjambre"}]' }] }) };
+  };
+  try {
+    const r = await G.handleClassifyScams({ items: [{ id: "u3", autor: "@bot", texto: "Contact Mrs X", padre: "" }] });
+    eq(r.ok, true, "deberia ir bien");
+    eq(r.items[0].id, "u3", "veredicto perdido");
+    ok(!body.thinking, "no deberia pedir razonamiento extendido");
+    eq(body.temperature, 0, "temperatura");
+    ok(body.messages[0].content.includes("id=u3") && body.messages[0].content.includes("Contact Mrs X"), "el comentario no va en la peticion");
+    ok(/ESTAFA/.test(body.system), "falta el prompt de sistema");
+  } finally {
+    sandbox.fetch = origFetch;
+    sandbox.chrome.storage.local.get = origGet;
+  }
+});
+
+ta("handleClassifyScams sin API key devuelve error sin llamar a la red", async () => {
+  const origFetch = sandbox.fetch;
+  let llamadas = 0;
+  sandbox.fetch = async () => { llamadas++; throw new Error("no"); };
+  try {
+    const r = await G.handleClassifyScams({ items: [{ id: "u1", texto: "x" }] });
+    eq(r.ok, false, "deberia fallar");
+    eq(llamadas, 0, "ha llamado a la red sin key");
   } finally {
     sandbox.fetch = origFetch;
   }

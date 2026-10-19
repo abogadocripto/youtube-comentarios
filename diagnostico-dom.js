@@ -178,6 +178,33 @@
   });
   say("");
 
+  /* 4c. Casillas de seleccion y autor de cada comentario ----------------------
+     Para el boton «🚫 Buscar estafas» (v2.3.0): que casilla tiene cada
+     comentario (principal y respuestas), a que altura esta respecto al
+     comentario y que autor se lee. Si el boton marca en rojo pero dice «sin
+     casilla reconocible», pega esta seccion.                              */
+  say("4c. CASILLAS Y AUTOR DE CADA COMENTARIO (primeros 8)");
+  const SEL_CB = "ytcp-checkbox-lit, tp-yt-paper-checkbox, [role='checkbox'], input[type='checkbox']";
+  [...document.querySelectorAll("#content-text, [id='content-text']")].slice(0, 8).forEach((el, i) => {
+    let unit = el;
+    while (unit.parentElement && unit.parentElement !== document.body &&
+           ![...unit.parentElement.querySelectorAll("#content-text, [id='content-text']")].some((x) => x !== el)) unit = unit.parentElement;
+    const top = unit.getBoundingClientRect().top;
+    const autorEl = unit.querySelector("[id='author-text'], a[id='name'], [id*='author'], [class*='author']");
+    say(`   comentario ${i}: "${(el.innerText || "").trim().slice(0, 40)}"  unidad=${ident(unit)}`);
+    say(`      autor: ${autorEl ? JSON.stringify((autorEl.innerText || "").trim().slice(0, 40)) + " (" + ident(autorEl) + ")" : "NO ENCONTRADO"}`);
+    let a = el, hallado = false;
+    for (let k = 0; k < 14 && a && a !== document.body && !hallado; k++, a = a.parentElement) {
+      const cbs = [...a.querySelectorAll(SEL_CB)].filter((c) => visible(c));
+      if (!cbs.length) continue;
+      hallado = true;
+      say(`      casillas en el nivel ${k} (${ident(a)}): ${cbs.length}`);
+      cbs.slice(0, 4).forEach((c) => say(`         ${ident(c)} dy=${Math.round(c.getBoundingClientRect().top - top)} aria-checked=${c.getAttribute("aria-checked")}`));
+    }
+    if (!hallado) say("      casillas: NINGUNA en 14 niveles");
+  });
+  say("");
+
   /* 5. Que ve la extension ------------------------------------------------- */
   say("5. ELEMENTOS DE LA EXTENSION EN LA PAGINA");
   ["yra2-btn", "yra2-panel", "yra2-toast", "yra2-countdown"].forEach((c) => {

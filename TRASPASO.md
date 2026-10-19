@@ -1275,3 +1275,54 @@ llamar al modelo; texto + emoticono-imagen («Grande 🔥») → reacción, y un
 pregunta con emoticono-imagen llega al modelo con el emoticono dentro del
 texto; nodo de comentario sin texto legible → aborta sin llamar al modelo.
 54/54 y 45/45.
+
+
+---
+
+## 21. Botón «🚫 Buscar estafas» (v2.3.0)
+
+Petición del usuario (19/10/2026): en sus vídeos entran unos diez comentarios
+de estafa por vídeo (enjambres de bots: «gracias a la persona X gané dinero»,
+WhatsApp/Telegram de un «asesor», el cebo «Bitensity is a position» con
+respuestas de cuentas que lo confirman) y quería quitarlos de un tirón
+**desde YouTube Studio**. Antes se probó una vía por Telegram (motor de Apps
+Script + bot del Content OS en el repo blindaje-patrimonial); el usuario
+prefirió Studio y esa vía quedó parada (`estafas_modo = off`).
+
+Diseño, con el principio de §2 («nunca sin certeza») trasladado a la
+moderación: **la extensión solo selecciona; la acción la hace el usuario**
+con la barra de acciones nativa de Studio. Nada irreversible sin su clic.
+
+- `injectScamButton()` (llamado en `activate()`, retirado en `deactivate()`):
+  botón fijo abajo a la izquierda, lejos de toasts y cuenta atrás.
+- `scamUnits()`: cada nodo `#content-text` visible es un comentario; su
+  «unidad» es el ancestro más alto que no contiene otro `#content-text`. Hilo
+  = `ytcp-comment-thread`. Autor con `scamAutor()` (selectores de atributo
+  `[id='author-text']`…: jsdom no resuelve `#id` repetidos dentro de un
+  elemento y Chrome sí; con atributo funcionan los dos). Los del propio canal
+  (`/sergi[\s_.-]?andr[eé]s/i`) se excluyen.
+- Clasificación: `scamReglas()` (mismas reglas que `estafas.py` del Content
+  OS, con límites de palabra Unicode `(?<![\p{L}\p{N}_])`: el `\b` de JS no
+  entiende acentos) + `scamEnjambre()` (≥3 cuentas distintas citando el
+  mismo nombre propio en un hilo → todo el hilo) + Claude para los dudosos
+  (`CLASSIFY_SCAMS` en `background.js`, lotes de 40, modelo del popup, sin
+  razonamiento, temperatura 0, «ante la duda, NO es estafa»). Si la API
+  falla, se aplican solo las reglas y el panel lo dice.
+- `scamCheckbox()`: sube desde el texto; en el primer ancestro con casillas,
+  si hay una y el ámbito no contiene otro comentario, es esa; si hay varias,
+  la que está a la altura del comentario (|dy| < 60 px y 30 px de margen
+  con la segunda); si no hay certeza, `null` → se marca en rojo y el panel
+  dice «sin casilla reconocible». Una casilla ya marcada no se toca.
+- Panel (`showScamPanel`): recuento, lista con motivo, «No es estafa»
+  (desmarca y quita el rojo), «Ver» (scroll) y «Quitar todas las marcas».
+
+**No verificado contra el DOM real**: qué elemento es la casilla de Studio y
+dónde cuelga. `diagnostico-dom.js` tiene la sección **4c** para eso. Si en la
+primera prueba sale «sin casilla reconocible», pedir esa sección.
+
+Pruebas: 9 nuevas en «BUSCAR ESTAFAS» (`tests.js`) y 4 en `tests-bg.js`;
+`harness.js` admite `casillas`, `autores` y `respuestas`, y el mock contesta
+`CLASSIFY_SCAMS` (`scamVeredictos`, `scamFalla`). `SOLO=texto node tests.js`
+ejecuta solo las pruebas cuyo nombre lo contiene (la batería completa tarda
+varios minutos). `tests-bg.js` da al sandbox `setInterval`/`clearInterval` y
+`chrome.runtime.getPlatformInfo` (el latido del service worker).

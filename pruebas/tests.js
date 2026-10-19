@@ -2,7 +2,9 @@ const { run } = require("./harness");
 
 const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
 const results = [];
-const T = async (...a) => results.push(await run(...a));
+// SOLO=texto node tests.js  → ejecuta solo las pruebas cuyo nombre contiene ese texto.
+const SOLO = (process.env.SOLO || "").toLowerCase();
+const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOLO)) return; results.push(await run(...a)); };
 
 (async () => {
   console.log("\nINYECCION DEL BOTON");
@@ -693,6 +695,123 @@ const T = async (...a) => results.push(await run(...a));
       await wait(2000);
       assert(!t.dataset.published, "ha publicado pese a cancelar");
     });
+
+  console.log("\nBUSCAR ESTAFAS");
+
+  const ENJAMBRE = {
+    rows: 3, casillas: true,
+    comentarios: ["This isn't a trade. Bitensity is a position.", "Muy buen video Sergi, gracias", "¿Y en Andorra que pasa con el 721?"],
+    autores: ["@StephensonOropeza", "@pepe", "@lola"],
+    respuestas: { 0: [["@ann", "Bitensity really works, I started last month"], ["@bob", "I can confirm Bitensity is legit"], ["@carl", "Just looked Bitensity up, amazing"]],
+                  1: [["@Sergi_Andrés", "Gracias a ti! Contacta con Bitensity si quieres"]] },
+  };
+
+  await T("el boton aparece en la pagina de comentarios y se va al salir", { studio: ENJAMBRE }, async ({ wait, $$, window }) => {
+    await wait(600);
+    assert($$(".yra2-scam-fab").length === 1, "no hay boton de estafas");
+    window.history.pushState({}, "", "/channel/UCabc/analytics");
+    await wait(1200);
+    assert($$(".yra2-scam-fab").length === 0, "el boton sigue fuera de comentarios");
+  });
+
+  await T("enjambre: marca el cebo y las tres respuestas (casilla + rojo), no los normales ni los del canal",
+    { studio: ENJAMBRE }, async ({ wait, $, $$, mock }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      const marcadas = $$("ytcp-checkbox-lit.cb").filter((c) => c.getAttribute("aria-checked") === "true");
+      const autoresMarcados = marcadas.map((c) => c.parentElement.querySelector("[id='author-text']").textContent.trim()).sort();
+      assert(JSON.stringify(autoresMarcados) === JSON.stringify(["@StephensonOropeza", "@ann", "@bob", "@carl"]),
+        `casillas marcadas de: ${autoresMarcados.join(", ")}`);
+      assert($$(".yra2-scam-hit").length === 4, `en rojo: ${$$(".yra2-scam-hit").length}`);
+      assert($(".yra2-scam-panel") && /4 comentarios de estafa/.test($(".yra2-scam-panel").textContent), "panel sin el recuento");
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha generado respuestas");
+      assert(!$$("ytcp-comment-thread").some((t) => t.dataset.published), "ha publicado algo");
+      // los dudosos (pepe, lola) se preguntan al modelo; los del canal ni eso
+      const cls = mock.payloads.find((p) => p.type === "CLASSIFY_SCAMS");
+      const ids = cls.payload.items.map((i) => i.autor);
+      assert(ids.includes("@pepe") && ids.includes("@lola") && !ids.includes("@Sergi_Andrés") && !ids.includes("@ann"),
+        `al modelo han ido: ${ids.join(", ")}`);
+    });
+
+  await T("reglas: telefono + WhatsApp de un asesor se marca sin preguntar al modelo",
+    { studio: { rows: 2, casillas: true, comentarios: ["Escríbele a su WhatsApp +1 415 555 0199, mi asesor me cambió la vida", "Gran video"] } },
+    async ({ wait, $, $$, mock }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      const t = $$("ytcp-comment-thread");
+      assert(t[0].querySelector(".cb").getAttribute("aria-checked") === "true", "no ha marcado la estafa");
+      assert(t[1].querySelector(".cb").getAttribute("aria-checked") === "false", "ha marcado el comentario normal");
+      const cls = mock.payloads.find((p) => p.type === "CLASSIFY_SCAMS");
+      assert(cls.payload.items.length === 1 && cls.payload.items[0].texto === "Gran video", "la estafa por reglas ha ido al modelo");
+    });
+
+  await T("lo que el modelo dice que es estafa tambien se marca",
+    { studio: { rows: 2, casillas: true, comentarios: ["Recovery expert helped me, search her name", "Gran video"] },
+      mock: { reply: "x", scamVeredictos: (it) => /Recovery/.test(it.texto) ? { estafa: true } : null } },
+    async ({ wait, $, $$ }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      const t = $$("ytcp-comment-thread");
+      assert(t[0].querySelector(".cb").getAttribute("aria-checked") === "true", "no ha marcado lo que dice el modelo");
+      assert(t[1].querySelector(".cb").getAttribute("aria-checked") === "false", "ha marcado de mas");
+    });
+
+  await T("«No es estafa» desmarca la casilla y quita el rojo; «Quitar todas las marcas» deja todo como estaba",
+    { studio: ENJAMBRE }, async ({ wait, $, $$ }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      $(".yra2-scam-panel [data-scam='quitar'][data-i='0']").click();
+      await wait(100);
+      assert($$(".yra2-scam-hit").length === 3, `en rojo tras quitar uno: ${$$(".yra2-scam-hit").length}`);
+      assert($$("ytcp-checkbox-lit.cb").filter((c) => c.getAttribute("aria-checked") === "true").length === 3, "no ha desmarcado la casilla");
+      $(".yra2-scam-panel [data-scam='limpiar']").click();
+      await wait(100);
+      assert($$(".yra2-scam-hit").length === 0 && !$(".yra2-scam-panel"), "quedan marcas o panel");
+      assert($$("ytcp-checkbox-lit.cb").every((c) => c.getAttribute("aria-checked") === "false"), "quedan casillas marcadas");
+    });
+
+  await T("una casilla que ya estaba marcada no se desmarca al buscar",
+    { studio: { rows: 1, casillas: true, comentarios: ["Contact her on Telegram, best broker ever, profits weekly"] } },
+    async ({ wait, $ }) => {
+      await wait(600);
+      $(".cb").setAttribute("aria-checked", "true");
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      assert($(".cb").getAttribute("aria-checked") === "true", "ha desmarcado una casilla que ya estaba marcada");
+    });
+
+  await T("sin casillas en el DOM: marca en rojo, no toca nada y lo dice en el panel",
+    { studio: { rows: 1, comentarios: ["Contact her on Telegram, best broker ever, profits weekly"] } },
+    async ({ wait, $, $$ }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      assert($$(".yra2-scam-hit").length === 1, "no lo ha marcado en rojo");
+      assert(/sin casilla reconocible/.test($(".yra2-scam-panel").textContent), "el panel no avisa");
+    });
+
+  await T("si la API falla, aplica las reglas igual y lo avisa",
+    { studio: ENJAMBRE, mock: { reply: "x", scamFalla: true } }, async ({ wait, $, $$ }) => {
+      await wait(600);
+      $(".yra2-scam-fab").click();
+      await wait(800);
+      assert($$(".yra2-scam-hit").length === 4, "no ha aplicado las reglas");
+      assert(/Claude no ha podido revisar/.test($(".yra2-scam-panel").textContent), "no avisa del fallo");
+    });
+
+  await T("el boton de estafas no rompe el «Responder con IA» de las filas", { studio: ENJAMBRE }, async ({ wait, $, $$ }) => {
+    await wait(600);
+    $(".yra2-scam-fab").click();
+    await wait(800);
+    const t = $$("ytcp-comment-thread")[2];
+    t.querySelector(".yra2-btn").click();
+    await wait(2500);
+    assert(t.dataset.published === "Respuesta de prueba.", `ha publicado "${t.dataset.published}"`);
+  });
 
   console.log("\nRUTA SPA");
 

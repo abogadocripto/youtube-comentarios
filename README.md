@@ -1,8 +1,26 @@
-# YouTube Reply Assistant v2.2.18
+# YouTube Reply Assistant v2.3.0
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.3.0 — botón «🚫 Buscar estafas»
+
+En la página de comentarios aparece un botón rojo abajo a la izquierda,
+**🚫 Buscar estafas**. Al pulsarlo revisa los comentarios **cargados** en
+pantalla (principales y respuestas) y detecta los de estafa: teléfono o
+WhatsApp/Telegram de un «asesor», testimonios de ganancias «gracias a» una
+persona, y enjambres (tres o más cuentas citando el mismo nombre en un hilo,
+más el comentario cebo que lo abre, tipo «Bitensity is a position»). Los
+dudosos los revisa Claude (sin razonamiento extendido, temperatura 0). Los
+comentarios del propio canal nunca se marcan.
+
+A los que son estafa los **marca en rojo y les marca la casilla de Studio**.
+No borra ni denuncia nada: con las casillas marcadas, Studio enseña arriba su
+barra de acciones y ahí eliges tú (eliminar, denunciar spam u ocultar al
+usuario del canal). En el panel puedes quitar uno («No es estafa»), ir a él
+(«Ver») o quitar todas las marcas. Solo ve lo cargado: baja hasta el final
+para que Studio cargue más y vuelve a pulsar. Detalle en `TRASPASO.md` §21.
 
 ## Novedades en 2.2.18 — los emoticonos del comentario se leen (Studio los pinta como imágenes)
 
