@@ -4,8 +4,8 @@ Requiere Node 18+ y jsdom.
 
 ```bash
 npm install jsdom
-node tests.js      # 63 pruebas (SOLO=texto para filtrar por nombre): flujo de publicacion, DOM, salvaguardas, SPA
-node tests-bg.js   # 49 pruebas: parseo, transcripcion, prompts, errores de API
+node tests.js      # 68 pruebas (SOLO=texto para filtrar por nombre): flujo de publicacion, DOM, salvaguardas, SPA
+node tests-bg.js   # 54 pruebas: parseo, transcripcion, prompts, errores de API
 ```
 
 `harness.js` monta un YouTube Studio simulado. Reproduce lo esencial del

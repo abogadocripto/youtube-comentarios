@@ -344,6 +344,22 @@
 
   <hr />
 
+  <div class="field">
+    <label class="lbl" for="motorClave">Aprender de tus respuestas</label>
+    <label class="check">
+      <input type="checkbox" id="aprender" />
+      <span>
+        Guardar cada respuesta que publicas y usar tus respuestas reales al escribir
+        <span class="sub">Se guardan las que escribes a mano, las que retocas y las de la IA tal cual (pestaña YOUTUBE_RESPUESTAS de BD VÍDEOS). Antes de escribir, la IA lee tus reglas y tus respuestas más parecidas al comentario.</span>
+      </span>
+    </label>
+    <input type="password" id="motorClave" placeholder="Clave del motor (la deja en el portapapeles configurar_extension_youtube.py)" autocomplete="off" />
+    <p class="hint">Reglas: documento «MODELO DE RESPUESTAS YOUTUBE — se nutre solo» (CLAUDE / YOUTUBE). Lo de «REGLAS DE VOZ» lo escribes tú.</p>
+    <button class="btn" id="motorBtn" type="button">Probar conexión con la hoja</button>
+  </div>
+
+  <hr />
+
   <div class="actions">
     <button class="btn" id="testBtn" type="button">Probar conexion</button>
     <button class="btn btn--primary" id="saveBtn" type="button">Guardar</button>

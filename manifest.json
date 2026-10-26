@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Reply Assistant v2",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Responde comentarios en YouTube Studio con Claude. Un clic, con verificacion antes de publicar.",
   "permissions": [
     "storage",
@@ -12,7 +12,9 @@
   "host_permissions": [
     "https://studio.youtube.com/*",
     "https://www.youtube.com/*",
-    "https://api.anthropic.com/*"
+    "https://api.anthropic.com/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*"
   ],
   "action": {
     "default_popup": "popup.html",

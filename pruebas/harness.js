@@ -229,6 +229,7 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
             cb(transcriptOk ? { ok: true, text: "transcripcion simulada ".repeat(40), source: "watch" }
                             : { ok: false, reason: "el video no expone pistas de subtitulos" });
           else if (msg.type === "INSERT_MAIN") cb({ ok: false, error: "no disponible en el banco" });
+          else if (msg.type === "GUARDAR_RESPUESTA") cb({ ok: true, guardada: true });
           else if (msg.type === "CLASSIFY_SCAMS") {
             // scamVeredictos: funcion (item) => {estafa, motivo} | null; por defecto nada es estafa.
             if (scamFalla) cb({ ok: false, error: "API caida en el banco" });

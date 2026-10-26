@@ -813,6 +813,84 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
     assert(t.dataset.published === "Respuesta de prueba.", `ha publicado "${t.dataset.published}"`);
   });
 
+  console.log("\nAPRENDIZAJE (cada respuesta publicada se guarda)");
+
+  const guardadas = (mock) => mock.payloads.filter((p) => p.type === "GUARDAR_RESPUESTA").map((p) => p.payload.fila);
+
+  await T("respuesta escrita a mano en la caja de Studio: se guarda como a_mano con su comentario",
+    { studio: { campoTextarea: true } }, async ({ wait, $$, mock, window }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[1];
+      t.querySelector(".open-reply button").click();
+      await wait(600);
+      const ta = t.querySelector("textarea");
+      ta.value = "cuando he dicho yo eso? :)";
+      ta.dispatchEvent(new window.Event("input", { bubbles: true }));
+      await wait(50);
+      t.querySelector(".submit-real button").click();
+      await wait(800);
+      assert(t.dataset.published === "cuando he dicho yo eso? :)", "Studio no ha publicado");
+      const g = guardadas(mock);
+      assert(g.length === 1, `guardadas: ${g.length}`);
+      assert(g[0].tipo === "a_mano" && g[0].respuesta_final === "cuando he dicho yo eso? :)", JSON.stringify(g[0]));
+      assert(/prestamo con mis tokens/.test(g[0].comentario), `comentario: ${g[0].comentario}`);
+      assert(g[0].video_id === "VID10000000" && g[0].fuente === "extension" && g[0].id, JSON.stringify(g[0]));
+    });
+
+  await T("si Studio no llega a enviar (la caja sigue con el texto), no se guarda nada",
+    { studio: { campoTextarea: true, angularRegistersInput: false } }, async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".open-reply button").click();
+      await wait(600);
+      t.querySelector("textarea").value = "texto que no sale";
+      t.querySelector(".submit-real button").click();   // deshabilitado: no publica
+      await wait(10500);
+      assert(!t.dataset.published, "ha publicado");
+      assert(guardadas(mock).length === 0, "ha guardado una respuesta que no se ha enviado");
+    });
+
+  await T("la IA publica sola: se guarda una vez como «ia» (sin duplicarla como a_mano)",
+    { studio: { campoTextarea: true } }, async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[1];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "Respuesta de prueba.", "no ha publicado");
+      await wait(600);
+      const g = guardadas(mock);
+      assert(g.length === 1, `guardadas: ${g.length} (${g.map((x) => x.tipo).join(",")})`);
+      assert(g[0].tipo === "ia" && g[0].respuesta_ia === "Respuesta de prueba." && g[0].respuesta_final === "Respuesta de prueba.", JSON.stringify(g[0]));
+    });
+
+  await T("retocada en el panel antes de publicar: se guarda como «editada» con lo que propuso la IA",
+    { studio: { campoTextarea: true }, mock: { reply: "Excelente pregunta, depende.", cfg: { mode: "review" } } },
+    async ({ wait, $, $$, mock, window }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[2];
+      t.querySelector(".yra2-btn").click();
+      await wait(1500);
+      const ta = $(".yra2-panel .yra2-text");
+      ta.value = "depende :)";
+      ta.dispatchEvent(new window.Event("input", { bubbles: true }));
+      $(".yra2-panel [data-act='publish']").click();
+      await wait(2500);
+      assert(t.dataset.published === "depende :)", `publicado: ${t.dataset.published}`);
+      const g = guardadas(mock);
+      assert(g.length === 1 && g[0].tipo === "editada", JSON.stringify(g));
+      assert(g[0].respuesta_ia === "Excelente pregunta, depende." && g[0].respuesta_final === "depende :)", JSON.stringify(g[0]));
+    });
+
+  await T("la respuesta con emoticono no se guarda (no enseña nada de la voz de Sergi)",
+    { studio: { rows: 1, comentarios: ["👏👏👏"] }, mock: { reply: "x" } }, async ({ wait, $$, mock }) => {
+      await wait(600);
+      const t = $$("ytcp-comment-thread")[0];
+      t.querySelector(".yra2-btn").click();
+      await wait(2500);
+      assert(t.dataset.published === "🤙", "no ha publicado el emoticono");
+      assert(guardadas(mock).length === 0, "ha guardado el emoticono");
+    });
+
   console.log("\nRUTA SPA");
 
   await T("al salir de /comments retira botones y paneles", {}, async ({ wait, $$, window }) => {

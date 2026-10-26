@@ -1326,3 +1326,63 @@ Pruebas: 9 nuevas en «BUSCAR ESTAFAS» (`tests.js`) y 4 en `tests-bg.js`;
 ejecuta solo las pruebas cuyo nombre lo contiene (la batería completa tarda
 varios minutos). `tests-bg.js` da al sandbox `setInterval`/`clearInterval` y
 `chrome.runtime.getPlatformInfo` (el latido del service worker).
+
+
+---
+
+## 22. Aprendizaje: cada respuesta publicada se guarda y la IA escribe con las reales (v2.4.0)
+
+Petición del usuario (26/10/2026), con un caso real: respondió a mano a una
+crítica («Tío metes mucho humo…») con «cuando he dicho yo eso? si la gracia de
+comprar p2p es no decir nada :)», justo lo contrario de la regla fija del
+prompt («ante críticas: nunca defensivo… cierra con humildad»). Quería que lo
+que responde a mano, o lo que retoca de la IA, se guarde y vaya mejorando el
+modelo sin hacer nada.
+
+**Captura (content.js, sección 11).**
+- `onClickEnviar`, en fase de captura sobre `document` (se pone en
+  `activate()` y se quita en `deactivate()`): si el clic cae en el botón de
+  enviar de una caja con texto (`findSubmitButton(field)` de esa caja, nunca
+  un «Responder» sin pulsar) y no lo está pulsando la extensión
+  (`state.publicando`, que pone el envoltorio de `publish()`), espera hasta 10 s
+  a que Studio confirme el envío (la caja desaparece o se vacía). Solo
+  entonces guarda la fila con el comentario al que contesta
+  (`comentarioDeCaja`: el último `#content-text` del hilo ANTES del campo, que
+  vale también para responder a una respuesta).
+- `tipo`: «a_mano»; «editada» si el texto del campo lo había metido la IA
+  (`state.textoIA`, puesto en `publishInner` tras `insertText`) y Sergi lo
+  cambió; «ia» si lo envía igual. El panel guarda «ia» o «editada» comparando
+  con lo que propuso la IA (`generado`, que «Regenerar» actualiza). `runFlow`
+  guarda «ia». El camino del emoticono no guarda nada.
+- `guardarRespuesta()` → mensaje `GUARDAR_RESPUESTA` → `background.js`: cola en
+  `chrome.storage.local` (`ytrCola`, máximo 500) y envío en lote
+  (`{yt:'guardar_lote'}`) al motor de BD VÍDEOS (Apps Script, aplicación web,
+  `apps-script/v3/YouTubeRespuestas.gs` del repo blindaje-patrimonial). Si no hay
+  clave o conexión, queda en la cola y sale con la siguiente.
+
+**Uso (background.js, sección 1c).** `contextoAprendido()` pide al motor
+`{yt:'contexto', n:500}` (reglas del documento + respuestas reales, las
+escritas o retocadas por Sergi primero) y lo cachea una hora en `ytrContexto`.
+`elegirEjemplos()` puntúa por palabras clave en común (sin acentos ni palabras
+vacías), longitud parecida del comentario y tipo (+0,25 a_mano/editada, −0,15
+ia), sin repetir respuestas. Con 8 o más ejemplos o con reglas,
+`buildSystemPrompt(…, aprendido)` sustituye el bloque fijo entre «PATRÓN DE
+RESPUESTA» y «PRECISIÓN (regla dura» (patrón, 13 ejemplos, jerarquía y «cómo
+escribes») por: reglas del documento, las 10 respuestas reales más parecidas
+(las editadas, como «La IA propuso… Sergi lo cambió y publicó…»), jerarquía
+nueva (lo que hace Sergi manda) y tres reglas por defecto. PRECISIÓN,
+SEGURIDAD, PROHIBIDO y FORMATO no se tocan. Sin conexión ni caché: los 13 fijos.
+
+**Lado Google (repo blindaje-patrimonial).** Pestaña YOUTUBE_RESPUESTAS (id,
+fecha, video_id, video_titulo, autor, comentario, respuesta_ia,
+respuesta_final, tipo, fuente, comment_id, archivado). Histórico: el motor
+recorrió los 15.593 hilos del canal y guardó las 2.469 respuestas de Sergi
+(desde 2022), emparejando cada una con el comentario al que contesta
+(«@usuario» al principio → el último comentario de esa persona en el hilo).
+Después, cada hora, las 2 primeras páginas (respuestas dadas fuera de la
+extensión, fuente «youtube»). El bot (`src/bp/contentos/youtube_respuestas.py`)
+archiva las nuevas en el documento y cada semana reescribe REGLAS APRENDIDAS
+con Claude; la sección REGLAS DE VOZ la escribe Sergi y no se toca.
+
+Pruebas: 5 e2e nuevas en «APRENDIZAJE» (`tests.js`, 68 en total) y 5 en
+`tests-bg.js` (54). El mock de `chrome.runtime` contesta `GUARDAR_RESPUESTA`.

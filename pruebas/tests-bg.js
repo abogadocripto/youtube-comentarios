@@ -380,6 +380,91 @@ ta("handleClassifyScams sin API key devuelve error sin llamar a la red", async (
   }
 });
 
+console.log("\nAPRENDIZAJE (respuestas reales de Sergi)");
+
+const EJ = [
+  { id: "1", tipo: "historico", comentario: "Si vendo bitcoin p2p y cobro en efectivo, ¿Hacienda se entera?", respuesta_final: "depende de si lo bancarizas :)" },
+  { id: "2", tipo: "a_mano", comentario: "Tío metes miedo con Hacienda, nadie declara el p2p", respuesta_final: "cuando he dicho yo eso? si la gracia del p2p es no decir nada :)" },
+  { id: "3", tipo: "historico", comentario: "¿Qué es una LLC y qué impuestos paga?", respuesta_final: "Una LLC es una sociedad americana…" },
+  { id: "4", tipo: "ia", comentario: "Gran video", respuesta_final: "Gracias! :)" },
+];
+
+t("elegirEjemplos pone primero los parecidos al comentario y prefiere los escritos por Sergi", () => {
+  const r = G.elegirEjemplos("Me parece que metes miedo, el p2p en efectivo Hacienda no lo ve", EJ, 2);
+  eq(r.length, 2, "numero de ejemplos");
+  eq(r[0].id, "2", "el mas parecido (y escrito a mano) deberia ir primero");
+  ok(r.every((e) => e.id !== "3"), "la LLC no tiene nada que ver");
+});
+
+t("buildSystemPrompt con aprendizaje sustituye los 13 ejemplos fijos y conserva precision y seguridad", () => {
+  const ej = G.elegirEjemplos("p2p Hacienda", EJ.concat(EJ.map((e, i) => ({ ...e, id: "x" + i, respuesta_final: e.respuesta_final + " " + i }))), 10);
+  const sp = G.buildSystemPrompt("", "Cash out", "", "", { reglas: "REGLAS DE VOZ\n- contrapregunta corta", ejemplos: ej.map(G.formatoEjemplo).join("\n\n"), n: ej.length });
+  ok(!sp.includes("Ejemplo 1 (técnico/fiscal)"), "siguen los ejemplos fijos");
+  ok(!sp.includes("cierra con humildad"), "sigue la regla fija de las criticas");
+  ok(sp.includes("contrapregunta corta") && sp.includes("cuando he dicho yo eso?"), "faltan reglas o ejemplos reales");
+  ok(sp.includes("PRECISIÓN (regla dura") && sp.includes("SEGURIDAD (regla dura") && sp.includes("FORMATO:"), "se ha perdido una regla dura");
+  const sin = G.buildSystemPrompt("", "Cash out", "", "", null);
+  ok(sin.includes("Ejemplo 1 (técnico/fiscal)"), "sin aprendizaje deben seguir los fijos");
+});
+
+t("formatoEjemplo de una editada enseña lo que propuso la IA y lo que publico Sergi", () => {
+  const f = G.formatoEjemplo({ tipo: "editada", comentario: "c", respuesta_ia: "Excelente pregunta…", respuesta_final: "corto :)" });
+  ok(f.includes("La IA propuso: «Excelente pregunta…»") && f.includes("Sergi lo cambió y publicó: «corto :)»"), f);
+});
+
+ta("handleGuardarRespuesta guarda en la cola y la manda al motor en lote; sin clave, queda en la cola", async () => {
+  const store = { apiKey: "sk-ant-test", motorClave: "", aprender: true };
+  const origGet = sandbox.chrome.storage.local.get, origSet = sandbox.chrome.storage.local.set, origFetch = sandbox.fetch;
+  sandbox.chrome.storage.local.get = async (d) => { const o = {}; for (const k of Object.keys(d)) o[k] = k in store ? store[k] : d[k]; return o; };
+  sandbox.chrome.storage.local.set = async (o) => { Object.assign(store, o); };
+  const enviados = [];
+  sandbox.fetch = async (url, opts) => { enviados.push(JSON.parse(opts.body)); return { ok: true, status: 200, text: async () => '{"ok":true,"nuevas":2}' }; };
+  try {
+    let r = await G.handleGuardarRespuesta({ fila: { id: "a", tipo: "a_mano", comentario: "c", respuesta_final: "r1" } });
+    eq(r.guardada, false, "sin clave no deberia mandarse");
+    eq(store.ytrCola.length, 1, "deberia quedar en la cola");
+    store.motorClave = "k";
+    r = await G.handleGuardarRespuesta({ fila: { id: "b", tipo: "editada", comentario: "c", respuesta_ia: "x", respuesta_final: "r2" } });
+    eq(r.guardada, true, "con clave deberia mandarse");
+    eq(enviados.length, 1, "una sola peticion");
+    eq(enviados[0].yt, "guardar_lote", "tipo de peticion");
+    eq(enviados[0].filas.length, 2, "deberian ir las dos filas de la cola");
+    eq(enviados[0].clave, "k", "clave");
+    eq(store.ytrCola.length, 0, "la cola deberia quedar vacia");
+    store.aprender = false;
+    r = await G.handleGuardarRespuesta({ fila: { id: "c", respuesta_final: "r3" } });
+    eq(r.guardada, false, "con el aprendizaje apagado no se guarda");
+  } finally {
+    sandbox.chrome.storage.local.get = origGet; sandbox.chrome.storage.local.set = origSet; sandbox.fetch = origFetch;
+  }
+});
+
+ta("handleGenerate mete en el prompt las respuestas reales del motor (y las cachea una hora)", async () => {
+  const store = { apiKey: "sk-ant-test", motorClave: "k", aprender: true, extendedThinking: false };
+  const origGet = sandbox.chrome.storage.local.get, origSet = sandbox.chrome.storage.local.set, origFetch = sandbox.fetch;
+  sandbox.chrome.storage.local.get = async (d) => { const o = {}; for (const k of Object.keys(d)) o[k] = k in store ? store[k] : d[k]; return o; };
+  sandbox.chrome.storage.local.set = async (o) => { Object.assign(store, o); };
+  let llamadasMotor = 0, system = "";
+  const muchos = Array.from({ length: 12 }, (_, i) => ({ id: "e" + i, tipo: "historico", comentario: "p2p Hacienda efectivo " + i, respuesta_final: "respuesta real " + i }));
+  sandbox.fetch = async (url, opts) => {
+    if (String(url).includes("api.anthropic.com")) {
+      system = JSON.parse(opts.body).system;
+      return { ok: true, status: 200, json: async () => ({ content: [{ type: "text", text: "vale :)" }] }) };
+    }
+    llamadasMotor++;
+    return { ok: true, status: 200, text: async () => JSON.stringify({ ok: true, reglas: "REGLAS DE VOZ\n- corto", ejemplos: muchos }) };
+  };
+  try {
+    const r = await G.handleGenerate({ commentText: "el p2p en efectivo Hacienda no lo ve", videoTitle: "Cash out" });
+    eq(r.ok, true, "deberia generar");
+    ok(system.includes("respuesta real") && system.includes("- corto"), "el prompt no lleva lo aprendido");
+    await G.handleGenerate({ commentText: "otro", videoTitle: "Cash out" });
+    eq(llamadasMotor, 1, "el contexto deberia venir de la cache la segunda vez");
+  } finally {
+    sandbox.chrome.storage.local.get = origGet; sandbox.chrome.storage.local.set = origSet; sandbox.fetch = origFetch;
+  }
+});
+
 (async () => {
   for (const { name, fn } of asyncTests) {
     try {

@@ -216,6 +216,7 @@
     state.observer.observe(document.body, { childList: true, subtree: true });
 
     injectScamButton();
+    document.addEventListener("click", onClickEnviar, true);
     scan();
     // Red de seguridad mientras Studio carga en diferido. A diferencia de la
     // v1 no se apaga a los 2 minutos: el scroll infinito de comentarios sigue
@@ -255,6 +256,7 @@
     clearInterval(state.scanTimer2);
     document.querySelectorAll(`.${BTN_CLASS}, .yra2-panel, .yra2-toast, .yra2-countdown, .yra2-scam-fab, .yra2-scam-panel, .yra2-scam-tag`).forEach((e) => e.remove());
     document.querySelectorAll(".yra2-scam-hit").forEach((e) => e.classList.remove("yra2-scam-hit"));
+    document.removeEventListener("click", onClickEnviar, true);
     state.processed = new WeakSet();
   }
 
@@ -816,6 +818,8 @@
         return;
       }
       toast("Respuesta publicada.", "ok");
+      guardarRespuesta({ comentario: commentText, autor: autorDeFila(row), video_id: videoId, video_titulo: videoTitle,
+        respuesta_ia: vet.text, respuesta_final: vet.text, tipo: "ia" });
       if (state.cfg.likeOnPublish) likeComment(liveRow(btn, row, commentId));
     } catch (err) {
       warn(err);
@@ -836,7 +840,14 @@
      5. PUBLICACION VERIFICADA
      ========================================================================== */
 
-  async function publish(btn, row, openerAtInject, text, setLabel) {
+  // Mientras publica la extension, el clic en el boton de enviar de Studio es nuestro: la captura de respuestas escritas
+  // a mano (onClickEnviar) no debe contarlo.
+  async function publish(...args) {
+    state.publicando = true;
+    try { return await publishInner(...args); } finally { state.publicando = false; }
+  }
+
+  async function publishInner(btn, row, openerAtInject, text, setLabel) {
     if (!row || !row.isConnected) {
       return { ok: false, error: "YouTube ha recargado la lista de comentarios. Vuelve a pulsar el boton de la fila." };
     }
@@ -914,6 +925,7 @@
     /* ---- Paso 4: insertar y VERIFICAR el contenido ------------------------ */
     setLabel("Escribiendo…");
     const method = await insertText(field, text);
+    state.textoIA = { field, texto: text }; // si la publicacion se aborta y Sergi la retoca y envia a mano: «editada»
     if (!method) {
       return { ok: false, error: "El texto no se ha podido escribir en el cuadro. Lo tienes en el portapapeles." };
     }
@@ -1417,6 +1429,7 @@
   // scroll de la pagina.
   function showPanel(row, btn, text, meta) {
     document.querySelectorAll(".yra2-panel").forEach((p) => p.remove());
+    let generado = text; // lo que propuso la IA (cambia con «Regenerar»): para saber si Sergi lo ha retocado
 
     const panel = document.createElement("div");
     panel.className = "yra2-panel";
@@ -1472,12 +1485,13 @@
         e.target.disabled = true;
         e.target.textContent = "Publicando…";
         const live = liveRow(btn, row, meta.commentId);
+        let publicado = ta.value;
         const prev = Number(state.cfg.countdown);
         state.cfg.countdown = 0; // ya lo ha revisado el humano
         panel.querySelectorAll(".yra2-act").forEach((b) => { b.disabled = true; });
         let res;
         try {
-          res = await publish(btn, live, null, ta.value, () => {});
+          res = await publish(btn, live, null, publicado = ta.value, () => {});
         } catch (err) {
           res = { ok: false, error: `Error inesperado: ${err.message}` };
         } finally {
@@ -1489,6 +1503,12 @@
         if (res.ok) {
           panel.remove();
           toast("Respuesta publicada.", "ok");
+          if (!meta.reaccion) {
+            const info = getVideoInfo(live);
+            guardarRespuesta({ comentario: extractCommentText(live) || "", autor: autorDeFila(live), video_id: info.videoId,
+              video_titulo: info.title || meta.videoTitle, respuesta_ia: generado, respuesta_final: publicado,
+              tipo: norm(publicado) === norm(generado) ? "ia" : "editada" });
+          }
           if (state.cfg.likeOnPublish) likeComment(liveRow(btn, live, meta.commentId));
         } else {
           inlineMessage(panel, res.error, "error");
@@ -1521,7 +1541,7 @@
               transcript: meta.transcript?.ok ? meta.transcript.text : null,
             },
           }, GEN_REPLY_TIMEOUT_MS);
-          if (gen?.ok) { ta.value = vetReply(gen.reply, commentTextRegen).text; updateCount(); }
+          if (gen?.ok) { ta.value = generado = vetReply(gen.reply, commentTextRegen).text; updateCount(); }
           else inlineMessage(panel, gen?.error || "Error al regenerar.", "error");
         } finally {
           releaseBusy();
@@ -1979,6 +1999,78 @@
         e.target.closest("li")?.remove();
       }
     });
+  }
+
+  /* ==========================================================================
+     11. APRENDIZAJE  —  cada respuesta publicada se guarda (v2.4.0)
+     --------------------------------------------------------------------------
+     Peticion de Sergi (26/10/2026): «cada comentario que respondo yo de forma
+     manual, o te edito o te toco algo, que te lo guardes para que vayamos
+     mejorando el modelo». Se guarda (en el motor de BD VIDEOS, pestaña
+     YOUTUBE_RESPUESTAS, via background.js) cada respuesta que sale de Studio:
+       - a_mano: la escribe Sergi en la caja de Studio y pulsa su «Responder»
+       - editada: la propuso la IA y Sergi la cambio antes de publicar
+       - ia: la de la IA tal cual
+     Antes de escribir, background.js mete en el prompt las respuestas reales
+     mas parecidas al comentario y las reglas del documento modelo.
+     ========================================================================== */
+
+  function guardarRespuesta(fila) {
+    if (!fila || !String(fila.respuesta_final || "").trim()) return;
+    const id = `Y${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    send({ type: "GUARDAR_RESPUESTA", payload: { fila: { id, fecha: new Date().toISOString(), fuente: "extension", ...fila } } }, 30000)
+      .then((r) => log("Respuesta guardada para aprender", { tipo: fila.tipo, r }))
+      .catch(() => {});
+  }
+
+  // Autor del comentario principal de una fila (o de una unidad de comentario).
+  function autorDeFila(scope) {
+    try { return scamAutor(scope) || ""; } catch { return ""; }
+  }
+
+  // El comentario al que contesta una caja de respuesta abierta: el ultimo
+  // comentario del hilo que esta ANTES del campo en el documento (vale para
+  // responder al principal y para responder a una respuesta).
+  function comentarioDeCaja(field) {
+    const row = findThreadRoot(field);
+    const textos = [...row.querySelectorAll("#content-text, [id='content-text']")]
+      .filter((el) => !esNuestro(el) && (el.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const el = textos[textos.length - 1];
+    if (!el) return { row, texto: extractCommentText(row) || "", autor: autorDeFila(row) };
+    let unit = el;
+    while (unit.parentElement && unit.parentElement !== row &&
+           ![...unit.parentElement.querySelectorAll("#content-text, [id='content-text']")].some((x) => x !== el)) unit = unit.parentElement;
+    return { row, texto: textWithEmoji(el) || txt(el), autor: autorDeFila(unit) };
+  }
+
+  // Clic en el boton de ENVIAR de una caja de Studio con texto, que no ha
+  // pulsado la extension: respuesta escrita (o retocada) a mano. Se guarda
+  // solo cuando se confirma que se ha enviado (la caja se cierra o se vacia).
+  function onClickEnviar(e) {
+    if (state.publicando) return;
+    const t = e.target;
+    if (!t || !t.closest || esNuestro(t)) return;
+    for (const field of visibleFields()) {
+      const texto = fieldText(field).trim();
+      if (!texto) continue;
+      const sub = findSubmitButton(field, null, findThreadRoot(field));
+      if (!sub || !(sub === t || sub.contains(t) || t.contains(sub))) continue;
+      const ctx = comentarioDeCaja(field);
+      const ia = state.textoIA && state.textoIA.field === field ? state.textoIA.texto : "";
+      const info = getVideoInfo(ctx.row);
+      let n = 0;
+      const timer = setInterval(() => {
+        n++;
+        const enviado = !field.isConnected || !isVisible(field) || !fieldText(field).trim();
+        if (!enviado && n < 40) return;
+        clearInterval(timer);
+        if (!enviado) { log("Respuesta a mano: no se ha confirmado el envio, no se guarda"); return; }
+        guardarRespuesta({ comentario: ctx.texto, autor: ctx.autor, video_id: info.videoId, video_titulo: info.title,
+          respuesta_ia: ia, respuesta_final: texto, tipo: ia && norm(ia) !== norm(texto) ? "editada" : ia ? "ia" : "a_mano" });
+        if (ia) state.textoIA = null;
+      }, 250);
+      return;
+    }
   }
 
   /* ── Escape global: cierra panel y cancela cuenta atras ─────────────────── */

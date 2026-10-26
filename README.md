@@ -1,8 +1,35 @@
-# YouTube Reply Assistant v2.3.0
+# YouTube Reply Assistant v2.4.0
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.4.0 — aprende de tus respuestas
+
+Cada respuesta que sale de Studio se guarda sola en la pestaña
+**YOUTUBE_RESPUESTAS** de BD VÍDEOS, con el comentario al que respondía:
+
+- **a_mano**: la escribes tú en la caja de Studio y pulsas su «Responder».
+  Solo se guarda cuando Studio confirma el envío (la caja se cierra o se vacía).
+- **editada**: la propuso la IA y la cambiaste en el panel antes de publicar.
+  Se guardan las dos versiones: la corrección es lo que más enseña.
+- **ia**: la de la IA tal cual.
+
+Las respuestas con emoticono no se guardan. Además, el motor bajó todas las
+respuestas que has escrito en el canal desde 2022 (2.469 el 26/10/2026) y cada
+hora coge las que contestes fuera de la extensión, por ejemplo desde el móvil.
+
+Antes de escribir, la IA lee el documento **«MODELO DE RESPUESTAS YOUTUBE —
+se nutre solo»** (CLAUDE / YOUTUBE): tus «REGLAS DE VOZ», que mandan sobre todo,
+y las «REGLAS APRENDIDAS», que Claude reescribe cada semana comparando lo que
+propuso con lo que publicaste. También lee tus 10 respuestas reales más
+parecidas al comentario que toca. Con eso sustituye a los 13 ejemplos fijos de
+siempre, que se usan solo si no hay conexión con la hoja.
+
+En el popup: «Aprender de tus respuestas» (activado), la **clave del motor**
+(la deja en el portapapeles `scripts/configurar_extension_youtube.py` del repo
+blindaje-patrimonial) y «Probar conexión con la hoja». Detalle en
+`TRASPASO.md` §22.
 
 ## Novedades en 2.3.0 — botón «🚫 Buscar estafas»
 

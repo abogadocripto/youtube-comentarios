@@ -13,6 +13,8 @@
     likeOnPublish: true,
     emojiReply: true,
     emojiReplyText: "🤙",
+    motorClave: "",
+    aprender: true,
     debug: true,
   };
 
@@ -29,6 +31,9 @@
     likeOnPublish: $("likeOnPublish"),
     emojiReply: $("emojiReply"),
     emojiReplyText: $("emojiReplyText"),
+    motorClave: $("motorClave"),
+    aprender: $("aprender"),
+    motorBtn: $("motorBtn"),
     extraContext: $("extraContext"),
     customInstructions: $("customInstructions"),
     testBtn: $("testBtn"),
@@ -53,6 +58,8 @@
     el.likeOnPublish.checked = cfg.likeOnPublish !== false;
     el.emojiReply.checked = cfg.emojiReply !== false;
     el.emojiReplyText.value = cfg.emojiReplyText || DEFAULTS.emojiReplyText;
+    el.motorClave.value = cfg.motorClave || "";
+    el.aprender.checked = cfg.aprender !== false;
     el.extraContext.value = cfg.extraContext || "";
     el.customInstructions.value = cfg.customInstructions || "";
     el.countdown.value = Number(cfg.countdown) > 0 ? Number(cfg.countdown) : 4;
@@ -99,6 +106,8 @@
       likeOnPublish: el.likeOnPublish.checked,
       emojiReply: el.emojiReply.checked,
       emojiReplyText: el.emojiReplyText.value.trim() || DEFAULTS.emojiReplyText,
+      motorClave: el.motorClave.value.trim(),
+      aprender: el.aprender.checked,
       debug: true,
     };
   }
@@ -131,6 +140,21 @@
         if (chrome.runtime.lastError) return say(chrome.runtime.lastError.message, "err");
         if (res?.ok) say(`Conexion correcta con ${res.model}.`, "ok");
         else say(res?.error || "No se ha podido conectar.", "err");
+      });
+    });
+  });
+
+  el.motorBtn.addEventListener("click", () => {
+    const cfg = collect();
+    if (!cfg.motorClave) return say("Pega la clave del motor antes de probar.", "err");
+    el.motorBtn.disabled = true;
+    say("Conectando con la hoja…", "busy");
+    chrome.storage.local.set({ motorClave: cfg.motorClave, aprender: cfg.aprender }, () => {
+      chrome.runtime.sendMessage({ type: "PROBAR_MOTOR" }, (res) => {
+        el.motorBtn.disabled = false;
+        if (chrome.runtime.lastError) return say(chrome.runtime.lastError.message, "err");
+        if (res?.ok) say(`Conectado. ${res.filas} respuestas tuyas en la hoja${res.reglas ? " y reglas leídas" : ""}.`, "ok");
+        else say(`La hoja no responde: ${res?.error || "sin respuesta"}.`, "err");
       });
     });
   });
