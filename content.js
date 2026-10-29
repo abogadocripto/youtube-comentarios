@@ -266,6 +266,7 @@
 
   function scan() {
     if (!state.active) return;
+    try { quitarMarcasMovidas(); } catch { /* nada */ }
 
     // Campos de respuesta abiertos ahora mismo. Una fila que tenga uno abierto
     // se salta: su boton "Responder" visible es el de ENVIAR, no el de abrir,
@@ -1930,13 +1931,52 @@
     return null;
   }
 
+  /* Studio RECICLA las cajas de la lista (caso real, 29/10/2026, con el filtro
+     «Sin responder»): al publicar una respuesta ese comentario sale de la
+     lista y los de debajo suben a las mismas cajas. Una caja que hace un
+     segundo era «Te recomiendo un curso de ESPAÑOL» puede ser ahora «Sandbox?»
+     de otra persona. Por eso, justo antes de abrir el menu y otra vez con el
+     menu abierto, se comprueba que en la caja sigue EL MISMO comentario del
+     MISMO autor; si no, no se oculta nada (se reintenta en la siguiente). */
+  function textoDe(el) {
+    return norm(textWithEmoji(el) || txt(el));
+  }
+
+  function sigueIgual(u) {
+    return Boolean(u.el?.isConnected && isVisible(u.el) && textoDe(u.el) === norm(u.texto) && scamAutor(u.unit) === u.autor);
+  }
+
+  // El comentario de u tal como esta AHORA en la pagina (puede haber cambiado de caja), o null.
+  function resolverActual(u) {
+    if (sigueIgual(u)) return u;
+    const k = claveComentario(u);
+    return scamUnits().find((x) => claveComentario(x) === k) || null;
+  }
+
+  // Espera a que la lista deje de moverse (ms sin cambios), como mucho max ms.
+  function esperarCalma(ms = 800, max = 5000) {
+    return new Promise((resolve) => {
+      let t = null;
+      const fin = () => { obs.disconnect(); clearTimeout(t); clearTimeout(tope); resolve(); };
+      const obs = new MutationObserver((muts) => {
+        if (muts.every((m) => m.target?.closest?.(".yra2-toast, .yra2-scam-tag"))) return;
+        clearTimeout(t); t = setTimeout(fin, ms);
+      });
+      obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+      t = setTimeout(fin, ms);
+      const tope = setTimeout(fin, max);
+    });
+  }
+
   // ⋮ → «Ocultar del canal» (y la confirmacion, si Studio la pide).
   async function ocultarDelCanal(u) {
+    if (!sigueIgual(u)) return { ok: false, reintentar: true, error: "el comentario ha cambiado de sitio" };
     const menu = menuDe(u);
     if (!menu) return { ok: false, error: "no encuentro el menú ⋮ del comentario" };
     realClick(menu);
     const item = await waitFor(opcionOcultar, { timeout: 3000, interval: 100 });
     if (!item) { cerrarMenus(); return { ok: false, error: "el menú no tiene «Ocultar del canal»" }; }
+    if (!sigueIgual(u)) { cerrarMenus(); return { ok: false, reintentar: true, error: "el comentario ha cambiado de sitio con el menú abierto" }; }
     realClick(item);
     const conf = await waitFor(botonConfirmar, { timeout: 1500, interval: 100 });
     if (conf) realClick(conf);
@@ -1944,13 +1984,30 @@
     return { ok: true, confirmado: Boolean(conf) };
   }
 
+  // La marca va atada al TEXTO del comentario: si Studio mete otro comentario en esa caja, quitarMarcasMovidas() la borra.
   function marcar(u, clase, texto) {
     u.unit.classList.add(clase);
+    u.unit.setAttribute("data-yra2-texto", norm(u.texto));
     u.el.parentElement?.querySelector(`:scope > .${SCAM_TAG}`)?.remove();
     const tag = document.createElement("div");
     tag.className = SCAM_TAG;
     tag.textContent = texto;
+    tag.setAttribute("data-yra2-texto", norm(u.texto));
     u.el.insertAdjacentElement("afterend", tag);
+  }
+
+  function quitarMarcasMovidas() {
+    document.querySelectorAll(`.${SCAM_TAG}`).forEach((tag) => {
+      const host = tag.previousElementSibling;
+      if (!host || !host.matches?.(CT_SEL) || textoDe(host) !== tag.getAttribute("data-yra2-texto")) tag.remove();
+    });
+    document.querySelectorAll(`.${OCULTO}, .${SCAM_HIT}`).forEach((unit) => {
+      const el = unit.matches?.(CT_SEL) ? unit : unit.querySelector(CT_SEL);
+      if (!el || textoDe(el) !== unit.getAttribute("data-yra2-texto")) {
+        unit.classList.remove(OCULTO, SCAM_HIT);
+        unit.removeAttribute("data-yra2-texto");
+      }
+    });
   }
 
   function guardarOcultado(u, v, resultado) {
@@ -2004,12 +2061,18 @@
       // Si hay un flujo de respuesta en marcha, no se tocan menus: se reintenta en el siguiente clic.
       if (hits.length && state.busy) { log("Limpieza aplazada: hay una respuesta en curso"); return; }
       const hechos = { estafa: 0, hate: 0 };
+      const aplazados = new Set();
       if (hits.length) {
         state.busy = true;
         try {
-          for (const u of hits) {
-            const v = veredicto.get(u.id);
+          await esperarCalma();
+          for (const h of hits) {
+            const v = veredicto.get(h.id);
+            await esperarCalma(400, 3000);
+            const u = resolverActual(h);
+            if (!u) { aplazados.add(h.id); log("Limpieza: ya no veo el comentario, se reintenta", h.autor); continue; }
             const r = await ocultarDelCanal(u);
+            if (r.reintentar) { aplazados.add(h.id); log("Limpieza:", r.error, "· se reintenta", h.autor); continue; }
             if (r.ok) {
               hechos[v.tipo]++;
               marcar(u, OCULTO, `🧹 Oculto del canal · ${v.tipo}: ${v.motivo}`);
@@ -2023,7 +2086,7 @@
           releaseBusy();
         }
       }
-      for (const u of nuevas) if (clasificados.has(u.id)) revisados.add(claveComentario(u));
+      for (const u of nuevas) if (clasificados.has(u.id) && !aplazados.has(u.id)) revisados.add(claveComentario(u));
       guardarRevisados(revisados);
       const total = hechos.estafa + hechos.hate;
       log("Limpieza", { revisados: nuevas.length, estafa: hechos.estafa, hate: hechos.hate, fallo });

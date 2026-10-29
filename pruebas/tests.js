@@ -709,7 +709,7 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
   };
   const ocultos = ($$) => $$("ytcp-comment-info").filter((i) => i.dataset.oculto).map((i) => i.querySelector("[id='author-text']").textContent.trim()).sort();
   const quitados = ($$) => $$("ytcp-comment-info").filter((i) => i.dataset.quitado);
-  const responder = async (wait, $$, fila = 1, ms = 10000) => { $$("ytcp-comment-thread")[fila].querySelector(".yra2-btn").click(); await wait(ms); };
+  const responder = async (wait, $$, fila = 1, ms = 15000) => { $$("ytcp-comment-thread")[fila].querySelector(".yra2-btn").click(); await wait(ms); };
 
   await T("ya no hay boton «Buscar estafas»", { studio: ENJAMBRE }, async ({ wait, $$ }) => {
     await wait(600);
@@ -765,7 +765,7 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
   await T("si el menu no tiene «Ocultar del canal», lo marca en rojo, cierra el menu y no rompe nada",
     { studio: { ...ENJAMBRE, sinOcultar: true } }, async ({ wait, $$, mock }) => {
       await wait(600);
-      await responder(wait, $$, 1, 16000);
+      await responder(wait, $$, 1, 22000);
       assert(ocultos($$).length === 0 && quitados($$).length === 0, "ha hecho algo que no debia");
       assert($$(".yra2-scam-hit").length === 4, `en rojo: ${$$(".yra2-scam-hit").length}`);
       assert($$(".menu-sim").length === 0, "se ha quedado el menu abierto");
@@ -780,6 +780,21 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       await wait(600);
       await responder(wait, $$);
       assert(JSON.stringify(ocultos($$)) === JSON.stringify(["@usuario0"]), `ocultos: ${ocultos($$).join(", ")}`);
+    });
+
+  await T("Studio recicla las cajas al publicar (filtro «Sin responder»): oculta a QUIEN TOCA y la etiqueta no se queda en otro comentario",
+    { studio: { rows: 3, campoTextarea: true, reciclar: true, autores: ["@lola", "@chocoeldelosseguros", "@Miguel_Joves_De_Luca"],
+      comentarios: ["¿Y en Andorra que pasa con el 721?", "Te recomiendo en paralelo, un curso de ESPAÑOL", "Sandbox?"] },
+      mock: { reply: "Respuesta de prueba.", scamVeredictos: (it) => /curso de ESPAÑOL/.test(it.texto) ? "hate" : null } },
+    async ({ wait, $$, doc }) => {
+      await wait(600);
+      await responder(wait, $$, 0, 12000);
+      assert(JSON.stringify(doc.__ocultados || []) === JSON.stringify(["@chocoeldelosseguros"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
+      await wait(3000);                                  // un escaneo (cada 2,5 s) para limpiar marcas movidas
+      for (const tag of $$(".yra2-scam-tag")) {
+        const host = tag.previousElementSibling;
+        assert(host && /curso de ESPAÑOL/.test(host.textContent), `etiqueta junto a «${host && host.textContent}»`);
+      }
     });
 
   await T("con la limpieza apagada en el popup, no revisa ni oculta nada",

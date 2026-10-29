@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox", casillas = false, autores = null, respuestas = null, sinOcultar = false, confirmarOcultar = false } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox", casillas = false, autores = null, respuestas = null, sinOcultar = false, confirmarOcultar = false, reciclar = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url, pretendToBeVisual: true, runScripts: "outside-only" }
@@ -65,12 +65,15 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
     m.querySelector(".quitar").addEventListener("click", () => { info.dataset.quitado = "1"; m.remove(); });
     m.querySelector(".ocultar")?.addEventListener("click", () => {
       m.remove();
-      if (!confirmarOcultar) { info.dataset.oculto = "1"; return; }
+      // A quien se oculta DE VERDAD: el autor que hay en la caja en el momento de pulsar (Studio oculta al usuario, no la caja).
+      const quien = () => (info.querySelector("[id='author-text']")?.textContent || "").trim();
+      (doc.__ocultados = doc.__ocultados || []);
+      if (!confirmarOcultar) { info.dataset.oculto = "1"; doc.__ocultados.push(quien()); return; }
       const d = doc.createElement("tp-yt-paper-dialog");
       d.innerHTML = '<div>¿Ocultar a este usuario?</div><ytcp-button class="cancelar-d"><button>Cancelar</button></ytcp-button>' +
         '<ytcp-button class="conf-d"><button>Ocultar</button></ytcp-button>';
       doc.body.appendChild(d);
-      d.querySelector(".conf-d button").addEventListener("click", () => { info.dataset.oculto = "1"; d.remove(); });
+      d.querySelector(".conf-d button").addEventListener("click", () => { info.dataset.oculto = "1"; doc.__ocultados.push(quien()); d.remove(); });
       d.querySelector(".cancelar-d button").addEventListener("click", () => d.remove());
     });
   };
@@ -214,6 +217,18 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
           }
           thread.dataset.published = valorCampo();
           box.remove();
+          // reciclar: como Studio con el filtro «Sin responder», el comentario respondido sale de la lista y los de
+          // debajo SUBEN A LAS MISMAS CAJAS (texto y autor de cada caja pasan a ser los de la siguiente).
+          if (reciclar) setTimeout(() => {
+            const hilos = [...doc.querySelectorAll("ytcp-comment-thread")];
+            const k = hilos.indexOf(thread);
+            for (let j = k; j < hilos.length; j++) {
+              const a = hilos[j].querySelector("ytcp-comment-info"), b = hilos[j + 1]?.querySelector("ytcp-comment-info");
+              a.querySelector("[id='content-text']").textContent = b ? b.querySelector("[id='content-text']").textContent : "";
+              a.querySelector("[id='author-text'] span").textContent = b ? b.querySelector("[id='author-text'] span").textContent : "";
+            }
+            hilos[hilos.length - 1].remove();
+          }, 450);
         });
         if (sinBotonCancelar) {
           // Simula el listener real de Angular: atado al CAMPO (o a un

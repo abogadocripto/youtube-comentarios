@@ -1,8 +1,21 @@
-# YouTube Reply Assistant v2.5.0
+# YouTube Reply Assistant v2.5.1
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.5.1 — la limpieza ya no se equivoca de comentario cuando Studio mueve la lista
+
+Caso real del 29/10/2026, con el filtro «Sin responder»: al publicar una
+respuesta, ese comentario sale de la lista y Studio sube los de debajo a las
+mismas cajas. La etiqueta «Oculto del canal · hate: burla sobre el español…»
+apareció en «Sandbox?», de otra persona, y con mala suerte podía ocultar al
+usuario equivocado. Ahora, antes de ocultar, espera a que la lista se quede
+quieta. También comprueba, justo antes y con el menú ya abierto, que en esa
+caja sigue el mismo comentario del mismo autor. Si ha cambiado, no oculta y
+lo reintenta en el siguiente clic. Las etiquetas van atadas al texto del
+comentario y se borran solas si Studio mete otro comentario en la caja.
+Detalle en `TRASPASO.md` §24.
 
 ## Novedades en 2.5.0 — limpieza automática de estafas y hate (sin botón)
 

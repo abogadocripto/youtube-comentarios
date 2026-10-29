@@ -1441,3 +1441,38 @@ AUTOMATICA» (67 en total). `harness.js`: menú ⋮ por comentario (principal en
 la barra de acciones; respuestas después de la barra, como en Studio),
 `sinOcultar`, `confirmarOcultar`, `scamVeredictos` devuelve el tipo, y
 `chrome.storage.local.set` del mock guarda de verdad.
+
+
+---
+
+## 24. Studio recicla las cajas de la lista: la limpieza podía ocultar a otro (v2.5.1)
+
+Caso real (29/10/2026, captura de Sergi): con el filtro «Estado de respuesta:
+Sin responder», la etiqueta «🧹 Oculto del canal · hate: Burla sobre el
+español de Sergi» (era del comentario «Te recomiendo en paralelo, un curso de
+ESPAÑOL») apareció pegada a «Sandbox?», de @Miguel_Joves_De_Luca. Causa: al
+publicar una respuesta, ese comentario deja de cumplir el filtro y Studio
+(lista de Polymer) reutiliza las mismas cajas para los de debajo. La v2.5.0
+guardaba la caja (`u.el`) al clasificar y la usaba después para abrir el ⋮ y
+para la etiqueta: si la lista se movía entre medias, el ⋮ y la etiqueta eran
+de otro comentario. No hay forma de saber desde la extensión a quién se
+ocultó ese día (la clave del motor no estaba puesta y YOUTUBE_OCULTADOS
+quedó vacía): Sergi lo comprueba en Studio → Configuración → Comunidad →
+Usuarios ocultos.
+
+Corrección:
+- `esperarCalma()` (MutationObserver: sin cambios en 800 ms, máximo 5 s)
+  antes de empezar a ocultar y entre uno y otro (400 ms / 3 s).
+- `resolverActual(u)`: si la caja ya no tiene el mismo texto y autor, busca
+  el comentario en la página por `claveComentario`; si no está, se aplaza.
+- `ocultarDelCanal` comprueba `sigueIgual(u)` antes de abrir el ⋮ y otra vez
+  con el menú abierto, justo antes de pulsar «Ocultar del canal». Si ha
+  cambiado: Escape, `reintentar`, no se marca como revisado ni se apunta.
+- Marcas atadas al texto (`data-yra2-texto` en la etiqueta y en la unidad);
+  `quitarMarcasMovidas()` en cada `scan()` borra las que han quedado en un
+  comentario distinto.
+
+Prueba nueva: `reciclar: true` en `harness.js` (al publicar, el texto y el
+autor de cada caja pasan a ser los de la siguiente y la última desaparece) y
+`doc.__ocultados` registra el autor que había en la caja al pulsar «Ocultar»:
+tiene que ser solo el del hate.
