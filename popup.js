@@ -15,6 +15,7 @@
     emojiReplyText: "🤙",
     motorClave: "",
     aprender: true,
+    limpieza: true,
     debug: true,
   };
 
@@ -33,6 +34,7 @@
     emojiReplyText: $("emojiReplyText"),
     motorClave: $("motorClave"),
     aprender: $("aprender"),
+    limpieza: $("limpieza"),
     motorBtn: $("motorBtn"),
     extraContext: $("extraContext"),
     customInstructions: $("customInstructions"),
@@ -60,6 +62,7 @@
     el.emojiReplyText.value = cfg.emojiReplyText || DEFAULTS.emojiReplyText;
     el.motorClave.value = cfg.motorClave || "";
     el.aprender.checked = cfg.aprender !== false;
+    el.limpieza.checked = cfg.limpieza !== false;
     el.extraContext.value = cfg.extraContext || "";
     el.customInstructions.value = cfg.customInstructions || "";
     el.countdown.value = Number(cfg.countdown) > 0 ? Number(cfg.countdown) : 4;
@@ -108,6 +111,7 @@
       emojiReplyText: el.emojiReplyText.value.trim() || DEFAULTS.emojiReplyText,
       motorClave: el.motorClave.value.trim(),
       aprender: el.aprender.checked,
+      limpieza: el.limpieza.checked,
       debug: true,
     };
   }

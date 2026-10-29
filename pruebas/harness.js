@@ -5,7 +5,7 @@
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 
-function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox", casillas = false, autores = null, respuestas = null } = {}) {
+function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, submitStartsEnabled = false, campoExtra = false, soloPuntero = false, clicSinRegistro = false, campoTextarea = false, respuestaPrevia = false, sinBotonLike = false, sinBotonCancelar = false, comentarios = null, sinMiniaturaEn = [], miniaturaFuera = false, url = "https://studio.youtube.com/channel/UCabc/comments/inbox", casillas = false, autores = null, respuestas = null, sinOcultar = false, confirmarOcultar = false } = {}) {
   const dom = new JSDOM(
     `<!DOCTYPE html><html><body><div id="app"></div></body></html>`,
     { url, pretendToBeVisual: true, runScripts: "outside-only" }
@@ -54,6 +54,28 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
   // respuestas), con el aria-checked que alterna al pulsarla.
   const cbHtml = () => '<ytcp-checkbox-lit class="cb" role="checkbox" aria-checked="false"><div class="box"></div></ytcp-checkbox-lit>';
 
+  const abrirMenu = (info) => {
+    doc.querySelectorAll(".menu-sim").forEach((m) => m.remove());
+    const m = doc.createElement("tp-yt-paper-listbox");
+    m.className = "menu-sim";
+    m.innerHTML = '<tp-yt-paper-item>Buscar comentarios similares</tp-yt-paper-item><tp-yt-paper-item class="quitar">Quitar</tp-yt-paper-item>' +
+      '<tp-yt-paper-item>Denunciar</tp-yt-paper-item><tp-yt-paper-item>Añadir como usuario aprobado</tp-yt-paper-item>' +
+      (sinOcultar ? "" : '<tp-yt-paper-item class="ocultar">Ocultar del canal</tp-yt-paper-item>');
+    doc.body.appendChild(m);
+    m.querySelector(".quitar").addEventListener("click", () => { info.dataset.quitado = "1"; m.remove(); });
+    m.querySelector(".ocultar")?.addEventListener("click", () => {
+      m.remove();
+      if (!confirmarOcultar) { info.dataset.oculto = "1"; return; }
+      const d = doc.createElement("tp-yt-paper-dialog");
+      d.innerHTML = '<div>¿Ocultar a este usuario?</div><ytcp-button class="cancelar-d"><button>Cancelar</button></ytcp-button>' +
+        '<ytcp-button class="conf-d"><button>Ocultar</button></ytcp-button>';
+      doc.body.appendChild(d);
+      d.querySelector(".conf-d button").addEventListener("click", () => { info.dataset.oculto = "1"; d.remove(); });
+      d.querySelector(".cancelar-d button").addEventListener("click", () => d.remove());
+    });
+  };
+  doc.addEventListener("keydown", (e) => { if (e.key === "Escape") doc.querySelectorAll(".menu-sim").forEach((m) => m.remove()); });
+
   for (let i = 0; i < rows; i++) {
     const thread = doc.createElement("ytcp-comment-thread");
     thread.dataset.row = String(i);
@@ -64,19 +86,22 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
         <a id="author-text"><span>${autores ? autores[i % autores.length] : `@usuario${i}`}</span></a>
         <div id="content-text">${comments[i % comments.length]}</div>
       </ytcp-comment-info>
+
+      <div class="comment-actions">
+        <ytcp-button class="open-reply"><button>Responder</button></ytcp-button>
+        <span class="video-title">Europa quiere PROHIBIR las wallets</span>
+        ${sinBotonLike ? "" : '<ytcp-icon-button class="like-btn" aria-label="Me gusta"><button></button></ytcp-icon-button>'}
+        <ytcp-icon-button class="more" aria-label="Acciones"><button></button></ytcp-icon-button>
+      </div>
       ${(respuestas && respuestas[i] || []).map(([autor, texto]) => `
       <div class="reply-item">
         <ytcp-comment-info>
           ${casillas ? cbHtml() : ""}
           <a id="author-text"><span>${autor}</span></a>
           <div id="content-text">${texto}</div>
+          <ytcp-icon-button class="more" aria-label="Acciones"><button></button></ytcp-icon-button>
         </ytcp-comment-info>
       </div>`).join("")}
-      <div class="comment-actions">
-        <ytcp-button class="open-reply"><button>Responder</button></ytcp-button>
-        <span class="video-title">Europa quiere PROHIBIR las wallets</span>
-        ${sinBotonLike ? "" : '<ytcp-icon-button class="like-btn" aria-label="Me gusta"><button></button></ytcp-icon-button>'}
-      </div>
       ${respuestaPrevia ? `
       <div class="existing-reply">
         <div id="content-text">Una respuesta que ya publique hace tiempo, gracias por preguntar!</div>
@@ -102,6 +127,13 @@ function buildStudio({ rows = 3, angularRegistersInput = true, openDelay = 300, 
     } else {
       app.appendChild(thread);
     }
+
+    // Menu ⋮ de cada comentario: el de la barra de acciones es del comentario principal; el de cada respuesta,
+    // de esa respuesta. «Ocultar del canal» marca data-oculto en su ytcp-comment-info; «Quitar», data-quitado.
+    thread.querySelectorAll(".more").forEach((more) => {
+      const info = more.closest("ytcp-comment-info") || thread.querySelector("ytcp-comment-info");
+      more.addEventListener("click", () => abrirMenu(info));
+    });
 
     thread.querySelectorAll("ytcp-checkbox-lit.cb").forEach((cb) => cb.addEventListener("click", () => {
       cb.setAttribute("aria-checked", cb.getAttribute("aria-checked") === "true" ? "false" : "true");
@@ -230,11 +262,12 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
                             : { ok: false, reason: "el video no expone pistas de subtitulos" });
           else if (msg.type === "INSERT_MAIN") cb({ ok: false, error: "no disponible en el banco" });
           else if (msg.type === "GUARDAR_RESPUESTA") cb({ ok: true, guardada: true });
-          else if (msg.type === "CLASSIFY_SCAMS") {
-            // scamVeredictos: funcion (item) => {estafa, motivo} | null; por defecto nada es estafa.
+          else if (msg.type === "CLASSIFY_SCAMS" || msg.type === "CLASSIFY_COMMENTS") {
+            // scamVeredictos: funcion (item) => "estafa" | "hate" | null; por defecto todo es ok.
             if (scamFalla) cb({ ok: false, error: "API caida en el banco" });
-            else cb({ ok: true, items: msg.payload.items.map((it) => ({ id: it.id, ...(scamVeredictos ? (scamVeredictos(it) || { estafa: false }) : { estafa: false }), motivo: "lo dice el modelo" })) });
+            else cb({ ok: true, items: msg.payload.items.map((it) => ({ id: it.id, tipo: (scamVeredictos && scamVeredictos(it)) || "ok", motivo: "lo dice el modelo" })) });
           }
+          else if (msg.type === "GUARDAR_OCULTADO") cb({ ok: true, guardada: true });
           // El content script real ya no pide la key en si (ver DEFAULTS de
           // content.js): solo comprueba su presencia con este mensaje.
           else if (msg.type === "HAS_API_KEY") cb({ ok: true, has: !!settings.apiKey });
@@ -243,7 +276,7 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
       },
     },
     storage: {
-      local: { get: (d, cb) => cb({ ...d, ...settings }) },
+      local: { get: (d, cb) => cb({ ...d, ...settings }), set: (o, cb) => { Object.assign(settings, o); cb && cb(); } },
       onChanged: { addListener: () => {} },
     },
   };

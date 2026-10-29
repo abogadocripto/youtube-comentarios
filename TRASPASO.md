@@ -1386,3 +1386,58 @@ con Claude; la sección REGLAS DE VOZ la escribe Sergi y no se toca.
 
 Pruebas: 5 e2e nuevas en «APRENDIZAJE» (`tests.js`, 68 en total) y 5 en
 `tests-bg.js` (54). El mock de `chrome.runtime` contesta `GUARDAR_RESPUESTA`.
+
+
+---
+
+## 23. Limpieza automática de estafas y hate, sin botón (v2.5.0)
+
+Petición del usuario (29/10/2026), con captura de Studio («Te recomiendo en
+paralelo, un curso de ESPAÑOL» con el menú ⋮ abierto): no quiere botones
+aparte (ni el de estafas de la v2.3.0); quiere que al usar «Responder con IA»
+se vaya limpiando todo solo, también el hate, y que se bloquee a esa gente.
+Se le propuso ocultar del canal con 5 s para cancelar o solo marcar; eligió
+**«Ocultar sola, sin aviso»**.
+
+**Diseño (content.js, sección 10).**
+- Disparo: `runFlow` → `finally` → `setTimeout(limpiezaAutomatica, 200)`. Así
+  nunca toca menús mientras se escribe o se publica una respuesta; si aun así
+  hay un flujo en curso (`state.busy`), se aplaza al siguiente clic.
+- Qué revisa: `scamUnits()` (cada `#content-text` visible), sin los del canal
+  (`OWN_AUTHOR_RE`), sin los ya revisados (`claveComentario` = autor + texto
+  normalizado, en `state.revisados` y en `chrome.storage.local.yraRevisados`,
+  máximo 4.000) ni los ya ocultos. Reglas y enjambre de la v2.3.0 → «estafa»
+  sin llamar a Claude; el resto, `CLASSIFY_COMMENTS` (lotes de 40) → `tipo`
+  estafa · hate · ok. Si la API falla, valen las reglas y los no clasificados
+  se reintentan la próxima vez.
+- Cómo oculta (`ocultarDelCanal`): `menuDe(u)` busca en el hilo los botones de
+  icono con aria-label tipo «Acción/Más/More/Opciones» o icono «more/vert», y
+  coge el que tiene a ESTE comentario como `#content-text` inmediatamente
+  anterior en orden de documento (vale para el menú del principal en la barra
+  de acciones y para el de cada respuesta). Clic → espera la opción
+  «Ocultar del canal» (`OCULTAR_RE`, hasta 3 s) → clic → si sale un diálogo,
+  pulsa el botón de confirmar (`CONFIRMAR_RE`, hasta 1,5 s). Nunca «Quitar».
+  Sin menú o sin la opción: Escape, rojo con el motivo y fila con «error» en
+  la hoja.
+- Registro: `GUARDAR_OCULTADO` → `background.js` (cola `ytrOcultados`) →
+  motor `{yt:'ocultados'}` → pestaña YOUTUBE_OCULTADOS de BD VÍDEOS (fecha,
+  autor, comentario, tipo, motivo, video_id, video_titulo, resultado; lo más
+  nuevo arriba). Toast final «🧹 N ocultados del canal (x estafa, y hate)».
+- Prompt (`SCAM_SYSTEM` en background.js): define ESTAFA, HATE y OK, con la
+  regla de que las críticas con argumentos son OK (Sergi las contesta) y
+  «ante la duda, ok», porque no hay revisión humana. `parseScamVerdicts`
+  devuelve `tipo` y sigue aceptando el formato `{estafa: true}`.
+- Ajuste `limpieza` (true por defecto) en el popup. `diagnostico-dom.js` §4d
+  lista los botones de icono de los dos primeros hilos y cuál tomaría como
+  menú, y las opciones visibles si el menú está abierto.
+
+**No verificado contra el DOM real**: el aria-label o el icono del ⋮ de
+Studio, el texto exacto de la opción (la captura muestra «Ocultar del canal»)
+y si pide confirmación. Si en Studio sale en rojo «no encuentro el menú ⋮» o
+«el menú no tiene…», pedir la sección 4d.
+
+Pruebas: «BUSCAR ESTAFAS» (9, del botón) sustituidas por 8 de «LIMPIEZA
+AUTOMATICA» (67 en total). `harness.js`: menú ⋮ por comentario (principal en
+la barra de acciones; respuestas después de la barra, como en Studio),
+`sinOcultar`, `confirmarOcultar`, `scamVeredictos` devuelve el tipo, y
+`chrome.storage.local.set` del mock guarda de verdad.

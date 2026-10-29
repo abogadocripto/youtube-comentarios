@@ -1,8 +1,32 @@
-# YouTube Reply Assistant v2.4.0
+# YouTube Reply Assistant v2.5.0
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas
 > y lo que ya está descartado. Este README es solo el manual de uso.
+
+## Novedades en 2.5.0 — limpieza automática de estafas y hate (sin botón)
+
+Ya no hay botón «🚫 Buscar estafas». Cada vez que pulsas **«Responder con
+IA»**, cuando termina, la extensión revisa los comentarios cargados que aún no
+ha revisado y **oculta del canal**, sola y sin aviso previo (decisión de
+Sergi del 29/10/2026), los de:
+
+- **Estafa**: teléfono o WhatsApp/Telegram de un «asesor», testimonios de
+  ganancias «gracias a» alguien, enjambres de cuentas citando el mismo nombre
+  y su comentario cebo.
+- **Hate**: insultos, burlas o desprecio sin aportar nada («Te recomiendo en
+  paralelo un curso de ESPAÑOL»), ataques personales, racismo, amenazas.
+
+Las críticas con argumentos, aunque sean duras, no se tocan. Ante la duda,
+tampoco. Los comentarios del propio canal, nunca. Usa el menú ⋮ → «Ocultar
+del canal» (y confirma si Studio lo pide); **nunca «Quitar»**, que borra para
+siempre. Ocultar se deshace en Studio → Configuración → Comunidad → Usuarios
+ocultos. Cada ocultado queda en la pestaña **YOUTUBE_OCULTADOS** de BD VÍDEOS
+con el comentario, el tipo y el motivo, y al terminar sale un aviso
+«🧹 N ocultados del canal». Lo ya revisado no se vuelve a mandar a Claude. Se
+apaga en el popup («Ocultar del canal, solos, los comentarios de estafa y de
+hate»). Si no encuentra el menú ⋮, lo deja en rojo con el motivo: entonces
+pasa `diagnostico-dom.js` y pega la sección 4d. Detalle en `TRASPASO.md` §23.
 
 ## Novedades en 2.4.0 — aprende de tus respuestas
 

@@ -696,122 +696,99 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       assert(!t.dataset.published, "ha publicado pese a cancelar");
     });
 
-  console.log("\nBUSCAR ESTAFAS");
+  console.log("\nLIMPIEZA AUTOMATICA (estafa y hate, al pulsar «Responder con IA»)");
 
+  // Fila 0: el cebo de un enjambre con tres respuestas; fila 1: comentario normal (es la que se responde);
+  // fila 2: pregunta; y una respuesta de Sergi que nunca se toca.
   const ENJAMBRE = {
-    rows: 3, casillas: true,
-    comentarios: ["This isn't a trade. Bitensity is a position.", "Muy buen video Sergi, gracias", "¿Y en Andorra que pasa con el 721?"],
+    rows: 3, campoTextarea: true,
+    comentarios: ["This isn't a trade. Bitensity is a position.", "Si pido un prestamo con mis tokens como colateral, ese fiat, no tributa?", "¿Y en Andorra que pasa con el 721?"],
     autores: ["@StephensonOropeza", "@pepe", "@lola"],
     respuestas: { 0: [["@ann", "Bitensity really works, I started last month"], ["@bob", "I can confirm Bitensity is legit"], ["@carl", "Just looked Bitensity up, amazing"]],
                   1: [["@Sergi_Andrés", "Gracias a ti! Contacta con Bitensity si quieres"]] },
   };
+  const ocultos = ($$) => $$("ytcp-comment-info").filter((i) => i.dataset.oculto).map((i) => i.querySelector("[id='author-text']").textContent.trim()).sort();
+  const quitados = ($$) => $$("ytcp-comment-info").filter((i) => i.dataset.quitado);
+  const responder = async (wait, $$, fila = 1, ms = 10000) => { $$("ytcp-comment-thread")[fila].querySelector(".yra2-btn").click(); await wait(ms); };
 
-  await T("el boton aparece en la pagina de comentarios y se va al salir", { studio: ENJAMBRE }, async ({ wait, $$, window }) => {
+  await T("ya no hay boton «Buscar estafas»", { studio: ENJAMBRE }, async ({ wait, $$ }) => {
     await wait(600);
-    assert($$(".yra2-scam-fab").length === 1, "no hay boton de estafas");
-    window.history.pushState({}, "", "/channel/UCabc/analytics");
-    await wait(1200);
-    assert($$(".yra2-scam-fab").length === 0, "el boton sigue fuera de comentarios");
+    assert($$(".yra2-scam-fab").length === 0, "sigue el boton flotante");
   });
 
-  await T("enjambre: marca el cebo y las tres respuestas (casilla + rojo), no los normales ni los del canal",
-    { studio: ENJAMBRE }, async ({ wait, $, $$, mock }) => {
+  await T("al pulsar «Responder con IA», responde la fila y oculta del canal el enjambre (cebo + 3), sin tocar los normales ni a Sergi",
+    { studio: ENJAMBRE }, async ({ wait, $$, mock }) => {
       await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      const marcadas = $$("ytcp-checkbox-lit.cb").filter((c) => c.getAttribute("aria-checked") === "true");
-      const autoresMarcados = marcadas.map((c) => c.parentElement.querySelector("[id='author-text']").textContent.trim()).sort();
-      assert(JSON.stringify(autoresMarcados) === JSON.stringify(["@StephensonOropeza", "@ann", "@bob", "@carl"]),
-        `casillas marcadas de: ${autoresMarcados.join(", ")}`);
+      await responder(wait, $$);
+      assert($$("ytcp-comment-thread")[1].dataset.published === "Respuesta de prueba.", "no ha publicado la respuesta");
+      assert(JSON.stringify(ocultos($$)) === JSON.stringify(["@StephensonOropeza", "@ann", "@bob", "@carl"]), `ocultos: ${ocultos($$).join(", ")}`);
+      assert(quitados($$).length === 0, "ha usado «Quitar» (borra para siempre)");
+      const g = mock.payloads.filter((x) => x.type === "GUARDAR_OCULTADO").map((x) => x.payload.fila);
+      assert(g.length === 4 && g.every((f) => f.tipo === "estafa" && f.resultado === "oculto"), JSON.stringify(g));
+      const cls = mock.payloads.find((x) => x.type === "CLASSIFY_COMMENTS");
+      const al = cls.payload.items.map((i) => i.autor);
+      assert(al.includes("@usuario1") === false && al.includes("@lola") && !al.includes("@Sergi_Andrés") && !al.includes("@ann"), `al modelo: ${al.join(", ")}`);
+      assert($$(".menu-sim").length === 0, "se ha quedado un menu abierto");
+    });
+
+  await T("hate que detecta Claude («curso de ESPAÑOL»): oculto; la critica con argumentos no",
+    { studio: { rows: 3, campoTextarea: true, autores: ["@chocoeldelosseguros", "@gus", "@ana"],
+      comentarios: ["Te recomiendo en paralelo, un curso de ESPAÑOL", "Metes mucho miedo con Hacienda, el p2p no lo controla nadie", "Gran video"] },
+      mock: { reply: "x", scamVeredictos: (it) => /curso de ESPAÑOL/.test(it.texto) ? "hate" : null } },
+    async ({ wait, $$, mock }) => {
+      await wait(600);
+      await responder(wait, $$, 2);
+      assert(JSON.stringify(ocultos($$)) === JSON.stringify(["@chocoeldelosseguros"]), `ocultos: ${ocultos($$).join(", ")}`);
+      const g = mock.payloads.filter((x) => x.type === "GUARDAR_OCULTADO").map((x) => x.payload.fila);
+      assert(g.length === 1 && g[0].tipo === "hate" && /ESPAÑOL/.test(g[0].comentario), JSON.stringify(g));
+    });
+
+  await T("lo ya revisado no se vuelve a mandar a Claude ni se vuelve a ocultar",
+    { studio: ENJAMBRE }, async ({ wait, $$, mock, window }) => {
+      await wait(600);
+      await responder(wait, $$);
+      const antes = mock.payloads.filter((x) => x.type === "CLASSIFY_COMMENTS").length;
+      await responder(wait, $$, 2);
+      const despues = mock.payloads.filter((x) => x.type === "CLASSIFY_COMMENTS").length;
+      assert(despues === antes, `ha vuelto a clasificar (${antes} → ${despues})`);
+      assert(mock.payloads.filter((x) => x.type === "GUARDAR_OCULTADO").length === 4, "ha vuelto a ocultar");
+    });
+
+  await T("si Studio pide confirmar, confirma",
+    { studio: { ...ENJAMBRE, confirmarOcultar: true } }, async ({ wait, $$ }) => {
+      await wait(600);
+      await responder(wait, $$);
+      assert(ocultos($$).length === 4, `ocultos: ${ocultos($$).length}`);
+      assert($$("tp-yt-paper-dialog").length === 0, "se ha quedado el dialogo abierto");
+    });
+
+  await T("si el menu no tiene «Ocultar del canal», lo marca en rojo, cierra el menu y no rompe nada",
+    { studio: { ...ENJAMBRE, sinOcultar: true } }, async ({ wait, $$, mock }) => {
+      await wait(600);
+      await responder(wait, $$, 1, 16000);
+      assert(ocultos($$).length === 0 && quitados($$).length === 0, "ha hecho algo que no debia");
       assert($$(".yra2-scam-hit").length === 4, `en rojo: ${$$(".yra2-scam-hit").length}`);
-      assert($(".yra2-scam-panel") && /4 comentarios de estafa/.test($(".yra2-scam-panel").textContent), "panel sin el recuento");
-      assert(!mock.calls.includes("GENERATE_REPLY"), "ha generado respuestas");
-      assert(!$$("ytcp-comment-thread").some((t) => t.dataset.published), "ha publicado algo");
-      // los dudosos (pepe, lola) se preguntan al modelo; los del canal ni eso
-      const cls = mock.payloads.find((p) => p.type === "CLASSIFY_SCAMS");
-      const ids = cls.payload.items.map((i) => i.autor);
-      assert(ids.includes("@pepe") && ids.includes("@lola") && !ids.includes("@Sergi_Andrés") && !ids.includes("@ann"),
-        `al modelo han ido: ${ids.join(", ")}`);
+      assert($$(".menu-sim").length === 0, "se ha quedado el menu abierto");
+      const g = mock.payloads.filter((x) => x.type === "GUARDAR_OCULTADO").map((x) => x.payload.fila);
+      assert(g.length === 4 && g.every((f) => /^error/.test(f.resultado)), JSON.stringify(g.map((f) => f.resultado)));
     });
 
-  await T("reglas: telefono + WhatsApp de un asesor se marca sin preguntar al modelo",
-    { studio: { rows: 2, casillas: true, comentarios: ["Escríbele a su WhatsApp +1 415 555 0199, mi asesor me cambió la vida", "Gran video"] } },
-    async ({ wait, $, $$, mock }) => {
+  await T("reglas: telefono + WhatsApp de un asesor se oculta sin preguntar a Claude; si la API falla, las reglas valen igual",
+    { studio: { rows: 2, campoTextarea: true, comentarios: ["Escríbele a su WhatsApp +1 415 555 0199, mi asesor me cambió la vida", "Gran video"] },
+      mock: { reply: "x", scamFalla: true } },
+    async ({ wait, $$ }) => {
       await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      const t = $$("ytcp-comment-thread");
-      assert(t[0].querySelector(".cb").getAttribute("aria-checked") === "true", "no ha marcado la estafa");
-      assert(t[1].querySelector(".cb").getAttribute("aria-checked") === "false", "ha marcado el comentario normal");
-      const cls = mock.payloads.find((p) => p.type === "CLASSIFY_SCAMS");
-      assert(cls.payload.items.length === 1 && cls.payload.items[0].texto === "Gran video", "la estafa por reglas ha ido al modelo");
+      await responder(wait, $$);
+      assert(JSON.stringify(ocultos($$)) === JSON.stringify(["@usuario0"]), `ocultos: ${ocultos($$).join(", ")}`);
     });
 
-  await T("lo que el modelo dice que es estafa tambien se marca",
-    { studio: { rows: 2, casillas: true, comentarios: ["Recovery expert helped me, search her name", "Gran video"] },
-      mock: { reply: "x", scamVeredictos: (it) => /Recovery/.test(it.texto) ? { estafa: true } : null } },
-    async ({ wait, $, $$ }) => {
+  await T("con la limpieza apagada en el popup, no revisa ni oculta nada",
+    { studio: ENJAMBRE, mock: { reply: "Respuesta de prueba.", cfg: { limpieza: false } } }, async ({ wait, $$, mock }) => {
       await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      const t = $$("ytcp-comment-thread");
-      assert(t[0].querySelector(".cb").getAttribute("aria-checked") === "true", "no ha marcado lo que dice el modelo");
-      assert(t[1].querySelector(".cb").getAttribute("aria-checked") === "false", "ha marcado de mas");
+      await responder(wait, $$);
+      assert(ocultos($$).length === 0, "ha ocultado");
+      assert(!mock.calls.includes("CLASSIFY_COMMENTS"), "ha clasificado");
     });
-
-  await T("«No es estafa» desmarca la casilla y quita el rojo; «Quitar todas las marcas» deja todo como estaba",
-    { studio: ENJAMBRE }, async ({ wait, $, $$ }) => {
-      await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      $(".yra2-scam-panel [data-scam='quitar'][data-i='0']").click();
-      await wait(100);
-      assert($$(".yra2-scam-hit").length === 3, `en rojo tras quitar uno: ${$$(".yra2-scam-hit").length}`);
-      assert($$("ytcp-checkbox-lit.cb").filter((c) => c.getAttribute("aria-checked") === "true").length === 3, "no ha desmarcado la casilla");
-      $(".yra2-scam-panel [data-scam='limpiar']").click();
-      await wait(100);
-      assert($$(".yra2-scam-hit").length === 0 && !$(".yra2-scam-panel"), "quedan marcas o panel");
-      assert($$("ytcp-checkbox-lit.cb").every((c) => c.getAttribute("aria-checked") === "false"), "quedan casillas marcadas");
-    });
-
-  await T("una casilla que ya estaba marcada no se desmarca al buscar",
-    { studio: { rows: 1, casillas: true, comentarios: ["Contact her on Telegram, best broker ever, profits weekly"] } },
-    async ({ wait, $ }) => {
-      await wait(600);
-      $(".cb").setAttribute("aria-checked", "true");
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      assert($(".cb").getAttribute("aria-checked") === "true", "ha desmarcado una casilla que ya estaba marcada");
-    });
-
-  await T("sin casillas en el DOM: marca en rojo, no toca nada y lo dice en el panel",
-    { studio: { rows: 1, comentarios: ["Contact her on Telegram, best broker ever, profits weekly"] } },
-    async ({ wait, $, $$ }) => {
-      await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      assert($$(".yra2-scam-hit").length === 1, "no lo ha marcado en rojo");
-      assert(/sin casilla reconocible/.test($(".yra2-scam-panel").textContent), "el panel no avisa");
-    });
-
-  await T("si la API falla, aplica las reglas igual y lo avisa",
-    { studio: ENJAMBRE, mock: { reply: "x", scamFalla: true } }, async ({ wait, $, $$ }) => {
-      await wait(600);
-      $(".yra2-scam-fab").click();
-      await wait(800);
-      assert($$(".yra2-scam-hit").length === 4, "no ha aplicado las reglas");
-      assert(/Claude no ha podido revisar/.test($(".yra2-scam-panel").textContent), "no avisa del fallo");
-    });
-
-  await T("el boton de estafas no rompe el «Responder con IA» de las filas", { studio: ENJAMBRE }, async ({ wait, $, $$ }) => {
-    await wait(600);
-    $(".yra2-scam-fab").click();
-    await wait(800);
-    const t = $$("ytcp-comment-thread")[2];
-    t.querySelector(".yra2-btn").click();
-    await wait(2500);
-    assert(t.dataset.published === "Respuesta de prueba.", `ha publicado "${t.dataset.published}"`);
-  });
 
   console.log("\nAPRENDIZAJE (cada respuesta publicada se guarda)");
 

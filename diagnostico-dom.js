@@ -205,6 +205,28 @@
   });
   say("");
 
+  /* 4d. Menu ⋮ de cada comentario (limpieza automatica, v2.5.0) ---------------
+     La extension oculta del canal los comentarios de estafa y hate con el menu
+     ⋮ → «Ocultar del canal». Aqui se ve que botones de icono tiene cada
+     comentario (aria-label, title, icon) y cual tomaria como menu. Si la
+     extension dice «no encuentro el menú ⋮», pega esta seccion.            */
+  say("4d. MENU ⋮ DE LOS PRIMEROS COMENTARIOS");
+  const RE_MENU = /acci[oó]n|acciones|m[aá]s opciones|more|options|opciones|men[uú]/i;
+  [...document.querySelectorAll("ytcp-comment-thread")].slice(0, 2).forEach((h, i) => {
+    say(`   hilo ${i}:`);
+    [...h.querySelectorAll("ytcp-icon-button, tp-yt-paper-icon-button, yt-icon-button")].slice(0, 12).forEach((b) => {
+      const label = (b.getAttribute("aria-label") || b.getAttribute("title") || "").trim();
+      const icon = b.getAttribute("icon") || b.querySelector("[icon]")?.getAttribute("icon") || "";
+      const esMenu = (label && RE_MENU.test(label)) || /more|vert|ellipsis|dots/i.test(icon);
+      say(`      ${ident(b)} aria=${JSON.stringify(label)} icon=${JSON.stringify(icon)}${esMenu ? "  ← MENU" : ""}`);
+    });
+  });
+  say("   (Abre a mano el ⋮ de un comentario y vuelve a ejecutar: abajo salen las opciones del menu.)");
+  const opciones = [...document.querySelectorAll("tp-yt-paper-item, [role='menuitem'], [role='option']")]
+    .filter((x) => visible(x)).map((x) => (x.innerText || "").trim()).filter(Boolean).slice(0, 15);
+  if (opciones.length) say(`   opciones visibles: ${JSON.stringify(opciones)}`);
+  say("");
+
   /* 5. Que ve la extension ------------------------------------------------- */
   say("5. ELEMENTOS DE LA EXTENSION EN LA PAGINA");
   ["yra2-btn", "yra2-panel", "yra2-toast", "yra2-countdown"].forEach((c) => {

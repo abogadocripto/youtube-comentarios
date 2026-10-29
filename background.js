@@ -22,6 +22,7 @@ const DEFAULTS = {
   likeOnPublish: true,
   emojiReply: true,
   emojiReplyText: "🤙",
+  limpieza: true,
   // Aprendizaje (v2.4.0): el motor de BD VÍDEOS guarda cada respuesta publicada y devuelve las reglas y las respuestas
   // reales de Sergi. La clave la da scripts/configurar_extension_youtube.py (repo blindaje-patrimonial).
   motorUrl: "https://script.google.com/macros/s/AKfycbxG57d0eX7Bzi2FReSrB9oOWI9SW5aYGohVC3UKnihOTejWQvjJkwaprMn8NCiUqb3_/exec",
@@ -79,6 +80,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     DIAGNOSE: () => handleDiagnose(message.payload),
     HAS_API_KEY: () => handleHasApiKey(),
     CLASSIFY_SCAMS: () => handleClassifyScams(message.payload),
+    CLASSIFY_COMMENTS: () => handleClassifyScams(message.payload),
+    GUARDAR_OCULTADO: () => handleGuardarOcultado(message.payload),
     GUARDAR_RESPUESTA: () => handleGuardarRespuesta(message.payload),
     PROBAR_MOTOR: () => handleProbarMotor(),
     PING: async () => ({ ok: true }),
@@ -177,9 +180,11 @@ async function handleGenerate(payload) {
    razonamiento extendido: es una clasificacion corta.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. Tu única tarea es detectar COMENTARIOS DE ESTAFA: los que reclutan víctimas para un «asesor», «mentor», «broker», plataforma o persona que «me ayudó a ganar dinero», «cambió mi vida» o «recuperó mis bitcoin robados», con o sin teléfono, WhatsApp o Telegram; los testimonios falsos en enjambre (varias cuentas citando el mismo nombre en el mismo hilo); el comentario cebo que abre esos hilos («This isn't a trade, X is a position»); y los que piden escribir a alguien o buscar un nombre para «empezar». Suelen ir en inglés, ruso o castellano, con un nombre propio y vocabulario de ganancias.
-NO es estafa: opiniones, críticas, quejas, preguntas, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos conocidos sin reclutamiento, bromas, ni un comentario que simplemente nombre a otra persona. Ante la duda, NO es estafa: marcar a un espectador real es peor que dejar un bot.
-Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","estafa":true|false,"motivo":"3 a 12 palabras en castellano"}], un elemento por cada id recibido.`;
+const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. A cada comentario le das un tipo: «estafa», «hate» u «ok». A los de estafa y hate se les oculta del canal SIN que Sergi los revise, así que solo los marcas cuando está claro.
+ESTAFA: comentarios que reclutan víctimas para un «asesor», «mentor», «broker», plataforma o persona que «me ayudó a ganar dinero», «cambió mi vida» o «recuperó mis bitcoin robados», con o sin teléfono, WhatsApp o Telegram; testimonios falsos en enjambre (varias cuentas citando el mismo nombre en el mismo hilo); el comentario cebo que abre esos hilos («This isn't a trade, X is a position»); los que piden escribir a alguien o buscar un nombre para «empezar». Suelen ir en inglés, ruso o castellano, con un nombre propio y vocabulario de ganancias.
+HATE: insultos, burlas o desprecio hacia Sergi o hacia otras personas sin aportar nada (por ejemplo «Te recomiendo en paralelo un curso de ESPAÑOL», «vendehumos», «payaso», «vete a trabajar»), ataques personales, racismo, machismo, homofobia, amenazas o deseos de daño.
+OK (todo lo demás): opiniones, desacuerdos y críticas con argumentos aunque sean duras o maleducadas («metes mucho miedo con Hacienda, el p2p no lo controla nadie»), quejas del audio, del guion o de la duración, preguntas, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos sin reclutamiento, bromas, ironía. Sergi contesta las críticas: no las ocultes. Ante la duda, ok: ocultar a un espectador real es peor que dejar un comentario feo.
+Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","tipo":"estafa"|"hate"|"ok","motivo":"3 a 12 palabras en castellano"}], un elemento por cada id recibido.`;
 
 function parseScamVerdicts(text) {
   const t = String(text || "");
@@ -190,7 +195,11 @@ function parseScamVerdicts(text) {
     if (!Array.isArray(arr)) return null;
     return arr
       .filter((x) => x && typeof x.id === "string")
-      .map((x) => ({ id: x.id, estafa: x.estafa === true, motivo: String(x.motivo || "").slice(0, 120) }));
+      .map((x) => {
+        // Formato v2.5.0 ({tipo}); se sigue aceptando el de la v2.3.0 ({estafa: true}).
+        const tipo = ["estafa", "hate", "ok"].includes(x.tipo) ? x.tipo : x.estafa === true ? "estafa" : "ok";
+        return { id: x.id, tipo, estafa: tipo === "estafa", motivo: String(x.motivo || "").slice(0, 120) };
+      });
   } catch {
     return null;
   }
@@ -1004,6 +1013,24 @@ async function vaciarColaRespuestas(cfg) {
     }
   })();
   try { return await vaciandoCola; } finally { vaciandoCola = null; }
+}
+
+// Cada comentario ocultado del canal por la limpieza automatica (v2.5.0) → pestaña YOUTUBE_OCULTADOS del motor.
+async function handleGuardarOcultado(payload) {
+  const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
+  const fila = payload?.fila;
+  if (!fila) return { ok: false, error: "sin fila" };
+  const { ytrOcultados = [] } = await chrome.storage.local.get({ ytrOcultados: [] });
+  ytrOcultados.push(fila);
+  await chrome.storage.local.set({ ytrOcultados: ytrOcultados.slice(-500) });
+  if (!cfg.motorUrl || !cfg.motorClave) return { ok: true, guardada: false, motivo: "falta la clave del motor en los ajustes" };
+  try {
+    await motorPost(cfg, { yt: "ocultados", filas: ytrOcultados.slice(0, 40) });
+    await chrome.storage.local.set({ ytrOcultados: ytrOcultados.slice(40) });
+    return { ok: true, guardada: true };
+  } catch (e) {
+    return { ok: true, guardada: false, error: e.message };
+  }
 }
 
 async function handleGuardarRespuesta(payload) {

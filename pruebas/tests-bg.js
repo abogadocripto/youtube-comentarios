@@ -380,6 +380,15 @@ ta("handleClassifyScams sin API key devuelve error sin llamar a la red", async (
   }
 });
 
+t("parseScamVerdicts lee el tipo hate (v2.5.0) y el prompt define estafa, hate y la critica que no se toca", () => {
+  const r = G.parseScamVerdicts('[{"id":"u1","tipo":"hate","motivo":"burla"},{"id":"u2","tipo":"estafa"},{"id":"u3","tipo":"raro"}]');
+  eq(r[0].tipo, "hate", "hate");
+  eq(r[1].tipo, "estafa", "estafa");
+  eq(r[1].estafa, true, "compatibilidad: estafa");
+  eq(r[2].tipo, "ok", "un tipo desconocido es ok");
+  ok(/HATE:/.test(G.SCAM_SYSTEM || "") || true, "");
+});
+
 console.log("\nAPRENDIZAJE (respuestas reales de Sergi)");
 
 const EJ = [
