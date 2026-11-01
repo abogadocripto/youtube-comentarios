@@ -797,6 +797,22 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       }
     });
 
+  await T("suplantador de Sergi («@Sergi_Anḍres», WhatsApp camuflado) y enjambre de «qevorum»: ocultos por las reglas; Sergi y un comentario normal sobre bitcoin, no",
+    { studio: { rows: 4, campoTextarea: true,
+      autores: ["@JaazielAbramo", "@TziporaHuneycutt", "@pepe", "@lola"],
+      comentarios: ["qevorum está tranquilo ahora mismo, pero es precisamente en estos momentos cuando este tipo de proyectos suele explotar.",
+        "todos están emocionados por el mercado alcista, y yo solo intento encontrar proyectos que despeguen pronto, qevorum parece digno de investigar.",
+        "Creo que bitcoin va a explotar este ciclo, ¿tú qué opinas?", "¿Y en Andorra que pasa con el 721?"],
+      respuestas: { 2: [["@Sergi_Anḍres", "WhatsAppME┼34625587121👍👍 大不🙏 Agradezco que te hayas tomado el tiempo"], ["@Sergi_Anḍres", "Hola"],
+                        ["@Sergi_Andrés", "Depende del ciclo, haha :)"]] } },
+      mock: { reply: "Respuesta de prueba.", scamFalla: true } },
+    async ({ wait, $$, doc }) => {
+      await wait(600);
+      await responder(wait, $$, 3, 20000);
+      const quien = (doc.__ocultados || []).slice().sort();
+      assert(JSON.stringify(quien) === JSON.stringify(["@JaazielAbramo", "@Sergi_Anḍres", "@Sergi_Anḍres", "@TziporaHuneycutt"]), `ha ocultado a: ${JSON.stringify(quien)}`);
+    });
+
   await T("con la limpieza apagada en el popup, no revisa ni oculta nada",
     { studio: ENJAMBRE, mock: { reply: "Respuesta de prueba.", cfg: { limpieza: false } } }, async ({ wait, $$, mock }) => {
       await wait(600);

@@ -1,4 +1,31 @@
-# YouTube Reply Assistant v2.6.0
+# YouTube Reply Assistant v2.7.0
+
+## Novedades en 2.7.0 — más estafas detectadas y actualización sola
+
+Tres tipos de estafa que se colaban, con casos reales del 01/11/2026. Los
+tres los detectan reglas de la propia página, sin depender de Claude:
+
+- **Suplantación de Sergi.** «@Sergi_Anḍres», con una «ḍ» con punto debajo
+  y la misma foto, contestaba «Hola» y dejaba un WhatsApp. Antes se daba por
+  propia cualquier cuenta que se pareciera a Sergi. Ahora solo es propia la
+  cuenta exacta «@Sergi_Andrés». Cualquier otra que, sin acentos ni letras
+  parecidas, se lea «sergiandres» o «abogadocripto» se oculta del canal.
+- **Teléfono camuflado.** «WhatsAppME┼34625587121», con un «┼» en vez de un
+  «+». Ahora cuentan 9 o más cifras seguidas junto a WhatsApp, Telegram u
+  otra app de mensajería, aunque vayan pegadas a otras letras.
+- **Promoción de tokens o «proyectos».** El enjambre de «qevorum»: «está
+  tranquilo ahora, pero es cuando estos proyectos suelen explotar» o
+  «busco proyectos que despeguen pronto, qevorum parece digno de
+  investigar». Cuenta cuando aparecen a la vez el lenguaje de pelotazo
+  (explotar, despegar, x100, digno de investigar…) y la palabra proyecto,
+  token, moneda o preventa, sin un activo conocido como bitcoin o ethereum.
+  «Proyecto de ley» no cuenta.
+
+El criterio de Claude incluye estos tres casos. Además, la extensión se
+actualiza sola: cada unos 2 minutos, si no hay nada en curso, compara su
+versión con la del `manifest.json` de su carpeta y, si ha cambiado, se
+recarga. La pestaña de Studio avisa una vez de que hay que recargarla con
+Ctrl+R. Detalle en `TRASPASO.md` §25.
 
 ## Novedades en 2.6.0 — la audiencia mensual va sola a las estadísticas
 

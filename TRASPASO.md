@@ -1476,3 +1476,54 @@ Prueba nueva: `reciclar: true` en `harness.js` (al publicar, el texto y el
 autor de cada caja pasan a ser los de la siguiente y la última desaparece) y
 `doc.__ocultados` registra el autor que había en la caja al pulsar «Ocultar»:
 tiene que ser solo el del hate.
+
+
+---
+
+## 25. Suplantación, teléfono camuflado y promoción de tokens; actualización sola (v2.7.0)
+
+Tres capturas reales del 01/11/2026 que la 2.5/2.6 no habría ocultado:
+
+1. **«@Sergi_Anḍres»** (con una «ḍ» con punto debajo, sin tilde y con la misma
+   foto) contestando «Hola» y «WhatsAppME┼34625587121 👍… Agradezco que te
+   hayas tomado el tiempo». `OWN_AUTHOR_RE` (`/sergi[\s_.-]?andr[eé]s/i`)
+   protegía a cualquier cuenta parecida. Sustituido por `esPropio()` (el autor
+   exacto `@Sergi_Andrés`, NFC y sin caracteres invisibles) y
+   `suplantaASergi()`: si el `esqueletoAutor()` (minúsculas, sin marcas
+   diacríticas, letras cirílicas y números parecidos cambiados por latinas,
+   solo a-z) es «sergiandres», «abogadocripto» o una combinación, con una
+   coletilla corta u «oficial/support/admin…», y no es el propio, es estafa
+   («suplanta a Sergi») sin preguntar a Claude.
+2. **Teléfono camuflado**: `SCAM_TELEFONO` exigía un «+» o «00» de verdad y
+   `SCAM_CONTACTO` un límite de palabra tras «whatsapp» («WhatsAppME» no lo
+   tiene). Regla nueva: `SCAM_DIGITOS` (9 o más cifras con como mucho 2
+   signos no alfabéticos entre medias) y `SCAM_MENSAJERIA` (WhatsApp,
+   Telegram, wa.me, Signal… sin límite de palabra).
+3. **Enjambre de «qevorum»** en varios vídeos, de cuentas distintas:
+   «qevorum está tranquilo ahora mismo, pero es precisamente en estos
+   momentos cuando este tipo de proyectos suele explotar» y «…intento
+   encontrar proyectos que despeguen pronto, qevorum parece digno de
+   investigar». Regla nueva: `SCAM_PUMP` y `SCAM_PROYECTO` (salvo «proyecto
+   de ley»), sin `ACTIVOS_CONOCIDOS`. Comprobado: «Creo que bitcoin va a
+   explotar este ciclo» y «Este proyecto de ley va a explotar en Bruselas»
+   no se marcan.
+
+`SCAM_SYSTEM` (background.js) añade estos tres tipos a ESTAFA, con los
+ejemplos.
+
+**Actualización sola.** Las versiones nuevas se copian directamente en la
+carpeta que carga Chrome (ver CLAUDE.md del repo blindaje-patrimonial,
+«Fuera del sistema»). `vigilarVersion()` en el intervalo de 2,5 s de
+content.js: cada 48 vueltas (~2 min), si no hay nada en curso, manda
+`COMPROBAR_VERSION`; `comprobarActualizacion()` en background.js lee el
+`manifest.json` de la carpeta (`chrome.runtime.getURL`, sin caché), como
+mucho una vez por minuto, y si la versión no es la que corre, llama a
+`chrome.runtime.reload()`. La pestaña queda con el content script
+desconectado (`chrome.runtime.id` indefinido): avisa una vez «pulsa Ctrl+R» y
+deja de escanear. Sin verificar en Chrome que el `fetch` del recurso lea el
+disco y no una caché; si no lo hace, basta con pulsar ↻ en
+chrome://extensions como hasta ahora.
+
+Pruebas: una e2e nueva (los tres casos, con Sergi y un comentario normal
+sobre bitcoin sin tocar; 69 en total) y una unitaria
+(`comprobarActualizacion`; 56).

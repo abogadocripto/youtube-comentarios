@@ -232,6 +232,8 @@
       // WeakSet en scan() lo descarta en la primera linea sin comprobar si
       // el boton sigue realmente presente (hallazgo de revision).
       if (ciclosRed % 12 === 0) state.processed = new WeakSet();
+      vigilarVersion(ciclosRed);
+      if (!chrome.runtime?.id) return;
       scan();
     }, 2500);
   }
@@ -1735,7 +1737,29 @@
   const SCAM_HIT = "yra2-scam-hit";
   const SCAM_TAG = "yra2-scam-tag";
   const OCULTO = "yra2-oculto";
-  const OWN_AUTHOR_RE = /sergi[\s_.-]?andr[eé]s/i; // nunca se toca un comentario del propio canal
+  // El canal de Sergi es EXACTAMENTE este autor (los identificadores de YouTube son unicos): sus comentarios no se
+  // tocan nunca. Cualquier OTRO autor que, quitando acentos, signos y letras parecidas, se lea «sergiandres» o
+  // «abogadocripto» es una cuenta que le suplanta (caso real del 01/11/2026: «@Sergi_Anḍres», con una «ḍ» con punto
+  // debajo y sin tilde, misma foto, dejando un WhatsApp en las respuestas). La v2.5 daba por propio a cualquiera que
+  // se le pareciera, y eso protegia justo al suplantador.
+  const AUTOR_PROPIO = ["@Sergi_Andrés"];
+  const PARECIDAS = { "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ı": "i", "ӏ": "l",
+    "ɑ": "a", "ѕ": "s", "ԁ": "d", "ɡ": "g", "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "$": "s" };
+  function limpiarAutor(a) {
+    return String(a || "").normalize("NFC").replace(/[\u200b-\u200f\u2060\ufeff]/g, "").trim();
+  }
+  function esPropio(autor) {
+    const a = limpiarAutor(autor);
+    return AUTOR_PROPIO.some((p) => p.normalize("NFC") === a);
+  }
+  function esqueletoAutor(autor) {
+    return limpiarAutor(autor).toLowerCase().normalize("NFD").replace(/\p{M}/gu, "")
+      .replace(/./gu, (c) => PARECIDAS[c] || c).replace(/[^a-z]/g, "");
+  }
+  function suplantaASergi(autor) {
+    if (!autor || esPropio(autor)) return false;
+    return /^(?:sergiandres|abogadocripto|sergiandresabogadocripto|abogadocriptosergiandres)(?:oficial|official|real|team|support|soporte|ayuda|admin|asesor|[a-z]{0,4})$/.test(esqueletoAutor(autor));
+  }
   const CT_SEL = "#content-text, [id='content-text']";
   const MENU_SEL = "ytcp-icon-button, tp-yt-paper-icon-button, yt-icon-button, button";
   const MENU_LABEL_RE = /acci[oó]n|acciones|m[aá]s opciones|more|options|opciones|men[uú]/i;
@@ -1750,6 +1774,19 @@
   const rx = (body) => new RegExp(`${W0}(?:${body})${W1}`, "iu");
 
   const SCAM_TELEFONO = /(?:\+|00)\s?\d{1,3}[\s().-]*\d{2,4}[\s().-]*\d{2,4}[\s().-]*\d{2,4}/u;
+  // Telefono camuflado (01/11/2026: «WhatsAppME┼34625587121»): 9 o mas cifras con como mucho 2 signos raros entre
+  // medias, y la app de mensajeria escrita pegada a otras letras (sin limite de palabra).
+  const SCAM_DIGITOS = /\d(?:[^\p{L}\d\n]{0,2}\d){8,}/u;
+  const SCAM_MENSAJERIA = /whats\s*app|wh?ats?ap|wa\.me|telegram|t\.me\/|signal|wickr|wechat|viber/i;
+  // Promocion de tokens o proyectos desconocidos (01/11/2026: «qevorum está tranquilo ahora mismo, pero es
+  // precisamente en estos momentos cuando este tipo de proyectos suele explotar», «yo solo intento encontrar
+  // proyectos que despeguen pronto, qevorum parece digno de investigar»): enjambres de cuentas que repiten un nombre.
+  const SCAM_PUMP = rx("explot(?:ar|ará|e|en|ando)|despeg(?:ar|ue|uen|ará|arán|ando)|x ?\\d{2,4}|to the moon|a la luna|" +
+    "pelotazo|gema oculta|joya oculta|infravalorad[oa]s?|antes de que (?:suba|despegue|explote|sea tarde)|" +
+    "a[uú]n (?:est[aá]s|est[aá]is) a tiempo|digno de investigar|merece la pena investigar|vale la pena (?:investigar|mirar)|" +
+    "ech(?:ad|a|arle|adle) un ojo");
+  const SCAM_PROYECTO = rx("proyectos?(?! de ley| legislativ| normativ)|tokens?|monedas?|coins?|altcoins?|memecoins?|gemas?|joyas?|preventas?|presales?");
+  const ACTIVOS_CONOCIDOS = rx("bitcoin|btc|ethereum|eth|solana|xrp|cardano|bnb|usdt|usdc|oro|plata|nasdaq|ibex|acciones|etfs?");
   const SCAM_CONTACTO = new RegExp(
     `${W0}(?:whats?app|telegram|signal|wickr|dm (?:him|her|them)|write (?:to )?(?:him|her)|` +
     `escr[ií]b(?:ele|ale|e)|cont[aá]ct(?:a|ale|o|ar)|contact (?:him|her|them)|` +
@@ -1774,6 +1811,8 @@
     const t = String(texto || "");
     const tel = SCAM_TELEFONO.test(t), con = SCAM_CONTACTO.test(t), men = SCAM_MENTOR.test(t), tes = SCAM_TESTIMONIO.test(t);
     if (tel && (con || men || tes)) return "teléfono de contacto de un «asesor»";
+    if (SCAM_DIGITOS.test(t) && SCAM_MENSAJERIA.test(t)) return "deja un teléfono de WhatsApp o Telegram";
+    if (SCAM_PUMP.test(t) && SCAM_PROYECTO.test(t) && !ACTIVOS_CONOCIDOS.test(t)) return "promociona un token o proyecto desconocido";
     if (con && (men || tes)) return "pide contactar (WhatsApp/Telegram) con un «asesor»";
     if (men && tes && scamNombres(t).size) return "testimonio de ganancias gracias a una persona";
     return null;
@@ -2024,13 +2063,13 @@
     state.limpiando = true;
     try {
       const revisados = await leerRevisados();
-      const todas = scamUnits().filter((u) => u.texto && !OWN_AUTHOR_RE.test(u.autor));
+      const todas = scamUnits().filter((u) => u.texto && !esPropio(u.autor));
       const nuevas = todas.filter((u) => !revisados.has(claveComentario(u)) && !u.unit.classList.contains(OCULTO));
       if (!nuevas.length) return;
 
       const veredicto = new Map();
       for (const u of nuevas) {
-        const m = scamReglas(u.texto);
+        const m = suplantaASergi(u.autor) ? `suplanta a Sergi (${u.autor})` : scamReglas(u.texto);
         if (m) veredicto.set(u.id, { tipo: "estafa", motivo: m });
       }
       const idsNuevas = new Set(nuevas.map((u) => u.id));
@@ -2171,6 +2210,24 @@
       }, 250);
       return;
     }
+  }
+
+  /* ── Actualizacion sola (v2.7.0) ──────────────────────────────────────────
+     Las versiones nuevas se copian directamente en la carpeta que carga Chrome.
+     Cada ~2 minutos, si no hay nada en curso, se pide al proceso de fondo que
+     compare su version con la del manifest.json de la carpeta; si cambia, se
+     recarga. Esta pestaña se queda entonces con el codigo viejo desconectado:
+     se avisa una vez para recargar Studio. */
+  let avisadoRecarga = false;
+  function vigilarVersion(ciclo) {
+    if (!chrome.runtime?.id) {
+      if (!avisadoRecarga) {
+        avisadoRecarga = true;
+        try { toast("La extensión se ha actualizado: pulsa Ctrl+R para recargar Studio.", "warn"); } catch { /* nada */ }
+      }
+      return;
+    }
+    if (ciclo % 48 === 0 && !state.busy && !state.limpiando) send({ type: "COMPROBAR_VERSION" }, 10000).catch(() => {});
   }
 
   /* ── Escape global: cierra panel y cancela cuenta atras ─────────────────── */

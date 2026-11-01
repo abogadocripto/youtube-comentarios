@@ -389,6 +389,27 @@ t("parseScamVerdicts lee el tipo hate (v2.5.0) y el prompt define estafa, hate y
   ok(/HATE:/.test(G.SCAM_SYSTEM || "") || true, "");
 });
 
+ta("comprobarActualizacion: si el manifest.json de la carpeta dice otra version, se recarga", async () => {
+  const origFetch = sandbox.fetch;
+  let recargado = 0;
+  sandbox.chrome.runtime.getURL = (p) => "chrome-extension://x/" + p;
+  sandbox.chrome.runtime.getManifest = () => ({ version: "2.6.0" });
+  sandbox.chrome.runtime.reload = () => { recargado++; };
+  sandbox.fetch = async () => ({ ok: true, json: async () => ({ version: "2.7.0" }) });
+  const origST = sandbox.setTimeout;
+  sandbox.setTimeout = (fn, ms, ...a) => (ms === 300 ? (fn(), 0) : origST(fn, ms, ...a));   // la recarga, al momento
+  try {
+    const r = await G.comprobarActualizacion();
+    eq(r.nueva, "2.7.0", "deberia ver la version nueva");
+    eq(recargado, 1, "deberia recargarse");
+    const r2 = await G.comprobarActualizacion();
+    eq(r2.comprobado, false, "como mucho una comprobacion por minuto");
+  } finally {
+    sandbox.fetch = origFetch;
+    sandbox.setTimeout = origST;
+  }
+});
+
 console.log("\nAPRENDIZAJE (respuestas reales de Sergi)");
 
 const EJ = [

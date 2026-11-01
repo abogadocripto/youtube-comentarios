@@ -82,6 +82,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     CLASSIFY_SCAMS: () => handleClassifyScams(message.payload),
     CLASSIFY_COMMENTS: () => handleClassifyScams(message.payload),
     GUARDAR_OCULTADO: () => handleGuardarOcultado(message.payload),
+    COMPROBAR_VERSION: () => comprobarActualizacion(),
     GUARDAR_AUDIENCIA: () => handleGuardarAudiencia(message.payload),
     GUARDAR_RESPUESTA: () => handleGuardarRespuesta(message.payload),
     PROBAR_MOTOR: () => handleProbarMotor(),
@@ -183,6 +184,7 @@ async function handleGenerate(payload) {
 
 const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. A cada comentario le das un tipo: «estafa», «hate» u «ok». A los de estafa y hate se les oculta del canal SIN que Sergi los revise, así que solo los marcas cuando está claro.
 ESTAFA: comentarios que reclutan víctimas para un «asesor», «mentor», «broker», plataforma o persona que «me ayudó a ganar dinero», «cambió mi vida» o «recuperó mis bitcoin robados», con o sin teléfono, WhatsApp o Telegram; testimonios falsos en enjambre (varias cuentas citando el mismo nombre en el mismo hilo); el comentario cebo que abre esos hilos («This isn't a trade, X is a position»); los que piden escribir a alguien o buscar un nombre para «empezar». Suelen ir en inglés, ruso o castellano, con un nombre propio y vocabulario de ganancias.
+También es ESTAFA: la promoción de un token, moneda, preventa o «proyecto» desconocido aunque no haya teléfono ni asesor, porque son enjambres de cuentas que repiten el mismo nombre en muchos comentarios (por ejemplo «qevorum está tranquilo ahora mismo, pero es precisamente en estos momentos cuando este tipo de proyectos suele explotar» o «yo solo intento encontrar proyectos que despeguen pronto, qevorum parece digno de investigar»); cualquier comentario que deje un número de teléfono o pida escribir por WhatsApp o Telegram, aunque lo camuflen con símbolos («WhatsAppME┼34625587121»); y las cuentas que suplantan a Sergi con un nombre parecido a «Sergi Andrés» o «Abogado Cripto». Hablar de bitcoin, ethereum u otros activos conocidos, o de un exchange conocido, no es estafa.
 HATE: insultos, burlas o desprecio hacia Sergi o hacia otras personas sin aportar nada (por ejemplo «Te recomiendo en paralelo un curso de ESPAÑOL», «vendehumos», «payaso», «vete a trabajar»), ataques personales, racismo, machismo, homofobia, amenazas o deseos de daño.
 OK (todo lo demás): opiniones, desacuerdos y críticas con argumentos aunque sean duras o maleducadas («metes mucho miedo con Hacienda, el p2p no lo controla nadie»), quejas del audio, del guion o de la duración, preguntas, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos sin reclutamiento, bromas, ironía. Sergi contesta las críticas: no las ocultes. Ante la duda, ok: ocultar a un espectador real es peor que dejar un comentario feo.
 Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","tipo":"estafa"|"hate"|"ok","motivo":"3 a 12 palabras en castellano"}], un elemento por cada id recibido.`;
@@ -1029,6 +1031,27 @@ async function handleGuardarAudiencia(payload) {
 }
 
 // Cada comentario ocultado del canal por la limpieza automatica (v2.5.0) → pestaña YOUTUBE_OCULTADOS del motor.
+// Version nueva copiada en la carpeta de la extension (v2.7.0): si el manifest.json del disco dice otra version, se
+// recarga sola. Como mucho una comprobacion por minuto.
+let ultimaComprobacionVersion = 0;
+async function comprobarActualizacion() {
+  if (Date.now() - ultimaComprobacionVersion < 60000) return { ok: true, comprobado: false };
+  ultimaComprobacionVersion = Date.now();
+  try {
+    const r = await fetch(chrome.runtime.getURL("manifest.json") + "?t=" + Date.now(), { cache: "no-store" });
+    const m = await r.json();
+    const actual = chrome.runtime.getManifest().version;
+    if (m && m.version && m.version !== actual) {
+      console.log(`[YRA2] Versión nueva en la carpeta (${actual} → ${m.version}): me recargo.`);
+      setTimeout(() => chrome.runtime.reload(), 300);
+      return { ok: true, nueva: m.version };
+    }
+    return { ok: true, nueva: null };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 async function handleGuardarOcultado(payload) {
   const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
   const fila = payload?.fila;
