@@ -1,4 +1,11 @@
-# YouTube Reply Assistant v2.5.1
+# YouTube Reply Assistant v2.6.0
+
+## Novedades en 2.6.0 — la audiencia mensual va sola a las estadísticas
+
+YouTube no da la «Audiencia mensual» por su API. Cuando abres en Studio **Estadísticas → Audiencia**, la extensión
+lee la cifra (p. ej. «90,6 mil») y la manda al motor de BD VÍDEOS, que la apunta en la semana de la hoja STATS AC IA y
+sale en el panel. No hay que pulsar nada; basta con abrir esa pantalla una vez a la semana.
+
 
 > **¿Vienes a retomar el desarrollo?** Lee `TRASPASO.md` primero. Contiene el
 > estado real del proyecto, los dos problemas abiertos, las hipótesis ordenadas

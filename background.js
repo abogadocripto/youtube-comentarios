@@ -82,6 +82,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     CLASSIFY_SCAMS: () => handleClassifyScams(message.payload),
     CLASSIFY_COMMENTS: () => handleClassifyScams(message.payload),
     GUARDAR_OCULTADO: () => handleGuardarOcultado(message.payload),
+    GUARDAR_AUDIENCIA: () => handleGuardarAudiencia(message.payload),
     GUARDAR_RESPUESTA: () => handleGuardarRespuesta(message.payload),
     PROBAR_MOTOR: () => handleProbarMotor(),
     PING: async () => ({ ok: true }),
@@ -1013,6 +1014,18 @@ async function vaciarColaRespuestas(cfg) {
     }
   })();
   try { return await vaciandoCola; } finally { vaciandoCola = null; }
+}
+
+// Audiencia mensual de Studio (v2.6.0) → motor → _CAPTURAS de STATS AC IA. Una vez cada 6 h, o antes si cambia la cifra.
+async function handleGuardarAudiencia(payload) {
+  const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
+  const valor = Number(payload?.valor);
+  if (!valor || !cfg.motorUrl || !cfg.motorClave) return { ok: false, motivo: "sin cifra o sin la clave del motor" };
+  const { ytrAudiencia = null } = await chrome.storage.local.get({ ytrAudiencia: null });
+  if (ytrAudiencia && ytrAudiencia.valor === valor && Date.now() - ytrAudiencia.t < 6 * 3600 * 1000) return { ok: true, repetida: true };
+  await motorPost(cfg, { yt: "audiencia", valor, url: payload.url || "" });
+  await chrome.storage.local.set({ ytrAudiencia: { valor, t: Date.now() } });
+  return { ok: true };
 }
 
 // Cada comentario ocultado del canal por la limpieza automatica (v2.5.0) → pestaña YOUTUBE_OCULTADOS del motor.

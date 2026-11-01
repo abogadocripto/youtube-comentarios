@@ -2185,6 +2185,35 @@
     getSettings().then((c) => { state.cfg = c; });
   });
 
+  /* ── 11. AUDIENCIA MENSUAL (v2.6.0) — STATS AC IA ─────────────────────────
+     YouTube no da la «Audiencia mensual» por su API: solo la enseña en Studio → Estadísticas → Audiencia.
+     Cuando esa pantalla está abierta, la cifra se lee y se manda al motor (pestaña _CAPTURAS de STATS AC IA),
+     que la apunta en la semana. No hay que pulsar nada. «90,6 mil» = 90.600; «1,2 M» = 1.200.000. */
+  function leerAudienciaMensual() {
+    if (!/\/analytics\//.test(location.pathname)) return null;
+    const texto = (document.body.innerText || "").replace(/\u00a0/g, " ");
+    const m = texto.match(/(?:Audiencia mensual|Audiència mensual|Monthly audience)\s*\n?\s*([\d.,]+)\s*(mil|k|m|mill\.?|millones)?(?![a-zà-ú])/i);
+    if (!m) return null;
+    const suf = (m[2] || "").toLowerCase();
+    let n;
+    if (suf) {
+      const x = parseFloat(m[1].includes(",") ? m[1].replace(/\./g, "").replace(",", ".") : m[1]);
+      n = x * (suf === "mil" || suf === "k" ? 1e3 : 1e6);
+    } else {
+      n = Number(m[1].replace(/[^\d]/g, ""));
+    }
+    return Number.isFinite(n) && n >= 1000 ? Math.round(n) : null;
+  }
+  let audienciaEnviada = 0;
+  setInterval(async () => {
+    if (Date.now() - audienciaEnviada < 60000) return;
+    const n = leerAudienciaMensual();
+    if (!n) return;
+    audienciaEnviada = Date.now();
+    try { await chrome.runtime.sendMessage({ type: "GUARDAR_AUDIENCIA", payload: { valor: n, url: location.href } }); }
+    catch (e) { /* la extensión se ha recargado: lo intenta otra vez dentro de un minuto */ }
+  }, 5000);
+
   /* ── Arranque ───────────────────────────────────────────────────────────── */
   watchRoute();
   log("Cargado. Vigilando ruta.");
