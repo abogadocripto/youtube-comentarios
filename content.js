@@ -2038,7 +2038,14 @@
       tipo: v.tipo, motivo: v.motivo, video_id: info.videoId || "", video_titulo: info.title || "", resultado } } }, 30000).catch(() => {});
   }
 
-  const TIPOS_LIMPIEZA = { estafa: "estafa", hate: "hate" };
+  // «negativo» (v2.10.0, Sergi 02/11/2026): criticas despectivas o quejas sin un argumento concreto que contestar
+  // («t enrrollas mucho y acabas diciendo k no se puede hacer na…», «Quita el pitido infernal por favor»). Se ocultan
+  // del canal como el hate (decision de Sergi: «Ocultar del canal, como el hate»).
+  const TIPOS_LIMPIEZA = { estafa: "estafa", hate: "hate", negativo: "negativo" };
+  // Version del criterio de Claude: los veredictos guardados con otra version se vuelven a preguntar. Sin esto, lo que
+  // Claude dio por «ok» con un criterio viejo se quedaria «ok» para siempre (el mismo fallo que el de la 2.7). Subirla
+  // cada vez que cambie SCAM_SYSTEM en background.js.
+  const CRITERIO = 3;
 
   /* ── Limpieza v2.8.0 ─────────────────────────────────────────────────────
      Caso real (02/11/2026): con la 2.7.0 instalada seguian a la vista dos
@@ -2138,11 +2145,11 @@
       for (const u of candidatos) {
         if (veredicto.has(u.id)) continue;
         const g = alm.yraVeredictos[claveComentario(u)];
-        if (g && TIPOS_LIMPIEZA[g.t]) veredicto.set(u.id, { tipo: g.t, motivo: g.m || "lo detecta Claude" });
+        if (g && g.v === CRITERIO && TIPOS_LIMPIEZA[g.t]) veredicto.set(u.id, { tipo: g.t, motivo: g.m || "lo detecta Claude" });
       }
 
       // 3. Claude, solo para lo que nunca ha visto.
-      const dudosos = candidatos.filter((u) => !veredicto.has(u.id) && !alm.yraVeredictos[claveComentario(u)]);
+      const dudosos = candidatos.filter((u) => !veredicto.has(u.id) && alm.yraVeredictos[claveComentario(u)]?.v !== CRITERIO);
       let fallo = "";
       for (let i = 0; i < dudosos.length; i += 40) {
         const lote = dudosos.slice(i, i + 40);
@@ -2155,7 +2162,7 @@
         for (const u of lote) {
           const v = porId.get(u.id);
           if (!v) continue;
-          alm.yraVeredictos[claveComentario(u)] = { t: v.tipo || "ok", m: String(v.motivo || "").slice(0, 120) };
+          alm.yraVeredictos[claveComentario(u)] = { t: v.tipo || "ok", m: String(v.motivo || "").slice(0, 120), v: CRITERIO };
           if (TIPOS_LIMPIEZA[v.tipo]) {
             veredicto.set(u.id, { tipo: v.tipo, motivo: String(v.motivo || "lo detecta Claude") });
             if (v.tipo === "estafa" && v.marca) anadirMarca(alm, v.marca);
@@ -2172,7 +2179,7 @@
 
       const hits = candidatos.filter((u) => veredicto.has(u.id));
       if (hits.length && state.busy) { log("Limpieza aplazada: hay una respuesta en curso"); guardarAlmacen(alm); return; }
-      const hechos = { estafa: 0, hate: 0 };
+      const hechos = { estafa: 0, hate: 0, negativo: 0 };
       if (hits.length) {
         state.busy = true;
         try {
@@ -2202,12 +2209,13 @@
         }
       }
       guardarAlmacen(alm);
-      const total = hechos.estafa + hechos.hate;
-      log("Limpieza", { mirados: candidatos.length, aClaude: dudosos.length, estafa: hechos.estafa, hate: hechos.hate,
+      const total = hechos.estafa + hechos.hate + hechos.negativo;
+      log("Limpieza", { mirados: candidatos.length, aClaude: dudosos.length, estafa: hechos.estafa, hate: hechos.hate, negativo: hechos.negativo,
         marcas: alm.yraMarcas.join(", "), fallo });
       if (total) {
         toast(`🧹 ${total} ocultado${total === 1 ? "" : "s"} del canal` +
-          ` (${[hechos.estafa ? `${hechos.estafa} estafa` : "", hechos.hate ? `${hechos.hate} hate` : ""].filter(Boolean).join(", ")}).`, "ok");
+          ` (${[hechos.estafa ? `${hechos.estafa} estafa` : "", hechos.hate ? `${hechos.hate} hate` : "",
+            hechos.negativo ? `${hechos.negativo} negativo${hechos.negativo === 1 ? "" : "s"}` : ""].filter(Boolean).join(", ")}).`, "ok");
       }
     } catch (err) {
       warn("Limpieza:", err);

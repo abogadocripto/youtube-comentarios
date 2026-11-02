@@ -410,6 +410,13 @@ ta("comprobarActualizacion: si el manifest.json de la carpeta dice otra version,
   }
 });
 
+t("parseScamVerdicts acepta el tipo «negativo» (v2.10.0) y el prompt trae los dos ejemplos reales", () => {
+  const r = G.parseScamVerdicts('[{"id":"u1","tipo":"negativo","motivo":"queja sin argumento"}]');
+  eq(r[0].tipo, "negativo", "negativo");
+  const src = fs.readFileSync("../background.js", "utf8");
+  ok(/NEGATIVO:/.test(src) && /pitido infernal/.test(src) && /"negativo"\|"ok"/.test(src), "el prompt no define NEGATIVO o no pide ese tipo");
+});
+
 t("parseScamVerdicts devuelve la marca promocionada solo en las estafas (v2.8.0)", () => {
   const r = G.parseScamVerdicts('[{"id":"u1","tipo":"estafa","motivo":"preventa","marca":"qevorum"},{"id":"u2","tipo":"ok","marca":"bitcoin"}]');
   eq(r[0].marca, "qevorum", "marca de la estafa");

@@ -1572,3 +1572,40 @@ captura, lo que una versión anterior dio por bueno, marca aprendida, y no
 limpia mientras Sergi escribe) y 1 unitaria. El mock de `chrome.runtime` de
 `harness.js` tiene ahora `id` (en Chrome siempre existe; sin él, desde la
 2.7.0 la extensión cree que se ha actualizado y no escanea en el intervalo).
+
+
+---
+
+## 27. Tercer tipo «negativo» y veredictos con versión de criterio (v2.10.0)
+
+Sergi (02/11/2026), con captura de Studio y la 2.8.0 en marcha: «estos
+deberían haber sido borrados también», sobre «t enrrollas mucho y acabas
+diciendo k no se pouede hacer na nunca sin k t pillan estamos ya cansao k nos
+roben…» y «Quita el pitido infernal por favor». El criterio hasta entonces
+era «las críticas no se tocan» (SCAM_SYSTEM decía incluso que las quejas del
+audio eran OK). Se le preguntó qué hacer con ellas: eligió **«Ocultar del
+canal, como el hate»** frente a «Quitar solo el comentario» o «Dejarlos».
+
+- `SCAM_SYSTEM`: tipo nuevo **NEGATIVO** (críticas despectivas, quejas o
+  exigencias sin pregunta ni argumento concreto que contestar, con los dos
+  ejemplos reales y otros: «vaya rollo», «menos paja y al grano», «otro vídeo
+  para no decir nada», «clickbait»). OK se redefine: preguntas aunque sean
+  secas, críticas con un argumento concreto sobre el contenido aunque sean
+  duras, correcciones de datos y opiniones sobre el tema que no van contra
+  Sergi. Ante la duda entre negativo y ok, ok. `parseScamVerdicts` acepta
+  «negativo»; `TIPOS_LIMPIEZA` lo oculta; el toast y el log lo cuentan.
+- **`CRITERIO`** (content.js, ahora 3): cada veredicto de Claude guardado en
+  `yraVeredictos` lleva `v`. Solo se reutiliza si `v === CRITERIO`; si no, se
+  vuelve a preguntar. Sin esto, los dos comentarios de la captura, que Claude
+  dio por «ok» con el criterio anterior, no se habrían vuelto a mirar nunca:
+  el mismo fallo que el de la 2.7. **Hay que subir `CRITERIO` cada vez que
+  cambie `SCAM_SYSTEM`.**
+
+Incluye, sin tocarla, la 2.9.0/2.9.1 de la conversación «Planificador de
+calendario de contenidos» (`ideas.js`, `GUARDAR_IDEA` en background.js,
+segundo content script en el manifest para www.youtube.com), que estaba en el
+repositorio sin commit y ya copiada en la carpeta de Chrome.
+
+Pruebas: 2 e2e nuevas (los dos casos de la captura frente a una crítica con
+argumento; un «ok» guardado con criterio viejo se vuelve a preguntar) y 1
+unitaria.

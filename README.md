@@ -1,4 +1,30 @@
-# YouTube Reply Assistant v2.8.0
+# YouTube Reply Assistant v2.10.0
+
+2.9.1: el botón «💡 Guardar idea» se ve siempre sobre la miniatura (antes solo al pasar el ratón).
+
+## Novedades en 2.10.0 — también se ocultan las críticas negativas sin argumento
+
+Sergi (02/11/2026), con dos casos reales que la limpieza dejaba: «t enrrollas
+mucho y acabas diciendo k no se puede hacer na…» y «Quita el pitido infernal
+por favor». Hay un tercer tipo, **negativo**: críticas despectivas, quejas o
+exigencias sin ninguna pregunta ni argumento concreto que contestar. Se
+ocultan del canal como el hate, por decisión de Sergi. Siguen sin tocarse las
+preguntas y las críticas que traen un argumento sobre el contenido, aunque
+sean duras, y ante la duda tampoco se toca nada.
+
+Además, lo que Claude dio por bueno con un criterio anterior se le vuelve a
+preguntar cuando cambia el criterio (`CRITERIO` en content.js). Así no se
+repite lo de la 2.7, donde comentarios revisados con reglas viejas no se
+volvían a mirar. Incluye la 2.9.x de la conversación del calendario (botón
+«💡 Guardar idea» en youtube.com, `ideas.js`). Detalle en `TRASPASO.md` §27.
+
+## Novedades en 2.9.0 — botón «💡 Guardar idea» en youtube.com
+- En la página de un vídeo (/watch y /shorts): botón flotante abajo a la derecha; pide un comentario opcional.
+- En cada vídeo de la portada, la búsqueda, los sugeridos y los canales: botón sobre la miniatura (al pasar el ratón); guarda sin abrir el vídeo.
+- Si vidIQ ha pintado el multiplicador («>100x») y el VPH, van a las notas de la idea; si no, se guarda igual.
+- Va al motor (`{yt:'idea'}`) → pestaña IDEAS de BD VÍDEOS → columna de ideas del calendario de vídeos. Sin duplicar una idea abierta.
+- Script nuevo `ideas.js` (solo www.youtube.com; Studio sigue con `content.js`).
+
 
 ## Novedades en 2.8.0 — la limpieza va sola de verdad
 

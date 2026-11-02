@@ -860,6 +860,29 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       assert((doc.__ocultados || []).length === 0, "ha abierto menus mientras Sergi escribia");
     });
 
+  await T("criticas negativas sin argumento («t enrrollas», «quita el pitido»): ocultas; la critica con argumento, no",
+    { studio: { rows: 3, campoTextarea: true, autores: ["@juanfran_ibz4206", "@josemanuelgassin6547", "@gus"],
+      comentarios: ["t enrrollas mucho y acabas diciendo k no se pouede hacer na nunca sin k t pillan estamos ya cansao k nos roben y no podamos hacer nada di algo ya",
+        "Quita el pitido infernal por favor", "Metes miedo con Hacienda, si lo vendo p2p y cobro en efectivo nadie se entera"] },
+      mock: { reply: "x", scamVeredictos: (it) => /enrrollas|pitido/.test(it.texto) ? "negativo" : null } },
+    async ({ wait, doc, mock }) => {
+      await wait(14000);
+      const quien = (doc.__ocultados || []).slice().sort();
+      assert(JSON.stringify(quien) === JSON.stringify(["@josemanuelgassin6547", "@juanfran_ibz4206"]), `ha ocultado a: ${JSON.stringify(quien)}`);
+      const g = mock.payloads.filter((x) => x.type === "GUARDAR_OCULTADO").map((x) => x.payload.fila.tipo);
+      assert(g.length === 2 && g.every((t) => t === "negativo"), JSON.stringify(g));
+    });
+
+  await T("un veredicto «ok» guardado con un criterio anterior se vuelve a preguntar a Claude",
+    { studio: { rows: 1, campoTextarea: true, autores: ["@josemanuelgassin6547"], comentarios: ["Quita el pitido infernal por favor"] },
+      mock: { reply: "x", scamVeredictos: (it) => /pitido/.test(it.texto) ? "negativo" : null,
+        cfg: { yraVeredictos: { "@josemanuelgassin6547|Quita el pitido infernal por favor": { t: "ok", m: "queja de audio" } } } } },
+    async ({ wait, doc, mock }) => {
+      await wait(10000);
+      assert(mock.calls.includes("CLASSIFY_COMMENTS"), "no ha vuelto a preguntar a Claude");
+      assert(JSON.stringify(doc.__ocultados || []) === JSON.stringify(["@josemanuelgassin6547"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
+    });
+
   await T("con la limpieza apagada en el popup, no revisa ni oculta nada",
     { studio: ENJAMBRE, mock: { reply: "Respuesta de prueba.", cfg: { limpieza: false } } }, async ({ wait, $$, mock }) => {
       await wait(600);

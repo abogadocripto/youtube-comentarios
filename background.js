@@ -84,6 +84,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     GUARDAR_OCULTADO: () => handleGuardarOcultado(message.payload),
     COMPROBAR_VERSION: () => comprobarActualizacion(),
     GUARDAR_AUDIENCIA: () => handleGuardarAudiencia(message.payload),
+    GUARDAR_IDEA: () => handleGuardarIdea(message.payload),
     GUARDAR_RESPUESTA: () => handleGuardarRespuesta(message.payload),
     PROBAR_MOTOR: () => handleProbarMotor(),
     PING: async () => ({ ok: true }),
@@ -182,12 +183,13 @@ async function handleGenerate(payload) {
    razonamiento extendido: es una clasificacion corta.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. A cada comentario le das un tipo: «estafa», «hate» u «ok». A los de estafa y hate se les oculta del canal SIN que Sergi los revise, así que solo los marcas cuando está claro.
+const SCAM_SYSTEM = `Moderas los comentarios del canal de YouTube de Sergi Andrés (@abogado_cripto), abogado de fiscalidad y regulación cripto. A cada comentario le das un tipo: «estafa», «hate», «negativo» u «ok». A los de estafa, hate y negativo se les oculta del canal SIN que Sergi los revise, así que solo los marcas cuando está claro.
 ESTAFA: comentarios que reclutan víctimas para un «asesor», «mentor», «broker», plataforma o persona que «me ayudó a ganar dinero», «cambió mi vida» o «recuperó mis bitcoin robados», con o sin teléfono, WhatsApp o Telegram; testimonios falsos en enjambre (varias cuentas citando el mismo nombre en el mismo hilo); el comentario cebo que abre esos hilos («This isn't a trade, X is a position»); los que piden escribir a alguien o buscar un nombre para «empezar». Suelen ir en inglés, ruso o castellano, con un nombre propio y vocabulario de ganancias.
 También es ESTAFA: la promoción de un token, moneda, preventa o «proyecto» desconocido aunque no haya teléfono ni asesor, porque son enjambres de cuentas que repiten el mismo nombre en muchos comentarios (por ejemplo «qevorum está tranquilo ahora mismo, pero es precisamente en estos momentos cuando este tipo de proyectos suele explotar» o «yo solo intento encontrar proyectos que despeguen pronto, qevorum parece digno de investigar»); cualquier comentario que deje un número de teléfono o pida escribir por WhatsApp o Telegram, aunque lo camuflen con símbolos («WhatsAppME┼34625587121»); y las cuentas que suplantan a Sergi con un nombre parecido a «Sergi Andrés» o «Abogado Cripto». La preventa de un token con prisa o miedo a perderse algo también es estafa («La preventa de qevorum está a punto de cerrar y, sinceramente, el miedo a perderse la oportunidad está a punto de golpear con fuerza»). Hablar de bitcoin, ethereum u otros activos conocidos, o de un exchange conocido, no es estafa.
 HATE: insultos, burlas o desprecio hacia Sergi o hacia otras personas sin aportar nada (por ejemplo «Te recomiendo en paralelo un curso de ESPAÑOL», «vendehumos», «payaso», «vete a trabajar»), ataques personales, racismo, machismo, homofobia, amenazas o deseos de daño.
-OK (todo lo demás): opiniones, desacuerdos y críticas con argumentos aunque sean duras o maleducadas («metes mucho miedo con Hacienda, el p2p no lo controla nadie»), quejas del audio, del guion o de la duración, preguntas, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos sin reclutamiento, bromas, ironía. Sergi contesta las críticas: no las ocultes. Ante la duda, ok: ocultar a un espectador real es peor que dejar un comentario feo.
-Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","tipo":"estafa"|"hate"|"ok","motivo":"3 a 12 palabras en castellano","marca":"nombre del token, proyecto, plataforma o «asesor» que promociona, si es una estafa que promociona algo; si no, vacío"}], un elemento por cada id recibido.`;
+NEGATIVO: críticas despectivas, quejas o reproches que no traen ninguna pregunta ni ningún argumento concreto que se pueda contestar, solo desprecio, cansancio o exigencias al creador. Sergi los quiere fuera (02/11/2026). Ejemplos reales: «t enrrollas mucho y acabas diciendo k no se puede hacer na nunca sin k t pillan estamos ya cansao k nos roben y no podamos hacer nada di algo ya», «Quita el pitido infernal por favor», «vaya rollo», «menos paja y al grano», «otro vídeo para no decir nada», «siempre lo mismo», «clickbait».
+OK (todo lo demás): preguntas (aunque vengan con un tono seco), desacuerdos y críticas que traen un argumento concreto sobre el contenido aunque sean duras («metes mucho miedo con Hacienda, si lo vendo p2p y cobro en efectivo nadie se entera»), correcciones de un dato, elogios, dudas fiscales, experiencias personales (incluido contar que a uno le robaron, si no promociona a nadie), menciones a exchanges o productos sin reclutamiento, bromas, ironía amable, opiniones sobre el tema del vídeo (política, Hacienda, regulación) que no van contra Sergi. Ante la duda entre negativo y ok, ok: ocultar a un espectador real es peor que dejar un comentario feo.
+Responde SOLO con un array JSON, sin texto antes ni después: [{"id":"…","tipo":"estafa"|"hate"|"negativo"|"ok","motivo":"3 a 12 palabras en castellano","marca":"nombre del token, proyecto, plataforma o «asesor» que promociona, si es una estafa que promociona algo; si no, vacío"}], un elemento por cada id recibido.`;
 
 function parseScamVerdicts(text) {
   const t = String(text || "");
@@ -200,7 +202,7 @@ function parseScamVerdicts(text) {
       .filter((x) => x && typeof x.id === "string")
       .map((x) => {
         // Formato v2.5.0 ({tipo}); se sigue aceptando el de la v2.3.0 ({estafa: true}).
-        const tipo = ["estafa", "hate", "ok"].includes(x.tipo) ? x.tipo : x.estafa === true ? "estafa" : "ok";
+        const tipo = ["estafa", "hate", "negativo", "ok"].includes(x.tipo) ? x.tipo : x.estafa === true ? "estafa" : "ok";
         return { id: x.id, tipo, estafa: tipo === "estafa", motivo: String(x.motivo || "").slice(0, 120),
           marca: tipo === "estafa" ? String(x.marca || "").trim().slice(0, 40) : "" };
       });
@@ -1051,6 +1053,16 @@ async function comprobarActualizacion() {
   } catch (e) {
     return { ok: false, error: e.message };
   }
+}
+
+// Botón «💡 Guardar idea» en youtube.com (v2.9.0) → motor {yt:'idea'} → pestaña IDEAS de BD VÍDEOS (pizarra del calendario).
+async function handleGuardarIdea(payload) {
+  const cfg = { ...DEFAULTS, ...(await chrome.storage.local.get(DEFAULTS)) };
+  if (!payload?.url) return { ok: false, error: "sin enlace" };
+  if (!cfg.motorUrl || !cfg.motorClave) return { ok: false, error: "falta la clave del motor en los ajustes de la extensión" };
+  const r = await motorPost(cfg, { yt: "idea", url: payload.url, titulo: payload.titulo || "", comentario: payload.comentario || "",
+    multiplicador: payload.multiplicador || "", vph: payload.vph || "" });
+  return { ok: true, duplicada: !!r.duplicada, titulo: r.titulo || "" };
 }
 
 async function handleGuardarOcultado(payload) {
