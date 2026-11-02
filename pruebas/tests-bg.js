@@ -410,6 +410,14 @@ ta("comprobarActualizacion: si el manifest.json de la carpeta dice otra version,
   }
 });
 
+t("parseScamVerdicts devuelve la marca promocionada solo en las estafas (v2.8.0)", () => {
+  const r = G.parseScamVerdicts('[{"id":"u1","tipo":"estafa","motivo":"preventa","marca":"qevorum"},{"id":"u2","tipo":"ok","marca":"bitcoin"}]');
+  eq(r[0].marca, "qevorum", "marca de la estafa");
+  eq(r[1].marca, "", "un comentario normal no deja marca");
+  const src = fs.readFileSync("../background.js", "utf8");   // las const de nivel superior no se ven en el contexto de pruebas
+  ok(/preventa de qevorum/.test(src) && /"marca":"nombre del token/.test(src), "el prompt no pide la marca o no trae el ejemplo de la preventa");
+});
+
 console.log("\nAPRENDIZAJE (respuestas reales de Sergi)");
 
 const EJ = [

@@ -1527,3 +1527,48 @@ chrome://extensions como hasta ahora.
 Pruebas: una e2e nueva (los tres casos, con Sergi y un comentario normal
 sobre bitcoin sin tocar; 69 en total) y una unitaria
 (`comprobarActualizacion`; 56).
+
+
+---
+
+## 26. La limpieza va sola de verdad (v2.8.0)
+
+Caso real (02/11/2026, captura de Sergi con la 2.7.0 instalada): seguían a
+la vista «La preventa de qevorum está a punto de cerrar… el miedo a perderse
+la oportunidad…» y las dos respuestas del falso «@Sergi_Anḍres» (el WhatsApp
+camuflado y «Hola»). Causas:
+
+1. `limpiezaAutomatica()` solo se llamaba desde el `finally` de `runFlow`: sin
+   pulsar «Responder con IA», nada.
+2. `yraRevisados` guardaba como revisado todo lo clasificado y lo saltaba
+   para siempre: lo que la 2.5.0 había mandado a Claude el 29/10 (con reglas y
+   prompt viejos) no se volvía a mirar con las reglas de la 2.7.0. Además, un
+   comentario que no se pudo ocultar también quedaba como revisado.
+3. La preventa con FOMO no tenía ninguna palabra de `SCAM_PUMP`.
+
+Rediseño:
+- Disparo automático en `vigilarVersion()` (intervalo de 2,5 s): ciclo 2 (~5
+  s tras activar) y luego cada 24 ciclos (~1 min), solo si
+  `puedeLimpiarSolo()`: sin `state.busy`, sin panel ni cuenta atrás, sin caja
+  de Studio con texto y sin foco en un campo. Se mantiene el disparo tras
+  `runFlow`.
+- Almacén nuevo (`leerAlmacen`/`guardarAlmacen`; las claves viejas
+  `yraRevisados` se ignoran): `yraVeredictos` (clave del comentario → tipo y
+  motivo que dijo Claude; nunca se le vuelve a preguntar), `yraOcultados`
+  (ocultados con éxito; no se vuelven a tocar) y `yraMarcas` (tokens de
+  enjambres; semilla `MARCAS_INICIALES` = qevorum, bitensity). En cada pasada:
+  reglas (suplantación, marca nombrada, `scamReglas`) sobre TODOS los
+  candidatos, enjambre (su nombre pasa a `yraMarcas`), veredictos guardados,
+  Claude solo para lo nunca visto (devuelve `marca`, que se añade), y otra
+  vez las marcas por si se aprendió una en la pasada. Fallos al ocultar:
+  `state.intentosOcultar` (máximo 3 por página).
+- `SCAM_PUMP` añade el FOMO: «a punto de cerrar», «miedo a perderse»,
+  «perderse la oportunidad», «no te lo pierdas», «última oportunidad», «FOMO»,
+  «plazas limitadas»… `SCAM_SYSTEM` pide la `marca` y trae el ejemplo de la
+  preventa; `parseScamVerdicts` la devuelve solo en las estafas.
+
+Pruebas: 4 e2e nuevas (sola al abrir Studio con los tres casos de la
+captura, lo que una versión anterior dio por bueno, marca aprendida, y no
+limpia mientras Sergi escribe) y 1 unitaria. El mock de `chrome.runtime` de
+`harness.js` tiene ahora `id` (en Chrome siempre existe; sin él, desde la
+2.7.0 la extensión cree que se ha actualizado y no escanea en el intervalo).

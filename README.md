@@ -1,4 +1,26 @@
-# YouTube Reply Assistant v2.7.0
+# YouTube Reply Assistant v2.8.0
+
+## Novedades en 2.8.0 — la limpieza va sola de verdad
+
+Caso real del 02/11/2026: con la 2.7.0 instalada seguían a la vista dos
+comentarios de «qevorum» y las respuestas del falso «@Sergi_Anḍres». Tenía
+tres fallos de diseño:
+
+- **Solo limpiaba al terminar un «Responder con IA».** Ahora limpia sola a
+  los ~5 segundos de abrir Studio y cada minuto. Si estás escribiendo una
+  respuesta, o tienes abierto el panel o la cuenta atrás, espera.
+- **Recordaba para siempre lo ya revisado**, aunque se hubiera revisado con
+  reglas viejas o no se hubiera podido ocultar. Ahora las reglas se aplican
+  a todos los comentarios en cada pasada. Solo se recuerda lo que dijo
+  Claude, para no pagarlo dos veces, y lo ya ocultado. Lo que falla al
+  ocultar se reintenta, como mucho 3 veces por página abierta.
+- **Los enjambres repiten un nombre.** Ese nombre se recuerda, empezando por
+  «qevorum» y «Bitensity», y Claude devuelve el que vea. Cualquier
+  comentario que lo nombre se oculta aunque no diga «explotar». También
+  cuenta como estafa el «miedo a perderse» de las preventas («La preventa de
+  qevorum está a punto de cerrar…»).
+
+Detalle en `TRASPASO.md` §26.
 
 ## Novedades en 2.7.0 — más estafas detectadas y actualización sola
 

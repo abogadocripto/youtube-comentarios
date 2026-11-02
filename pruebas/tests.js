@@ -813,6 +813,53 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       assert(JSON.stringify(quien) === JSON.stringify(["@JaazielAbramo", "@Sergi_Anḍres", "@Sergi_Anḍres", "@TziporaHuneycutt"]), `ha ocultado a: ${JSON.stringify(quien)}`);
     });
 
+  await T("limpia SOLA al abrir Studio, sin pulsar nada: preventa de qevorum (FOMO), suplantador y su «Hola»",
+    { studio: { rows: 2, campoTextarea: true, autores: ["@PazcualBazan", "@LuisoscarBalbi"],
+      comentarios: ["La preventa de qevorum está a punto de cerrar y, sinceramente, el miedo a perderse la oportunidad está a punto de golpear con fuerza.",
+        "Bueno hay gente que le gusta jugar en el Casino... siempre la ha habido."],
+      respuestas: { 1: [["@Sergi_Anḍres", "WhatsAppME┼34625587121👍 Agradezco que te hayas tomado el tiempo"], ["@Sergi_Anḍres", "Hola"]] } },
+      mock: { reply: "x", scamFalla: true } },
+    async ({ wait, $$, doc, mock }) => {
+      await wait(16000);
+      const quien = (doc.__ocultados || []).slice().sort();
+      assert(JSON.stringify(quien) === JSON.stringify(["@PazcualBazan", "@Sergi_Anḍres", "@Sergi_Anḍres"]), `ha ocultado a: ${JSON.stringify(quien)}`);
+      assert(!mock.calls.includes("GENERATE_REPLY"), "ha generado una respuesta sin que nadie la pidiera");
+    });
+
+  await T("lo que una version anterior dio por bueno se vuelve a mirar con las reglas nuevas",
+    { studio: { rows: 2, campoTextarea: true, autores: ["@JaazielAbramo", "@ana"],
+      comentarios: ["qevorum está tranquilo ahora mismo, pero es precisamente en estos momentos cuando este tipo de proyectos suele explotar.", "Gran video"] },
+      mock: { reply: "x", cfg: { yraRevisados: ["@JaazielAbramo|qevorum está tranquilo ahora mismo, pero es precisamente en estos momentos cuando este tipo de proyectos suele explotar."] } } },
+    async ({ wait, doc }) => {
+      await wait(12000);
+      assert(JSON.stringify(doc.__ocultados || []) === JSON.stringify(["@JaazielAbramo"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
+    });
+
+  await T("una marca que Claude aprende en un comentario caza a los demas que la nombran, aunque no digan «explotar»",
+    { studio: { rows: 3, campoTextarea: true, autores: ["@a1", "@a2", "@ana"],
+      comentarios: ["Zorblex es la mejor oportunidad del año, entrad ya", "Lo de Zorblex lo vi ayer en un grupo, interesante", "Gran video"] },
+      mock: { reply: "x", scamVeredictos: (it) => /mejor oportunidad/.test(it.texto) ? "estafa" : null } },
+    async ({ wait, doc, window }) => {
+      // el mock no devuelve marca: se la da el propio comentario cazado por el modelo → se prueba con la marca en el almacen
+      window.chrome.storage.local.set({ yraMarcas: ["zorblex"] });
+      await wait(12000);
+      assert(JSON.stringify((doc.__ocultados || []).slice().sort()) === JSON.stringify(["@a1", "@a2"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
+    });
+
+  await T("no limpia sola mientras Sergi esta escribiendo una respuesta",
+    { studio: { rows: 2, campoTextarea: true, autores: ["@PazcualBazan", "@ana"],
+      comentarios: ["La preventa de qevorum está a punto de cerrar, no te lo pierdas", "Gran video"] } },
+    async ({ wait, $$, doc, window }) => {
+      const t = $$("ytcp-comment-thread")[1];
+      t.querySelector(".open-reply button").click();
+      await wait(600);
+      const ta = t.querySelector("textarea");
+      ta.focus();
+      ta.value = "escribiendo...";
+      await wait(9000);
+      assert((doc.__ocultados || []).length === 0, "ha abierto menus mientras Sergi escribia");
+    });
+
   await T("con la limpieza apagada en el popup, no revisa ni oculta nada",
     { studio: ENJAMBRE, mock: { reply: "Respuesta de prueba.", cfg: { limpieza: false } } }, async ({ wait, $$, mock }) => {
       await wait(600);

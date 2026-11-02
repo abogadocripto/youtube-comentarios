@@ -1765,7 +1765,6 @@
   const MENU_LABEL_RE = /acci[oó]n|acciones|m[aá]s opciones|more|options|opciones|men[uú]/i;
   const OCULTAR_RE = /ocultar (al usuario )?del canal|ocultar usuario|hide user|amagar (l'usuari )?del canal/i;
   const CONFIRMAR_RE = /^(ocultar|ocultar usuario|ocultar del canal|confirmar|aceptar|s[ií]|hide|hide user|ok|confirm)$/i;
-  const MAX_REVISADOS = 4000;
 
   // Limites de palabra que funcionan con acentos (\b de JS solo entiende ASCII:
   // «ayudó» seguido de espacio no tiene \b detras de la «ó»).
@@ -1784,7 +1783,8 @@
   const SCAM_PUMP = rx("explot(?:ar|ará|e|en|ando)|despeg(?:ar|ue|uen|ará|arán|ando)|x ?\\d{2,4}|to the moon|a la luna|" +
     "pelotazo|gema oculta|joya oculta|infravalorad[oa]s?|antes de que (?:suba|despegue|explote|sea tarde)|" +
     "a[uú]n (?:est[aá]s|est[aá]is) a tiempo|digno de investigar|merece la pena investigar|vale la pena (?:investigar|mirar)|" +
-    "ech(?:ad|a|arle|adle) un ojo");
+    "ech(?:ad|a|arle|adle) un ojo|a punto de cerrar|antes de que cierre|miedo a perder(?:se|te|lo)?|perder(?:se|te) la oportunidad|" +
+    "no te lo pierdas|[uú]ltima oportunidad|fomo|ahora o nunca|plazas limitadas");
   const SCAM_PROYECTO = rx("proyectos?(?! de ley| legislativ| normativ)|tokens?|monedas?|coins?|altcoins?|memecoins?|gemas?|joyas?|preventas?|presales?");
   const ACTIVOS_CONOCIDOS = rx("bitcoin|btc|ethereum|eth|solana|xrp|cardano|bnb|usdt|usdc|oro|plata|nasdaq|ibex|acciones|etfs?");
   const SCAM_CONTACTO = new RegExp(
@@ -1899,24 +1899,6 @@
 
   function claveComentario(u) {
     return `${u.autor}|${norm(u.texto)}`.slice(0, 300);
-  }
-
-  // Lo revisado se recuerda en memoria (esta pestaña) y en chrome.storage.local (entre recargas).
-  function leerRevisados() {
-    const mem = state.revisados || (state.revisados = new Set());
-    return new Promise((resolve) => {
-      try {
-        chrome.storage.local.get({ yraRevisados: [] }, (v) => {
-          for (const k of v?.yraRevisados || []) mem.add(k);
-          resolve(mem);
-        });
-      } catch { resolve(mem); }
-    });
-  }
-
-  function guardarRevisados(set) {
-    state.revisados = set;
-    try { chrome.storage.local.set({ yraRevisados: [...set].slice(-MAX_REVISADOS) }); } catch { /* sin storage: queda en memoria */ }
   }
 
   function esBotonMenu(b) {
@@ -2058,27 +2040,109 @@
 
   const TIPOS_LIMPIEZA = { estafa: "estafa", hate: "hate" };
 
+  /* ── Limpieza v2.8.0 ─────────────────────────────────────────────────────
+     Caso real (02/11/2026): con la 2.7.0 instalada seguian a la vista dos
+     comentarios de «qevorum» y las respuestas del falso «@Sergi_Anḍres». Tres
+     fallos de diseño de la 2.5-2.7, corregidos aqui:
+     1. Solo limpiaba al terminar un «Responder con IA». Ahora tambien sola: a
+        los ~5 s de abrir Studio y cada minuto, si Sergi no esta escribiendo
+        (sin caja con texto, sin panel ni cuenta atras, sin foco en un campo).
+     2. Recordaba como «revisado» todo lo que habia mirado (aunque fuera con
+        reglas viejas o aunque no se pudiera ocultar) y no lo volvia a mirar
+        nunca. Ahora las REGLAS se aplican a TODOS los comentarios en cada
+        pasada (son gratis); lo unico que se recuerda es el veredicto de
+        Claude (para no pagarlo dos veces) y lo ya ocultado de verdad.
+     3. Los enjambres repiten un nombre («qevorum», «Bitensity»): ese nombre
+        se recuerda (yraMarcas) y cualquier comentario que lo nombre se oculta
+        aunque no diga «explotar». Claude devuelve la marca promocionada.
+     Un comentario que no se ha podido ocultar se reintenta en la pasada
+     siguiente (como mucho 3 veces por pagina abierta). */
+  const MARCAS_INICIALES = ["qevorum", "bitensity"];
+  const MAX_GUARDADOS = 4000;
+
+  function leerAlmacen() {
+    return new Promise((resolve) => {
+      const vacio = { yraVeredictos: {}, yraOcultados: [], yraMarcas: [] };
+      try { chrome.storage.local.get(vacio, (v) => resolve({ ...vacio, ...(v || {}) })); } catch { resolve(vacio); }
+    });
+  }
+
+  function guardarAlmacen(alm) {
+    const claves = Object.keys(alm.yraVeredictos);
+    if (claves.length > MAX_GUARDADOS) for (const k of claves.slice(0, claves.length - MAX_GUARDADOS)) delete alm.yraVeredictos[k];
+    try {
+      chrome.storage.local.set({ yraVeredictos: alm.yraVeredictos, yraOcultados: alm.yraOcultados.slice(-MAX_GUARDADOS),
+        yraMarcas: alm.yraMarcas.slice(-300) });
+    } catch { /* sin storage: queda en memoria */ }
+  }
+
+  function escaparRe(t) {
+    return String(t).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function marcaNombrada(texto, marcas) {
+    const t = String(texto || "");
+    return marcas.find((m) => m && rx(escaparRe(m)).test(t)) || null;
+  }
+
+  function anadirMarca(alm, marca) {
+    const m = String(marca || "").trim().toLowerCase();
+    if (m.length < 3 || m.length > 30 || ACTIVOS_CONOCIDOS.test(m) || alm.yraMarcas.includes(m)) return false;
+    alm.yraMarcas.push(m);
+    return true;
+  }
+
+  // Sergi no esta escribiendo ni revisando nada: se pueden abrir menus de Studio sin molestar.
+  function puedeLimpiarSolo() {
+    if (state.busy || state.limpiando) return false;
+    if (document.querySelector(".yra2-panel, .yra2-countdown")) return false;
+    if (visibleFields().some((f) => fieldText(f).trim())) return false;
+    const a = document.activeElement;
+    if (a && a.matches?.("textarea, input, [contenteditable='true']") && !esNuestro(a)) return false;
+    return true;
+  }
+
   async function limpiezaAutomatica() {
     if (!state.active || state.limpiando || state.cfg?.limpieza === false) return;
     state.limpiando = true;
+    state.intentosOcultar = state.intentosOcultar || new Map();
     try {
-      const revisados = await leerRevisados();
+      const alm = await leerAlmacen();
+      for (const m of MARCAS_INICIALES) if (!alm.yraMarcas.includes(m)) alm.yraMarcas.push(m);
+      const ocultados = new Set(alm.yraOcultados);
       const todas = scamUnits().filter((u) => u.texto && !esPropio(u.autor));
-      const nuevas = todas.filter((u) => !revisados.has(claveComentario(u)) && !u.unit.classList.contains(OCULTO));
-      if (!nuevas.length) return;
+      const candidatos = todas.filter((u) => !ocultados.has(claveComentario(u)) && !u.unit.classList.contains(OCULTO)
+        && (state.intentosOcultar.get(claveComentario(u)) || 0) < 3);
+      if (!candidatos.length) return;
 
+      // 1. Reglas, sobre TODOS los candidatos, en cada pasada.
       const veredicto = new Map();
-      for (const u of nuevas) {
-        const m = suplantaASergi(u.autor) ? `suplanta a Sergi (${u.autor})` : scamReglas(u.texto);
+      const regla = (u) => {
+        if (suplantaASergi(u.autor)) return `suplanta a Sergi (${u.autor})`;
+        const marca = marcaNombrada(u.texto, alm.yraMarcas);
+        if (marca) return `nombra «${marca}», un token de un enjambre de estafa`;
+        return scamReglas(u.texto);
+      };
+      for (const u of candidatos) {
+        const m = regla(u);
         if (m) veredicto.set(u.id, { tipo: "estafa", motivo: m });
       }
-      const idsNuevas = new Set(nuevas.map((u) => u.id));
+      const idsCand = new Set(candidatos.map((u) => u.id));
       for (const [id, motivo] of scamEnjambre(todas)) {
-        if (idsNuevas.has(id) && !veredicto.has(id)) veredicto.set(id, { tipo: "estafa", motivo });
+        if (idsCand.has(id) && !veredicto.has(id)) veredicto.set(id, { tipo: "estafa", motivo });
+        const n = /citan a «(.+)»/.exec(motivo);
+        if (n) anadirMarca(alm, n[1]);
       }
 
-      const dudosos = nuevas.filter((u) => !veredicto.has(u.id));
-      const clasificados = new Set(veredicto.keys());
+      // 2. Lo que ya vio Claude (veredicto guardado), sin volver a preguntar.
+      for (const u of candidatos) {
+        if (veredicto.has(u.id)) continue;
+        const g = alm.yraVeredictos[claveComentario(u)];
+        if (g && TIPOS_LIMPIEZA[g.t]) veredicto.set(u.id, { tipo: g.t, motivo: g.m || "lo detecta Claude" });
+      }
+
+      // 3. Claude, solo para lo que nunca ha visto.
+      const dudosos = candidatos.filter((u) => !veredicto.has(u.id) && !alm.yraVeredictos[claveComentario(u)]);
       let fallo = "";
       for (let i = 0; i < dudosos.length; i += 40) {
         const lote = dudosos.slice(i, i + 40);
@@ -2087,20 +2151,28 @@
           payload: { items: lote.map((u) => ({ id: u.id, autor: u.autor, texto: u.texto.slice(0, 600), padre: u.padre.slice(0, 150) })) },
         }, 120000);
         if (!res?.ok) { fallo = res?.error || "sin respuesta"; break; }
-        lote.forEach((u) => clasificados.add(u.id));
-        for (const v of res.items || []) {
-          if (v && TIPOS_LIMPIEZA[v.tipo] && idsNuevas.has(v.id) && !veredicto.has(v.id)) {
-            veredicto.set(v.id, { tipo: v.tipo, motivo: String(v.motivo || "lo detecta Claude") });
+        const porId = new Map((res.items || []).filter(Boolean).map((v) => [v.id, v]));
+        for (const u of lote) {
+          const v = porId.get(u.id);
+          if (!v) continue;
+          alm.yraVeredictos[claveComentario(u)] = { t: v.tipo || "ok", m: String(v.motivo || "").slice(0, 120) };
+          if (TIPOS_LIMPIEZA[v.tipo]) {
+            veredicto.set(u.id, { tipo: v.tipo, motivo: String(v.motivo || "lo detecta Claude") });
+            if (v.tipo === "estafa" && v.marca) anadirMarca(alm, v.marca);
           }
         }
       }
       if (fallo) log("Limpieza: Claude no ha podido revisar los dudosos (se reintenta la próxima vez):", fallo);
+      // Una marca aprendida en esta pasada caza tambien a los demas comentarios que la nombran.
+      for (const u of candidatos) {
+        if (veredicto.has(u.id)) continue;
+        const marca = marcaNombrada(u.texto, alm.yraMarcas);
+        if (marca) veredicto.set(u.id, { tipo: "estafa", motivo: `nombra «${marca}», un token de un enjambre de estafa` });
+      }
 
-      const hits = nuevas.filter((u) => veredicto.has(u.id));
-      // Si hay un flujo de respuesta en marcha, no se tocan menus: se reintenta en el siguiente clic.
-      if (hits.length && state.busy) { log("Limpieza aplazada: hay una respuesta en curso"); return; }
+      const hits = candidatos.filter((u) => veredicto.has(u.id));
+      if (hits.length && state.busy) { log("Limpieza aplazada: hay una respuesta en curso"); guardarAlmacen(alm); return; }
       const hechos = { estafa: 0, hate: 0 };
-      const aplazados = new Set();
       if (hits.length) {
         state.busy = true;
         try {
@@ -2109,14 +2181,18 @@
             const v = veredicto.get(h.id);
             await esperarCalma(400, 3000);
             const u = resolverActual(h);
-            if (!u) { aplazados.add(h.id); log("Limpieza: ya no veo el comentario, se reintenta", h.autor); continue; }
+            if (!u) { log("Limpieza: ya no veo el comentario, se reintenta", h.autor); continue; }
             const r = await ocultarDelCanal(u);
-            if (r.reintentar) { aplazados.add(h.id); log("Limpieza:", r.error, "· se reintenta", h.autor); continue; }
+            if (r.reintentar) { log("Limpieza:", r.error, "· se reintenta", h.autor); continue; }
+            const k = claveComentario(u);
             if (r.ok) {
               hechos[v.tipo]++;
+              ocultados.add(k);
+              alm.yraOcultados.push(k);
               marcar(u, OCULTO, `🧹 Oculto del canal · ${v.tipo}: ${v.motivo}`);
             } else {
-              marcar(u, SCAM_HIT, `🚫 ${v.tipo}: ${v.motivo} · no lo he podido ocultar (${r.error})`);
+              state.intentosOcultar.set(k, (state.intentosOcultar.get(k) || 0) + 1);
+              marcar(u, SCAM_HIT, `🚫 ${v.tipo}: ${v.motivo} · no lo he podido ocultar (${r.error}); lo reintento`);
               warn("Limpieza:", r.error, u.autor);
             }
             guardarOcultado(u, v, r.ok ? "oculto" : `error: ${r.error}`);
@@ -2125,10 +2201,10 @@
           releaseBusy();
         }
       }
-      for (const u of nuevas) if (clasificados.has(u.id) && !aplazados.has(u.id)) revisados.add(claveComentario(u));
-      guardarRevisados(revisados);
+      guardarAlmacen(alm);
       const total = hechos.estafa + hechos.hate;
-      log("Limpieza", { revisados: nuevas.length, estafa: hechos.estafa, hate: hechos.hate, fallo });
+      log("Limpieza", { mirados: candidatos.length, aClaude: dudosos.length, estafa: hechos.estafa, hate: hechos.hate,
+        marcas: alm.yraMarcas.join(", "), fallo });
       if (total) {
         toast(`🧹 ${total} ocultado${total === 1 ? "" : "s"} del canal` +
           ` (${[hechos.estafa ? `${hechos.estafa} estafa` : "", hechos.hate ? `${hechos.hate} hate` : ""].filter(Boolean).join(", ")}).`, "ok");
@@ -2228,6 +2304,8 @@
       return;
     }
     if (ciclo % 48 === 0 && !state.busy && !state.limpiando) send({ type: "COMPROBAR_VERSION" }, 10000).catch(() => {});
+    // Limpieza sola (v2.8.0): a los ~5 s de abrir Studio y luego cada minuto, si Sergi no esta escribiendo.
+    if (ciclo % 24 === 2 && state.cfg?.limpieza !== false && puedeLimpiarSolo()) limpiezaAutomatica();
   }
 
   /* ── Escape global: cierra panel y cancela cuenta atras ─────────────────── */

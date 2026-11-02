@@ -259,6 +259,7 @@ function installChromeMock(window, { reply, transcriptOk = true, cfg = {}, mudo 
   const payloads = []; // { type, payload } de cada mensaje, para inspeccionar p.ej. el videoId pedido
   window.chrome = {
     runtime: {
+      id: "yra-pruebas", // en Chrome siempre existe; sin el, la extension cree que se ha actualizado y deja de escanear
       lastError: null,
       sendMessage: (msg, cb) => {
         calls.push(msg.type);
