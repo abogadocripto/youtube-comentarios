@@ -883,6 +883,18 @@ const T = async (...a) => { if (SOLO && !String(a[0]).toLowerCase().includes(SOL
       assert(JSON.stringify(doc.__ocultados || []) === JSON.stringify(["@josemanuelgassin6547"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
     });
 
+  await T("la cuenta de ACADI es propia: su «Abrimos plazas :)» no se oculta aunque Claude o un veredicto viejo digan estafa; su imitador, si",
+    { studio: { rows: 2, campoTextarea: true, autores: ["@Acadi.academia", "@Acadi.academía"],
+      comentarios: ["Abrimos plazas :)", "Abrimos plazas, reserva escribiendo a mi WhatsApp"] },
+      mock: { reply: "x", scamVeredictos: (it) => /plazas/.test(it.texto) ? "estafa" : null,
+        cfg: { yraVeredictos: { "@Acadi.academia|Abrimos plazas :)": { t: "estafa", m: "reclamo de plazas", v: 3 } } } } },
+    async ({ wait, doc, mock }) => {
+      await wait(12000);
+      assert(JSON.stringify(doc.__ocultados || []) === JSON.stringify(["@Acadi.academía"]), `ha ocultado a: ${JSON.stringify(doc.__ocultados || [])}`);
+      const preguntados = mock.payloads.filter((x) => /^CLASSIFY_/.test(x.type)).flatMap((x) => x.payload.items.map((i) => i.texto));
+      assert(!preguntados.includes("Abrimos plazas :)"), "ha preguntado a Claude por el comentario de ACADI");
+    });
+
   await T("con la limpieza apagada en el popup, no revisa ni oculta nada",
     { studio: ENJAMBRE, mock: { reply: "Respuesta de prueba.", cfg: { limpieza: false } } }, async ({ wait, $$, mock }) => {
       await wait(600);

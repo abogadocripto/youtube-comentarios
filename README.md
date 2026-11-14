@@ -1,4 +1,8 @@
-# YouTube Reply Assistant v2.10.0
+# YouTube Reply Assistant v2.10.2
+
+2.10.2: la cuenta de ACADI (@Acadi.academia) es propia, como @Sergi_Andrés: la limpieza no la toca nunca (Claude había marcado su «Abrimos plazas :)» como estafa). Sus imitaciones cuentan como suplantadores.
+
+2.10.1: si la extensión se actualiza con YouTube abierto, el botón «Guardar idea» dice «↻ Recarga la página (F5)» y la recarga al pulsarlo (antes, «Extension context invalidated»).
 
 2.9.1: el botón «💡 Guardar idea» se ve siempre sobre la miniatura (antes solo al pasar el ratón).
 

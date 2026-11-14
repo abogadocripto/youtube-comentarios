@@ -1742,7 +1742,9 @@
   // «abogadocripto» es una cuenta que le suplanta (caso real del 01/11/2026: «@Sergi_Anḍres», con una «ḍ» con punto
   // debajo y sin tilde, misma foto, dejando un WhatsApp en las respuestas). La v2.5 daba por propio a cualquiera que
   // se le pareciera, y eso protegia justo al suplantador.
-  const AUTOR_PROPIO = ["@Sergi_Andrés"];
+  // v2.10.2 (14/11/2026): tambien la cuenta de ACADI, que es de Sergi (Claude marco su «Abrimos plazas :)» como
+  // estafa). Sus imitaciones («@Acadi.academía», «@acadi_oficial»…) cuentan como suplantadores.
+  const AUTOR_PROPIO = ["@Sergi_Andrés", "@Acadi.academia"];
   const PARECIDAS = { "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ı": "i", "ӏ": "l",
     "ɑ": "a", "ѕ": "s", "ԁ": "d", "ɡ": "g", "0": "o", "1": "l", "3": "e", "4": "a", "5": "s", "$": "s" };
   function limpiarAutor(a) {
@@ -1758,7 +1760,9 @@
   }
   function suplantaASergi(autor) {
     if (!autor || esPropio(autor)) return false;
-    return /^(?:sergiandres|abogadocripto|sergiandresabogadocripto|abogadocriptosergiandres)(?:oficial|official|real|team|support|soporte|ayuda|admin|asesor|[a-z]{0,4})$/.test(esqueletoAutor(autor));
+    const e = esqueletoAutor(autor);
+    return /^(?:sergiandres|abogadocripto|sergiandresabogadocripto|abogadocriptosergiandres)(?:oficial|official|real|team|support|soporte|ayuda|admin|asesor|[a-z]{0,4})$/.test(e)
+      || /^acadi(?:academia|academy)?(?:oficial|official|team|support|soporte|ayuda|admin|plazas)?$/.test(e);
   }
   const CT_SEL = "#content-text, [id='content-text']";
   const MENU_SEL = "ytcp-icon-button, tp-yt-paper-icon-button, yt-icon-button, button";

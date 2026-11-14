@@ -1609,3 +1609,25 @@ repositorio sin commit y ya copiada en la carpeta de Chrome.
 Pruebas: 2 e2e nuevas (los dos casos de la captura frente a una crítica con
 argumento; un «ok» guardado con criterio viejo se vuelve a preguntar) y 1
 unitaria.
+
+
+---
+
+## 28. La cuenta de ACADI es propia (v2.10.2)
+
+Sergi (14/11/2026), con captura de Studio: la limpieza marcó en rojo el comentario de **@Acadi.academia** «Abrimos
+plazas :)» como «estafa: reclamo de plazas sin contexto, patrón de captación» (no llegó a ocultarlo porque el menú no
+tenía «Ocultar del canal»). Sergi: «siempre es ok, somos nosotros».
+
+- `AUTOR_PROPIO` = ["@Sergi_Andrés", "@Acadi.academia"]: lo propio se descarta antes de las reglas, de los veredictos
+  guardados y de Claude, así que un veredicto viejo de «estafa» guardado para ese comentario ya no cuenta.
+- `suplantaASergi` reconoce también las imitaciones de ACADI (esqueleto «acadi», «acadiacademia», «acadiacademy», con
+  o sin «oficial», «team», «soporte», «admin», «plazas»…). No usa «acadi» + cualquier letra, para no tocar a alguien
+  que se llame «Acadia».
+- Si Sergi tiene otra cuenta propia, se añade a `AUTOR_PROPIO` tal como sale en Studio (con la @).
+
+Incluye la 2.10.1 de la conversación del calendario (el botón «Guardar idea» pide recargar la página si la extensión
+se actualizó con YouTube abierto), que estaba sin commit y ya copiada en la carpeta de Chrome.
+
+Prueba: 1 e2e nueva (ACADI con veredicto viejo de estafa y Claude diciendo estafa: no se oculta ni se pregunta; su
+imitador «@Acadi.academía», sí).

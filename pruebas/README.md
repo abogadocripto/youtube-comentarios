@@ -4,7 +4,7 @@ Requiere Node 18+ y jsdom.
 
 ```bash
 npm install jsdom
-node tests.js      # 75 pruebas (SOLO=texto para filtrar por nombre): flujo de publicacion, DOM, salvaguardas, SPA
+node tests.js      # 76 pruebas (SOLO=texto para filtrar por nombre): flujo de publicacion, DOM, salvaguardas, SPA
 node tests-bg.js   # 58 pruebas: parseo, transcripcion, prompts, errores de API
 ```
 

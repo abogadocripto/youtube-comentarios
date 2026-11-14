@@ -81,6 +81,13 @@
       btn.title = r.titulo || "";
     } else {
       btn.classList.add("error");
+      // La extensión se actualizó con YouTube abierto: esta pestaña tiene el código viejo desconectado.
+      if (/context invalidated|Receiving end does not exist/i.test(r.error || "") || !chrome.runtime?.id) {
+        btn.textContent = "↻ Recarga la página (F5)";
+        btn.title = "La extensión se ha actualizado: recarga YouTube para volver a guardar ideas";
+        btn.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); location.reload(); };
+        return;
+      }
       btn.textContent = "⚠️ No guardado";
       btn.title = r.error || "";
       setTimeout(() => { btn.classList.remove("error"); btn.textContent = textoBase; }, 5000);
