@@ -1631,3 +1631,22 @@ se actualizó con YouTube abierto), que estaba sin commit y ya copiada en la car
 
 Prueba: 1 e2e nueva (ACADI con veredicto viejo de estafa y Claude diciendo estafa: no se oculta ni se pregunta; su
 imitador «@Acadi.academía», sí).
+
+
+---
+
+## 29. Libertad de expresión: políticos y opiniones sobre el sistema son OK (v2.10.3)
+
+Sergi (17/11/2026), con capturas de Studio durante una ronda de respuestas: «Esto es ok, es libertad de expresión»
+(«Esa Señora es nefasta, la doña Lagarta…») y «todos estos son OK» (además, «No soy Europeo pero si lo fuera estaría
+prendiendo fuego todo!!!» y «"One people public trust"… hazte soberano sobre tu propia vida», que la 2.10.0 llegó a
+OCULTAR como «negativo»).
+
+- `SCAM_SYSTEM`: HATE es contra Sergi o contra otros espectadores; NUNCA es hate ni negativo criticar, burlarse o
+  insultar a políticos, gobiernos, bancos centrales, Hacienda u otras figuras públicas (con los ejemplos reales).
+  NEGATIVO solo si la queja va contra Sergi, su vídeo o su forma de hacerlo; una opinión sobre el sistema, la política
+  o la sociedad sin argumento ni pregunta, aunque sea conspiranoica, es OK.
+- `CRITERIO` = 4: lo que Claude juzgó con el criterio 3 se vuelve a preguntar.
+- Lo ya ocultado no vuelve solo: se deshace en Studio → Configuración → Comunidad → Usuarios ocultos.
+
+Prueba: 1 unitaria (el prompt trae los casos y CRITERIO es 4).

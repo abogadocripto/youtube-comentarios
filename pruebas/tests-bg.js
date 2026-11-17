@@ -417,6 +417,13 @@ t("parseScamVerdicts acepta el tipo «negativo» (v2.10.0) y el prompt trae los 
   ok(/NEGATIVO:/.test(src) && /pitido infernal/.test(src) && /"negativo"\|"ok"/.test(src), "el prompt no define NEGATIVO o no pide ese tipo");
 });
 
+t("el prompt deja como OK criticar a politicos y las opiniones sobre el sistema (v2.10.3) y CRITERIO subio a 4", () => {
+  const src = fs.readFileSync("../background.js", "utf8");
+  ok(/doña Lagarta/.test(src) && /libertad de expresión/.test(src), "falta el caso de Lagarde como OK");
+  ok(/hazte soberano/.test(src) && /CONTRA SERGI/.test(src), "falta que «negativo» sea solo contra Sergi o su vídeo");
+  ok(/const CRITERIO = 4;/.test(fs.readFileSync("../content.js", "utf8")), "CRITERIO no es 4");
+});
+
 t("parseScamVerdicts devuelve la marca promocionada solo en las estafas (v2.8.0)", () => {
   const r = G.parseScamVerdicts('[{"id":"u1","tipo":"estafa","motivo":"preventa","marca":"qevorum"},{"id":"u2","tipo":"ok","marca":"bitcoin"}]');
   eq(r[0].marca, "qevorum", "marca de la estafa");

@@ -2049,7 +2049,9 @@
   // Version del criterio de Claude: los veredictos guardados con otra version se vuelven a preguntar. Sin esto, lo que
   // Claude dio por «ok» con un criterio viejo se quedaria «ok» para siempre (el mismo fallo que el de la 2.7). Subirla
   // cada vez que cambie SCAM_SYSTEM en background.js.
-  const CRITERIO = 3;
+  // 4 (17/11/2026): criticar o insultar a politicos y figuras publicas es ok; «negativo» solo si va contra Sergi o su
+  // video (una opinion sobre el sistema o la politica, aunque no traiga argumento, es ok)
+  const CRITERIO = 4;
 
   /* ── Limpieza v2.8.0 ─────────────────────────────────────────────────────
      Caso real (02/11/2026): con la 2.7.0 instalada seguian a la vista dos

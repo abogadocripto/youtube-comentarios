@@ -1,4 +1,6 @@
-# YouTube Reply Assistant v2.10.2
+# YouTube Reply Assistant v2.10.3
+
+2.10.3: criticar, burlarse o insultar a políticos y figuras públicas («la doña Lagarta») es libertad de expresión y no se oculta; «negativo» solo cuenta si va contra Sergi o su vídeo (una opinión sobre el sistema o la política, aunque no traiga argumento, es ok). CRITERIO = 4.
 
 2.10.2: la cuenta de ACADI (@Acadi.academia) es propia, como @Sergi_Andrés: la limpieza no la toca nunca (Claude había marcado su «Abrimos plazas :)» como estafa). Sus imitaciones cuentan como suplantadores.
 
